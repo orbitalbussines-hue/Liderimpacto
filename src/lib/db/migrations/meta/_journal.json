@@ -57,6 +57,13 @@
       "when": 1791990288156,
       "tag": "0007_comunidade_notificacoes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791997612808,
+      "tag": "0008_vitrine_construtor",
+      "breakpoints": true
     }
   ]
 }

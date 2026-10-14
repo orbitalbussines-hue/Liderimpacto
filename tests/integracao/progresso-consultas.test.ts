@@ -191,7 +191,7 @@ describe("página do curso, player e perfil", () => {
     expect(p.aula).toMatchObject({ numero: "1.1", duracaoSeg: 100, capitulos: [] });
     expect(p.materiais.map((m) => m.nome)).toEqual(["Site"]);
     expect(p.playlist.map((m) => m.aulas.length)).toEqual([2, 1]);
-    expect(p.flags).toMatchObject({ autoplay: true, playlist: true, abas: { comentarios: false } });
+    expect(p.flags).toMatchObject({ autoplay: true, playlist: true, abas: { comentarios: true }, aulasParaCertificado: null });
 
     const bloqueada = (await c.aulaParaPlayer(q, a2.id))!;
     expect(bloqueada).toMatchObject({ pode: false, motivoBloqueio: "PRE_REQUISITO", materiais: [], anterior: { id: a1.id } });

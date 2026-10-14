@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Award, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { FaixaCapitulos } from "@/components/curso/faixa-capitulos";
 import { capituloEm, type CapituloPlayer } from "@/components/player/barra-tempo";
 import { PlayerAula, type AulaVizinhaPlayer, type ControlePlayer } from "@/components/player/player-aula";
@@ -25,7 +25,15 @@ export interface AulaInterativaProps {
   /** Player montável (pode + vídeo PRONTO); senão `quadro` ocupa o lugar do vídeo. */
   player: { poster: string | null; marcaDagua: string; retomarEm: number; autoIniciar: boolean } | null;
   quadro?: ReactNode;
-  flags: { abas: { descricao: boolean; materiais: boolean; comentarios: boolean; anotacoes: boolean }; autoplay: boolean; contagemAutoplaySeg: number; velocidade: boolean; marcadores: boolean };
+  flags: {
+    abas: { descricao: boolean; materiais: boolean; comentarios: boolean; anotacoes: boolean };
+    autoplay: boolean;
+    contagemAutoplaySeg: number;
+    velocidade: boolean;
+    marcadores: boolean;
+    /** Aviso "Faltam N aulas para o seu certificado" (construtor da vitrine, aba Player); null = sem aviso. */
+    aulasParaCertificado?: number | null;
+  };
   concluida: boolean;
   concluirManual: boolean;
   podeAnotar: boolean;
@@ -60,11 +68,11 @@ export function AulaInterativa(p: AulaInterativaProps) {
     [
       p.flags.abas.descricao && { valor: "descricao", rotulo: "Descrição" },
       p.flags.abas.materiais && { valor: "materiais", rotulo: p.materiais.length ? `Materiais (${p.materiais.length})` : "Materiais" },
-      { valor: "comentarios", rotulo: "Comentários" },
+      p.flags.abas.comentarios && { valor: "comentarios", rotulo: "Comentários" },
       p.flags.abas.anotacoes && p.podeAnotar && { valor: "anotacoes", rotulo: "Anotações" },
     ] as const
   ).filter((a): a is { valor: Aba; rotulo: string } => !!a);
-  const [aba, setAba] = useState<Aba>(abas.find((a) => a.valor === p.abaInicial)?.valor ?? abas[0]?.valor ?? "comentarios");
+  const [aba, setAba] = useState<Aba>(abas.find((a) => a.valor === p.abaInicial)?.valor ?? abas[0]?.valor ?? "descricao");
   const abasRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (p.abaInicial === "comentarios") abasRef.current?.scrollIntoView({ block: "start" });
@@ -179,6 +187,12 @@ export function AulaInterativa(p: AulaInterativaProps) {
         </div>
       )}
       {erro && <Aviso tom="erro">{erro}</Aviso>}
+      {!!p.flags.aulasParaCertificado && (
+        <p className="m-0 flex items-center gap-2 self-start rounded-[10px] bg-accent-soft px-3.5 py-2.5 text-[13px] font-bold text-accent">
+          <Award aria-hidden className="size-4 shrink-0" />
+          Faltam {p.flags.aulasParaCertificado} {p.flags.aulasParaCertificado === 1 ? "aula" : "aulas"} para o seu certificado
+        </p>
+      )}
 
       {p.aula.capitulos.length > 0 && (
         <FaixaCapitulos
@@ -198,9 +212,11 @@ export function AulaInterativa(p: AulaInterativaProps) {
           <div id="painel-materiais" role="tabpanel" aria-label="Materiais" hidden={aba !== "materiais"}>
             {p.materiais.length ? <MateriaisAula materiais={p.materiais} /> : <EstadoVazio comMoldura titulo="Sem materiais nesta aula" descricao="Quando a equipe anexar PDFs, documentos ou links, eles aparecem aqui." />}
           </div>
-          <div id="painel-comentarios" role="tabpanel" aria-label="Comentários" hidden={aba !== "comentarios"} className="max-w-[760px]">
-            {p.comentarios ?? <EstadoVazio comMoldura titulo="Comentários indisponíveis" descricao="Os comentários desta aula aparecem para quem pode assisti-la." />}
-          </div>
+          {abas.some((a) => a.valor === "comentarios") && (
+            <div id="painel-comentarios" role="tabpanel" aria-label="Comentários" hidden={aba !== "comentarios"} className="max-w-[760px]">
+              {p.comentarios ?? <EstadoVazio comMoldura titulo="Comentários indisponíveis" descricao="Os comentários desta aula aparecem para quem pode assisti-la." />}
+            </div>
+          )}
           {abas.some((a) => a.valor === "anotacoes") && (
             <div id="painel-anotacoes" role="tabpanel" aria-label="Anotações" hidden={aba !== "anotacoes"}>
               <AnotacoesAula aulaId={p.aula.id} iniciais={p.anotacoes} tempoAtual={tempo} capturarTempo={() => player.current?.tempoAtual() ?? tempo} onIrPara={irPara} />

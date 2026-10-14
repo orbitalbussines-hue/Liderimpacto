@@ -11,6 +11,7 @@ import { aulaParaPlayer } from "@/lib/progresso/consultas";
 import { Comentarios } from "@/components/comunidade/comentarios";
 import { textoSilenciado } from "@/components/comunidade/formatos";
 import { cn } from "@/lib/utils";
+import { configPublicada } from "@/lib/vitrine/cache";
 import { idSchema } from "@/lib/validators/progresso";
 import { AulaInterativa } from "./aula-interativa";
 import { QuadroAviso } from "./quadro-aviso";
@@ -48,10 +49,10 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
   const [{ id }, busca] = await Promise.all([params, searchParams]);
   const q = await membroDaPagina(TODOS_OS_MEMBROS);
   if (!idSchema.safeParse(id).success) notFound();
-  const d = await aulaParaPlayer(q, id);
+  const d = await aulaParaPlayer(q, id, new Date(), (await configPublicada(q.criador.id))?.player);
   if (!d) notFound();
 
-  const [poster, comentarios, situacao] = await Promise.all([urlDeImagemOuNula(q.criador.id, d.aula.thumbChave), comentariosDaAula(q, d.aula.id), situacaoNaComunidade(q)]);
+  const [poster, comentarios, situacao] = await Promise.all([urlDeImagemOuNula(q.criador.id, d.aula.thumbChave), d.flags.abas.comentarios ? comentariosDaAula(q, d.aula.id) : null, situacaoNaComunidade(q)]);
   const eu = q.membro.id ? { membroId: q.membro.id, nome: q.usuario.nome, iniciais: iniciais(q.usuario.nome), imagem: null, equipe: situacao.equipe } : null;
   const atualNaPlaylist = d.playlist.flatMap((m) => m.aulas).find((a) => a.id === d.aula.id);
   const aviso = d.motivoBloqueio

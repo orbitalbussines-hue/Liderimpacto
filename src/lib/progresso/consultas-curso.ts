@@ -20,6 +20,7 @@ import {
 import { vivos } from "@/lib/db/soft-delete";
 import { matriculaAtiva } from "@/lib/matriculas/consultas";
 import { motivoDoBloqueio, type MotivoBloqueio } from "@/lib/video/acesso";
+import { PLAYER_PADRAO, type PlayerConfig } from "@/lib/vitrine/config";
 import type { ProgressoDoCurso } from "./consultas";
 import { podeConcluirManual, retomarEm } from "./regras";
 import { chaveViva, ehEquipe, estaNaLista, hrefDaAula, type QuemPede } from "./visao";
@@ -286,12 +287,13 @@ export async function cursoDoAluno(q: QuemPede, slug: string, agora = new Date()
 export interface FlagsPlayer {
   abas: { descricao: boolean; materiais: boolean; comentarios: boolean; anotacoes: boolean };
   playlist: boolean;
-  /** Preferência da pessoa (`usuarios.reproducao_automatica`). */
+  /** Ligado no construtor E na preferência da pessoa (`usuarios.reproducao_automatica`). */
   autoplay: boolean;
   contagemAutoplaySeg: number;
   velocidade: boolean;
   marcadores: boolean;
-  avisoCertificado: boolean;
+  /** "Faltam N aulas para o seu certificado": N (> 0) com o aviso ligado, ALUNO matriculado; senão null. */
+  aulasParaCertificado: number | null;
 }
 
 export interface AulaVizinha {
@@ -310,8 +312,12 @@ export interface MaterialDoPlayer {
   tamanhoBytes: number | null;
 }
 
-/** Tudo do player. `null` = aula não existe neste criador (ou é rascunho/oculta, para o aluno): 404. */
-export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Date()) {
+/**
+ * Tudo do player. `null` = aula não existe neste criador (ou é rascunho/oculta, para o aluno): 404.
+ * `player` = `playerConfig` PUBLICADO no construtor (a página passa `configPublicada(...)?.player`;
+ * sem publicação, o padrão de antes). RN-138.
+ */
+export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Date(), player: PlayerConfig = PLAYER_PADRAO) {
   const [base] = await db
     .select({ produtoId: produtos_modulos.produto_id, descricao: produtos_modulos_aulas.descricao, capitulos: produtos_modulos_aulas.capitulos })
     .from(produtos_modulos_aulas)
@@ -354,14 +360,15 @@ export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Da
       : Promise.resolve([]),
     estaNaLista(q, { aulaId }),
   ]);
+  const faltam = c.progresso.total - c.progresso.concluidas;
   const flags: FlagsPlayer = {
-    abas: { descricao: true, materiais: true, comentarios: false, anotacoes: true },
-    playlist: true,
-    autoplay,
+    abas: { ...player.abas },
+    playlist: player.playlist,
+    autoplay: player.autoplay && autoplay,
     contagemAutoplaySeg: 5,
-    velocidade: true,
-    marcadores: true,
-    avisoCertificado: false,
+    velocidade: player.velocidade,
+    marcadores: player.marcadores,
+    aulasParaCertificado: player.avisoCertificado && q.membro.papel === "ALUNO" && matriculado && faltam > 0 ? faltam : null,
   };
   return {
     aula: { id: l.id, numero: c.numeros.get(l.id)!, titulo: l.titulo, descricao: base.descricao, duracaoSeg: l.duracaoSeg, capitulos: base.capitulos as Capitulo[], thumbChave: l.thumbChave },

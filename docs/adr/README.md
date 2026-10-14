@@ -30,3 +30,4 @@ numerado e imutavel — se a decisao muda, cria-se um novo ADR que supersede o a
 | [0007](0007-painel-dias-de-atividade-e-cache.md) | Painel do admin: dias de atividade por membro e agregados com cache curto | Aceito |
 | [0008](0008-avaliacoes-certificados-trilhas.md) | Avaliações com gabarito separado, certificado com PDF versionado em fila própria e trilhas | Aceito |
 | [0009](0009-comunidade-notificacoes.md) | Comunidade em texto puro, limite de frequência no banco e notificações por polling | Aceito |
+| [0010](0010-construtor-da-vitrine.md) | Construtor da vitrine: rascunho único, versões imutáveis, prévia por iframe e cache por etiqueta | Aceito |

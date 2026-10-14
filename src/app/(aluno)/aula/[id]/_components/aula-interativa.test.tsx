@@ -25,7 +25,7 @@ const base: AulaInterativaProps = {
   eyebrow: "Módulo 3 · Aula 2",
   player: null,
   quadro: <div>QUADRO</div>,
-  flags: { abas: { descricao: true, materiais: true, comentarios: false, anotacoes: true }, autoplay: true, contagemAutoplaySeg: 5, velocidade: true, marcadores: true },
+  flags: { abas: { descricao: true, materiais: true, comentarios: true, anotacoes: true }, autoplay: true, contagemAutoplaySeg: 5, velocidade: true, marcadores: true, aulasParaCertificado: null },
   concluida: false,
   concluirManual: true,
   podeAnotar: true,
@@ -55,6 +55,12 @@ describe("AulaInterativa (estados da página)", () => {
   it("flags e permissão escondem abas", () => {
     render(<AulaInterativa {...base} podeAnotar={false} flags={{ ...base.flags, abas: { ...base.flags.abas, materiais: false } }} />);
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Descrição", "Comentários"]);
+  });
+
+  it("construtor: aba Comentários desligada some; aviso de certificado com N aulas", () => {
+    render(<AulaInterativa {...base} flags={{ ...base.flags, abas: { ...base.flags.abas, comentarios: false }, aulasParaCertificado: 3 }} />);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Descrição", "Materiais (1)", "Anotações"]);
+    expect(screen.getByText("Faltam 3 aulas para o seu certificado")).toBeInTheDocument();
   });
 
   it("Concluir e avançar chama a action e vai para a próxima", async () => {

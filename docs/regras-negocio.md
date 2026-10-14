@@ -352,6 +352,38 @@ Cada regra segue este formato:
 - **Comportamento esperado**: a notificação nunca derruba a ação que a gerou; nada de dado pessoal além do primeiro nome de quem agiu e do nome do curso/aula/canal.
 - **Impacto se descumprida**: aluno sem saber que responderam, ou notificação vazando conteúdo de quem não deveria ver.
 
+### RN-135 - Construtor da vitrine: rascunho, publicar, histórico — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório, SISTEMA.md §6)
+- **Data**: 2026-10-14
+- **Modulo**: Construtor da vitrine (`/admin/construtor`)
+- **Descricao**: DONO e ADMIN editam UM rascunho por área, salvo sozinho 0,8 s depois de cada mudança. **Publicar** (modal de 3 s com o resumo do que muda) cria a versão n+1 e todos os alunos passam a vê-la na hora. O **histórico** lista cada versão (número, quem, quando); **Reverter** traz uma versão para o rascunho sem publicar; **Descartar alterações** volta o rascunho para o que está no ar. Versão publicada nunca muda. Remover fileira, reverter e descartar também pedem o modal de 3 s.
+- **Comportamento esperado**: indicador "Publicado · versão N" (verde), "Alterações não publicadas" (dourado) ou "Vitrine padrão" (nada publicado ainda). Duas pessoas editando: a segunda gravação é recusada com "Outra pessoa alterou a vitrine. Recarregue a página".
+- **Impacto se descumprida**: aluno vendo vitrine pela metade, ou edição de uma pessoa apagando a de outra.
+
+### RN-136 - Fileiras da vitrine — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Vitrine do aluno (`/`)
+- **Descricao**: cada fileira tem título (`{nome}` = primeiro nome do aluno), tipo (Continuar assistindo, Top 10, Novidades, Trilhas, Mentorias, Minha lista, Escolha manual), quantidade (3, 5, 7 ou 10), ordenação (só Mentorias escolhe: mais recentes ou mais assistidas nos últimos 30 dias; as outras têm ordem natural), quem vê (todos ou alunos de ao menos um grupo escolhido; a equipe vê todas) e visível. Escolha manual: até 10 cursos/aulas, cada aluno só vê os que pode abrir (curso fora de rascunho; aula com matrícula valendo e liberada). Sem nada publicado valem as 6 fileiras padrão e o destaque automático.
+- **Comportamento esperado**: fileira sem itens para aquele aluno não aparece; destaque cujo curso/aula sumiu perde o botão em vez de quebrar.
+- **Impacto se descumprida**: aluno vendo conteúdo que não pode abrir, ou fileira vazia na tela.
+
+### RN-137 - Destaque da vitrine — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Vitrine do aluno (`/`)
+- **Descricao**: imagem enviada (ou a capa 16:9 do curso em destaque), selo (automático = nº de aulas do curso, texto livre ou nenhum), título, descrição, botão principal e secundário (abrir curso, abrir aula, continuar de onde o aluno parou num curso ou em qualquer curso, link interno começando com `/`) e avisos do canto (última novidade e a aula nº 1 do Top 10). Curso em destaque = o do primeiro botão que aponta para curso/aula; a linha "Curso online • duração" e "Continue de onde parou" saem dele.
+- **Comportamento esperado**: link externo é recusado; o botão "continuar" leva à próxima aula do aluno.
+- **Impacto se descumprida**: botão levando para fora da área ou para página quebrada.
+
+### RN-138 - Player configurado no construtor — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Player da aula (`/aula/[id]`)
+- **Descricao**: a aba "Player da aula" liga/desliga as abas Descrição, Materiais, Comentários e Anotações, a lista de aulas lateral, a reprodução automática (vale só se o aluno também quiser, no Perfil), o controle de velocidade, os marcadores de capítulo e o aviso "Faltam N aulas para o seu certificado" (só para aluno matriculado, enquanto faltar aula). Vale o que está PUBLICADO; sem publicação, o player de antes (todas as abas, aviso desligado).
+- **Comportamento esperado**: desligar Comentários esconde a aba e não carrega os comentários.
+- **Impacto se descumprida**: recurso desligado aparecendo para o aluno.
+
 <!-- Exemplo de registro: -->
 
 <!--

@@ -6,11 +6,11 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 526 |
-| Tabelas (Drizzle) | 44 |
-| Server Actions (arquivos) | 28 |
+| Arquivos TS/TSX | 548 |
+| Tabelas (Drizzle) | 46 |
+| Server Actions (arquivos) | 29 |
 | Rotas de API | 6 |
-| Paginas | 48 |
+| Paginas | 50 |
 | Componentes | 144 |
 
 ## Arvore (profundidade 3)
@@ -21,6 +21,7 @@ app/
     moldura-autenticacao.tsx
     pecas.tsx
   (aluno)/
+    _vitrine/
     aula/
     avaliacoes/
     certificados/
@@ -29,6 +30,7 @@ app/
     cursos/
     notificacoes/
     perfil/
+    previa-vitrine/
     trilhas/
     layout.tsx
     page.tsx
@@ -39,6 +41,7 @@ app/
     certificados/
     comunidade/
     configuracoes/
+    construtor/
     conteudos/
     matriculas/
     membros/
@@ -295,6 +298,7 @@ lib/
     trilhas.ts
     usuarios-senha.ts
     videos.ts
+    vitrine.ts
   armazenamento/
     arquivos.ts
     cliente.ts
@@ -463,6 +467,11 @@ lib/
     token.test.ts
     token.ts
     worker.ts
+  vitrine/
+    cache.ts
+    config.ts
+    dados.ts
+    resolver.ts
   acao.ts
   tema-constantes.ts
   tema.ts
@@ -604,6 +613,12 @@ proxy.ts
 ### `produtos_modulos_aulas_videos_sessoes` — src/lib/db/schema/videos.ts
 `id`, `criador_id`, `video_id`, `usuario_id`, `sessao_login_id`, `ip`, `user_agent`, `ultimo_sinal_em`, `encerrada_em`, `motivo_encerramento`
 
+### `criadores_vitrines` — src/lib/db/schema/vitrines.ts
+`id`, `criador_id`, `rascunho`
+
+### `criadores_vitrines_versoes` — src/lib/db/schema/vitrines.ts
+`id`, `criador_id`, `vitrine_id`, `numero`, `config`, `publicada_em`, `publicada_por`
+
 ## Rotas de API
 
 | Rota | Metodos |
@@ -645,6 +660,7 @@ proxy.ts
 - `src/lib/actions/trilhas.ts`: `acaoCriarTrilha()`, `acaoSalvarTrilha()`, `acaoDefinirCapaTrilha()`, `acaoAlterarSituacaoTrilha()`, `acaoRemoverTrilha()`, `acaoAdicionarItemTrilha()`, `acaoSalvarItemTrilha()`, `acaoRemoverItemTrilha()`, `acaoReordenarItensTrilha()`
 - `src/lib/actions/usuarios-senha.ts`: `acaoGerarLinkDeSenha()`
 - `src/lib/actions/videos.ts`: `acaoIniciarEnvioVideo()`, `acaoAssinarPartesVideo()`, `acaoConcluirEnvioVideo()`, `acaoCancelarEnvioVideo()`, `acaoReprocessarVideo()`, `acaoIniciarReproducao()`, `acaoRenovarReproducao()`
+- `src/lib/actions/vitrine.ts`: `acaoSalvarRascunhoVitrine()`, `acaoPublicarVitrine()`, `acaoReverterVitrine()`, `acaoDescartarRascunhoVitrine()`, `acaoBuscarConteudoVitrine()`, `acaoPrepararImagemDestaque()`
 
 ## Paginas
 
@@ -660,6 +676,7 @@ proxy.ts
 - `src/app/(aluno)/notificacoes/page.tsx`
 - `src/app/(aluno)/page.tsx`
 - `src/app/(aluno)/perfil/page.tsx`
+- `src/app/(aluno)/previa-vitrine/page.tsx`
 - `src/app/(aluno)/trilhas/[id]/page.tsx`
 - `src/app/(aluno)/trilhas/page.tsx`
 - `src/app/admin/[secao]/page.tsx`
@@ -671,6 +688,7 @@ proxy.ts
 - `src/app/admin/certificados/page.tsx`
 - `src/app/admin/comunidade/page.tsx`
 - `src/app/admin/configuracoes/aparencia/page.tsx`
+- `src/app/admin/construtor/page.tsx`
 - `src/app/admin/conteudos/[id]/aulas/[aulaId]/page.tsx`
 - `src/app/admin/conteudos/[id]/page.tsx`
 - `src/app/admin/conteudos/novo/page.tsx`

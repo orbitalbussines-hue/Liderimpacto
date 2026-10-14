@@ -61,8 +61,9 @@ describe("correção no servidor", () => {
     const x = await cenario({ notaMinima: 70 });
     expect(await x.fazer(respostasMetade(x.av.questoes))).toMatchObject({ nota: 50, aprovada: false, finalizadaPor: "ALUNO" });
     expect(await x.fazer(respostasCertas(x.av.questoes))).toMatchObject({ nota: 100, aprovada: true });
-    const [tr] = await db.select().from(s.auditoria).where(and(eq(s.auditoria.tabela, "produtos_avaliacoes_tentativas"), eq(s.auditoria.user_id, x.aluno.usuario.id), eq(s.auditoria.acao, "atualizar")));
-    expect(tr.detalhes).toMatch(/nota 50 — reprovada/);
+    // Sem order by: as duas finalizações podem cair no mesmo instante, então procura entre todas.
+    const trilha = await db.select().from(s.auditoria).where(and(eq(s.auditoria.tabela, "produtos_avaliacoes_tentativas"), eq(s.auditoria.user_id, x.aluno.usuario.id), eq(s.auditoria.acao, "atualizar")));
+    expect(trilha.map((tr) => tr.detalhes)).toContainEqual(expect.stringMatching(/nota 50 — reprovada/));
   });
 
   it("melhor nota vale; finalizar de novo é idempotente; opção fora da questão é recusada", async () => {

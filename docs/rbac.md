@@ -62,6 +62,8 @@ pura é `papelEfetivo`/`papelAceito` (`src/lib/auth/permissoes.ts`, com teste).
 | Comentários da aula (`comentariosDaAula`, `acaoComentar({ aulaId })`) | quem passa em `podeAssistir` a aula (`acessoDaAula`) — RN-132 |
 | Moderação e canais (`src/lib/actions/comunidade-moderacao.ts`: fixar, ocultar/reexibir, resolver denúncia, silenciar/dessilenciar, criar/salvar/remover canal; `filaDeDenuncias`, `membrosSilenciados`, `canaisParaEditar`) | `DONO` e `ADMIN` (`ALUNO`: "Sem permissão" em toda action). Silenciar: só alvo `ALUNO` — RN-132 |
 | Notificações (`notificacoesDoMembro`, `acaoMarcarNotificacoesLidas`, `acaoMaisNotificacoes`, `GET /api/notificacoes/contagem`) | só as da PRÓPRIA pessoa no criador do HOST (membro da sessão; nenhum id de pessoa no corpo). Sem sessão ou sessão de outro host = 401; SUPER_ADMIN sem vínculo = 0 — RN-134 |
+| Construtor da vitrine (`/admin/construtor`; `src/lib/actions/vitrine.ts`: salvar rascunho, publicar, reverter, descartar, buscar conteúdo, preparar imagem) e prévia (`/previa-vitrine`, `previaDaVitrine`) | `DONO` e `ADMIN` (`ALUNO`: 403 nas páginas e "Sem permissão" em toda action). Curso, aula, grupo, imagem ou versão de outro criador = recusa — RN-135 a RN-138 |
+| Vitrine do aluno (`/`, `vitrineDoAluno`) e player (`aulaParaPlayer` com o `player` publicado) | qualquer membro; fileira com grupos só para quem está em um deles (equipe vê todas); itens só os que a pessoa pode abrir — RN-136 |
 | `/continuar` (cursos do aluno) | qualquer membro ativo; mostra só as matrículas DELE neste criador |
 | Criadores (`/plataforma`, `/plataforma/novo`) | só `SUPER_ADMIN` no apex (RN-108) |
 | `/conta/seguranca` | qualquer sessão, inclusive a provisória do SUPER_ADMIN sem TOTP |
