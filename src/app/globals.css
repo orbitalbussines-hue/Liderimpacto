@@ -1,0 +1,244 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Tema por atributo no <html> (data-theme="dark|light"), lido do cookie no servidor. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Tokens do design (README.md, "Design Tokens"). Fonte unica de cor do sistema:
+ * componente usa a classe Tailwind (bg-surface, text-muted, border-border...), nunca hex solto.
+ * Excecao documentada: hero, login e player sao sempre escuros -> classes "fixas" (bg-fixo-bg...).
+ */
+:root,
+[data-theme="dark"] {
+  --bg: #0b0b0d;
+  --surface: #15151a;
+  --surface2: #1e1e25;
+  --border: #27272f;
+  --text: #f3efe6;
+  --muted: #9b98a3;
+  --accent: #d9a441;
+  --accent-soft: rgba(217, 164, 65, 0.14);
+  --accent-ink: #1a1205;
+  --ok: #3dbb7a;
+  --warn: #e06b6b;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f5f4ef;
+  --surface: #ffffff;
+  --surface2: #f0eee7;
+  --border: #e3e0d6;
+  --text: #14131a;
+  --muted: #6e6b78;
+  --accent: #b5842a;
+  --accent-soft: rgba(181, 132, 42, 0.12);
+  --accent-ink: #ffffff;
+  --ok: #1e9a5a;
+  --warn: #d14a4a;
+  --shadow: 0 10px 30px rgba(20, 19, 26, 0.08);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-ok-soft: rgba(61, 187, 122, 0.15);
+  --color-warn: var(--warn);
+  --color-warn-soft: rgba(224, 107, 107, 0.15);
+
+  /* Superficies sempre escuras (hero, login, player), independentes do tema. */
+  --color-fixo-bg: #0b0b0d;
+  --color-fixo-text: #f3efe6;
+  --color-fixo-titulo: #f8f0dc;
+  --color-fixo-muted: #b9b5be;
+  /* A cor da marca (EstiloMarca) sobrescreve --marca-fixo*; sem ela vale o dourado padrao. */
+  --color-fixo-accent: var(--marca-fixo, #d9a441);
+  --color-fixo-accent-ink: var(--marca-fixo-ink, #1a1205);
+  /* Botao secundario do hero: vidro escuro translucido sobre a imagem. */
+  --color-fixo-vidro: rgba(60, 60, 70, 0.75);
+  --color-fixo-vidro-forte: rgba(60, 60, 70, 0.9);
+  /* Fim do gradiente do avatar dourado (#7a5a1c no padrao); acompanha a cor da marca. */
+  --color-accent-escuro: color-mix(in oklab, var(--accent) 56%, black);
+
+  /* Apelidos para os componentes do shadcn (alert-dialog, button) lerem os mesmos tokens. */
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+  --color-secondary: var(--surface2);
+  --color-secondary-foreground: var(--text);
+  --color-muted-foreground: var(--muted);
+  --color-destructive: var(--warn);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), Georgia, serif;
+  --font-heading: var(--font-newsreader), Georgia, serif;
+
+  /* Breakpoint principal do design (~900px): abaixo dele e layout de celular. Uso: desk:... */
+  --breakpoint-desk: 56.25rem;
+
+  --shadow-card: var(--shadow);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+  --radius-3xl: 22px;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  body {
+    @apply bg-bg text-text;
+  }
+  h1,
+  h2 {
+    @apply font-serif font-semibold tracking-[-0.015em];
+  }
+  h1 {
+    @apply leading-[1.08];
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-muted;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/*
+ * Cena das telas de entrada (login, codigo, senha): SEMPRE escura. A cor da luz vem de
+ * --cena-luz, definida pelo LayoutAutenticacao: a cor do criador (--marca-fixo, via
+ * EstiloMarca) ou um prata neutro no apex (plataforma). Camadas: aurora + feixe + grade + grao.
+ * Movimento lento; quem anima usa motion-reduce:animate-none (prefers-reduced-motion).
+ */
+@theme {
+  --animate-aurora: aurora 26s ease-in-out infinite alternate;
+  --animate-feixe: feixe 18s ease-in-out infinite alternate;
+  --animate-flutuar: flutuar 9s ease-in-out infinite;
+
+  @keyframes aurora {
+    0% {
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    }
+    100% {
+      transform: translate3d(-5%, 4%, 0) rotate(9deg) scale(1.1);
+    }
+  }
+  @keyframes feixe {
+    0% {
+      transform: translate3d(-8%, 0, 0) rotate(-18deg);
+      opacity: 0.55;
+    }
+    100% {
+      transform: translate3d(10%, -4%, 0) rotate(-12deg);
+      opacity: 0.9;
+    }
+  }
+  @keyframes flutuar {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+}
+
+@utility cena-luz-marca {
+  --cena-luz: var(--marca-fixo, #d9a441);
+}
+
+@utility cena-luz-neutra {
+  --cena-luz: #b9b8c8;
+}
+
+/* Halos difusos na cor da luz (atras de tudo, com blur). */
+@utility cena-aurora {
+  background:
+    radial-gradient(22% 18% at 72% 18%, color-mix(in oklab, var(--cena-luz) 55%, transparent), transparent 70%),
+    radial-gradient(55% 50% at 75% 20%, color-mix(in oklab, var(--cena-luz) 42%, transparent), transparent 72%),
+    radial-gradient(45% 40% at 20% 88%, color-mix(in oklab, var(--cena-luz) 26%, transparent), transparent 70%),
+    radial-gradient(40% 35% at 60% 70%, color-mix(in oklab, var(--cena-luz) 12%, transparent), transparent 70%);
+  filter: blur(36px);
+}
+
+/* Feixe diagonal de luz, bem suave. */
+@utility cena-feixe {
+  background: linear-gradient(
+    90deg,
+    transparent 30%,
+    color-mix(in oklab, var(--cena-luz) 16%, transparent) 47%,
+    color-mix(in oklab, #f8f0dc 9%, transparent) 50%,
+    color-mix(in oklab, var(--cena-luz) 16%, transparent) 53%,
+    transparent 70%
+  );
+  filter: blur(26px);
+}
+
+/* Grade fina de 1px que some nas bordas (mascara radial). */
+@utility cena-grade {
+  background-image:
+    linear-gradient(to right, rgba(243, 239, 230, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(243, 239, 230, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 75% 65% at 55% 35%, #000 20%, transparent 78%);
+}
+
+/* Grao de filme (ruido SVG). Por cima de tudo, sem capturar clique. */
+@utility textura-grao {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.08;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* Gradiente cinematografico sobre a foto de login do criador (titulo legivel). */
+@utility cena-veu-foto {
+  background:
+    linear-gradient(0deg, rgba(11, 11, 13, 0.94), rgba(11, 11, 13, 0.25) 55%, rgba(11, 11, 13, 0.55)),
+    linear-gradient(90deg, rgba(11, 11, 13, 0.7), transparent 70%);
+}
+
+@utility scrollbar-oculta {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

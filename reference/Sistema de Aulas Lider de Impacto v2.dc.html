@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#0B0B0D"/><circle cx="100" cy="100" r="52" fill="none" stroke="#D9A441" stroke-width="6"/><text x="100" y="114" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="40" fill="#D9A441">LI</text></svg></template>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+html,body{margin:0;padding:0;background:#0B0B0D;font-family:'Plus Jakarta Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+h1,h2{font-family:'Newsreader',Georgia,serif;font-weight:600!important;letter-spacing:-.015em!important}
+h1{line-height:1.08!important}
+button{transition:background .15s,border-color .15s,transform .15s}button:active{transform:scale(.98)}
+::-webkit-scrollbar{display:none}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+input::placeholder{color:var(--muted)}
+[data-theme="dark"]{--bg:#0B0B0D;--surface:#15151A;--surface2:#1E1E25;--border:#27272F;--text:#F3EFE6;--muted:#9B98A3;--accent:#D9A441;--accent-soft:rgba(217,164,65,.14);--accent-ink:#1A1205;--ok:#3DBB7A;--warn:#E06B6B;--shadow:0 12px 40px rgba(0,0,0,.45)}
+[data-theme="light"]{--bg:#F5F4EF;--surface:#FFFFFF;--surface2:#F0EEE7;--border:#E3E0D6;--text:#14131A;--muted:#6E6B78;--accent:#B5842A;--accent-soft:rgba(181,132,42,.12);--accent-ink:#FFFFFF;--ok:#1E9A5A;--warn:#D14A4A;--shadow:0 10px 30px rgba(20,19,26,.08)}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="min-height:100vh;background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;display:flex;flex-direction:column">
+
+<!-- ── barra de navegação do protótipo ── -->
+<div style="position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border)">
+  <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-right:4px">Aluno</div>
+  <sc-for list="{{ studentScreens }}" as="s" hint-placeholder-count="9">
+    <button onClick="{{ s.go }}" style="border:1px solid {{ s.border }};background:{{ s.bg }};color:{{ s.color }};font:inherit;font-size:12px;font-weight:600;padding:6px 11px;border-radius:999px;cursor:pointer">{{ s.label }}</button>
+  </sc-for>
+  <div style="width:1px;height:20px;background:var(--border);margin:0 6px"></div>
+  <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-right:4px">Admin</div>
+  <sc-for list="{{ adminScreens }}" as="s" hint-placeholder-count="3">
+    <button onClick="{{ s.go }}" style="border:1px solid {{ s.border }};background:{{ s.bg }};color:{{ s.color }};font:inherit;font-size:12px;font-weight:600;padding:6px 11px;border-radius:999px;cursor:pointer">{{ s.label }}</button>
+  </sc-for>
+  <div style="flex:1"></div>
+  <button onClick="{{ toggleMobile }}" style="border:1px solid var(--border);background:var(--surface2);color:var(--text);font:inherit;font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;cursor:pointer">{{ mobileLabel }}</button>
+  <button onClick="{{ toggleTheme }}" style="border:1px solid var(--border);background:var(--surface2);color:var(--text);font:inherit;font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;cursor:pointer">{{ themeLabel }}</button>
+</div>
+
+<!-- ── frame ── -->
+<div style="flex:1;display:flex;justify-content:center;padding:{{ framePad }}">
+<div style="width:100%;max-width:{{ frameMax }};background:var(--bg);border:{{ frameBorder }};border-radius:{{ frameRadius }};box-shadow:{{ frameShadow }};overflow:hidden;position:relative;min-height:{{ frameMinH }};display:flex;flex-direction:column">
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 26px;font-size:13px;font-weight:700;background:var(--surface);flex-shrink:0"><span>9:41</span><span style="width:96px;height:26px;border-radius:99px;background:#000"></span><span style="display:flex;gap:5px;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h.01M7 20v-4M12 20V10M17 20V4M22 20V8"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h18v8H2zM22 11v2"></path></svg></span></div></sc-if>
+<!-- ═══════════ MAPA DO SISTEMA ═══════════ -->
+<sc-if value="{{ isMapa }}" hint-placeholder-val="{{ false }}">
+<div style="padding:{{ padY }} {{ padX }};max-width:1280px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:28px">
+  <div><div style="color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Estrutura do sistema</div><h1 style="margin:0 0 8px;font-size:28px;font-weight:800;letter-spacing:-.02em">Mapa do sistema de aulas · Líder de Impacto</h1><p style="margin:0;color:var(--muted);font-size:14px;max-width:640px;line-height:1.6">Três frentes: a área do aluno (área de membros), o painel de gestão e os módulos de marketing e configuração. Clique em qualquer item para abrir a tela.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px">
+    <sc-for list="{{ sitemap }}" as="col" hint-placeholder-count="3">
+      <div style="border:1px solid var(--border);background:var(--surface);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:16px;font-weight:800">{{ col.side }}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">{{ col.desc }}</div>
+        <sc-for list="{{ col.items }}" as="n" hint-placeholder-count="8">
+          <button onClick="{{ n.go }}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer"><span style="width:30px;height:30px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ n.icon }}"></path></svg></span><span style="flex:1">{{ n.label }}</span><span style="color:var(--muted);display:flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.chevR }}"></path></svg></span></button>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:grid;grid-template-columns:{{ loginCols }};min-height:{{ frameMinH }}">
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+  <div style="position:relative;background:#0B0B0D;padding:48px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden">
+    <div style="position:absolute;inset:0;background:radial-gradient(60% 50% at 80% 20%,rgba(217,164,65,.28),transparent 70%),radial-gradient(40% 40% at 10% 90%,rgba(217,164,65,.14),transparent 70%)"></div>
+    <div style="position:relative;display:flex;align-items:center;gap:10px">
+      <div style="width:36px;height:36px;border-radius:50%;border:2px solid #D9A441;display:grid;place-items:center;color:#D9A441;font-weight:800;font-size:13px">LI</div>
+      <div style="color:#F3EFE6;font-weight:800;letter-spacing:.06em;font-size:13px;line-height:1.05">LÍDER DE<br>IMPACTO</div>
+    </div>
+    <div style="position:relative;max-width:420px">
+      <div style="color:#D9A441;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px">Formação executiva</div>
+      <h1 style="margin:0 0 16px;font-size:52px;color:#F3EFE6">Transformando líderes, gerando legado.</h1>
+      <p style="margin:0;color:#B9B5BE;font-size:15px;line-height:1.6">Acesse suas aulas, trilhas, mentorias e a comunidade em um só lugar.</p>
+    </div>
+    <div style="position:relative;color:#7C7985;font-size:12px">Valmer Albuquerque · Área de membros</div>
+  </div>
+  </sc-if>
+  <div style="display:flex;align-items:center;justify-content:center;padding:32px 20px;background:var(--bg)">
+    <div style="width:100%;max-width:400px">
+      <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:36px">
+        <div style="width:36px;height:36px;border-radius:50%;border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent);font-weight:800;font-size:13px">LI</div>
+        <div style="font-weight:800;letter-spacing:.06em;font-size:13px;line-height:1.05">LÍDER DE<br>IMPACTO</div>
+      </div>
+      </sc-if>
+      <h2 style="margin:0 0 8px;font-size:34px">Bem-vindo de volta</h2>
+      <p style="margin:0 0 28px;color:var(--muted);font-size:14px">Entre com o e-mail cadastrado na sua matrícula.</p>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">E-mail
+          <input value="valmer@lideredeimpacto.com.br" style="height:48px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 14px;font:inherit;font-size:14px;outline:none"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Senha
+          <input type="password" value="••••••••••" style="height:48px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 14px;font:inherit;font-size:14px;outline:none"></label>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px">
+          <label style="display:flex;align-items:center;gap:8px;color:var(--muted)"><input type="checkbox" checked style="accent-color:var(--accent)">Manter conectado</label>
+          <a href="#">Esqueci minha senha</a>
+        </div>
+        <button onClick="{{ goHome }}" style="height:50px;border-radius:10px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px">Entrar</button>
+        <div style="text-align:center;font-size:13px;color:var(--muted);margin-top:8px">Primeiro acesso? <a href="#">Criar minha senha</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ═══════════ SHELL DO ALUNO ═══════════ -->
+<sc-if value="{{ isStudentApp }}" hint-placeholder-val="{{ true }}">
+<header style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;height:64px;padding:0 {{ padX }};background:var(--surface);border-bottom:1px solid var(--border);overflow:hidden">
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <div style="width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent);font-weight:800;font-size:11px">LI</div>
+    <div style="font-weight:800;letter-spacing:.06em;font-size:11px;line-height:1.05">LÍDER DE<br>IMPACTO</div>
+  </div>
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+  <nav style="display:flex;gap:4px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none">
+    <sc-for list="{{ studentNav }}" as="n" hint-placeholder-count="5">
+      <button onClick="{{ n.go }}" style="display:flex;align-items:center;gap:7px;border:none;background:{{ n.bg }};color:{{ n.color }};font:inherit;font-size:13px;font-weight:600;padding:8px 13px;border-radius:999px;cursor:pointer;white-space:nowrap"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ n.icon }}"></path></svg>{{ n.label }}</button>
+    </sc-for>
+  </nav>
+  <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-size:13px;flex:0 1 200px;min-width:38px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+  </div>
+  </sc-if>
+  <div style="flex:1"></div>
+  <button style="width:44px;height:44px;min-width:44px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--muted);display:grid;place-items:center;cursor:pointer;position:relative"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.bell }}"></path></svg><span style="position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--accent)"></span></button>
+  <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}"><button style="width:44px;height:44px;min-width:44px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--muted);display:grid;place-items:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.search }}"></path></svg></button></sc-if>
+  <button onClick="{{ goPerfil }}" style="display:flex;align-items:center;gap:10px;border:none;background:none;color:var(--text);font:inherit;cursor:pointer;padding:0">
+    <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}"></sc-if>
+    <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:12px;border:1px solid var(--border)">VA</div>
+  </button>
+</header>
+
+<main style="flex:1;padding:{{ padY }} {{ padX }} {{ padBottom }}">
+
+<!-- ── HOME / VITRINE ── -->
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:64px;max-width:1280px;margin:0 auto">
+  <section style="position:relative;border-radius:24px;overflow:hidden;background:#0B0B0D;box-shadow:inset 0 0 0 1px rgba(217,164,65,.28),var(--shadow);min-height:{{ heroMinH }};display:grid;grid-template-columns:{{ heroCols }}">
+    <div style="position:relative;padding:{{ heroPad }};display:flex;flex-direction:column;justify-content:flex-end;gap:14px;z-index:2;background:linear-gradient(90deg,#0B0B0D 55%,rgba(11,11,13,.2))">
+      <div style="display:inline-flex;align-items:center;gap:8px;color:#D9A441;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase"><span style="width:8px;height:8px;border-radius:50%;background:#D9A441"></span>Continue de onde parou</div>
+      <h1 style="margin:0;font-size:{{ heroTitleSize }};color:#F3EFE6">Cultura organizacional do líder</h1>
+      <div style="color:#B9B5BE;font-size:14px">Líder de Impacto · Módulo 3 · Aula 2 de 6 · 18 min restantes</div>
+      <div style="display:flex;align-items:center;gap:12px;max-width:420px"><div style="flex:1;height:6px;border-radius:99px;background:rgba(255,255,255,.12)"><div style="width:42%;height:100%;border-radius:99px;background:#D9A441"></div></div><span style="color:#D9A441;font-size:13px;font-weight:700">42%</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+        <button onClick="{{ goPlayer }}" style="height:46px;padding:0 22px;border-radius:10px;border:none;background:#D9A441;color:#1A1205;font:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"></path></svg>Retomar aula</button>
+        <button onClick="{{ goCurso }}" style="height:46px;padding:0 20px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#F3EFE6;font:inherit;font-size:14px;font-weight:600;cursor:pointer">Ver curso</button>
+      </div>
+    </div>
+    <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative;min-height:320px"><image-slot id="hero-home" shape="rect" placeholder="Imagem de destaque do curso" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></div>
+    </sc-if>
+  </section>
+
+  <section>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin:0;font-size:28px">Seus cursos</h2>
+      <button onClick="{{ goContinuar }}" style="border:none;background:none;color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer">Ver todos</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax({{ cardMin }},1fr));gap:18px">
+      <sc-for list="{{ courses }}" as="c" hint-placeholder-count="3">
+        <button onClick="{{ goCurso }}" style="text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:16px;overflow:hidden;padding:0;cursor:pointer;font:inherit;color:var(--text);display:flex;flex-direction:column">
+          <div style="aspect-ratio:3/4;position:relative"><image-slot id="{{ c.slot }}" shape="rect" placeholder="{{ c.coverHint }}"></image-slot><div style="position:absolute;top:10px;right:10px;display:flex;gap:6px;pointer-events:none"><span style="width:30px;height:30px;border-radius:50%;background:rgba(11,11,13,.6);color:#F3EFE6;display:grid;place-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.heart }}"></path></svg></span><span style="width:30px;height:30px;border-radius:50%;background:rgba(11,11,13,.6);color:#F3EFE6;display:grid;place-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.star }}"></path></svg></span></div></div>
+          <div style="padding:14px 14px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:14px;font-weight:700;letter-spacing:.02em;text-transform:uppercase">{{ c.title }}</div>
+            <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:5px;border-radius:99px;background:var(--surface2)"><div style="width:{{ c.progress }}%;height:100%;border-radius:99px;background:var(--accent)"></div></div><span style="font-size:12px;color:var(--muted)">{{ c.progress }}%</span></div>
+            <div style="font-size:12px;color:var(--muted)">{{ c.done }}/{{ c.total }} aulas</div>
+          </div>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin:0;font-size:28px">Trilhas</h2>
+      <button onClick="{{ goTrilhas }}" style="border:none;background:none;color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer">Ver todas</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+      <sc-for list="{{ trails }}" as="t" hint-placeholder-count="3">
+        <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)">{{ t.tag }}</div>
+          <div style="font-size:16px;font-weight:700">{{ t.title }}</div>
+          <div style="font-size:13px;color:var(--muted)">{{ t.steps }} etapas · {{ t.hours }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin:0;font-size:28px">Na comunidade</h2>
+      <button onClick="{{ goComunidade }}" style="border:none;background:none;color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer">Abrir comunidade</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+      <sc-for list="{{ postsShort }}" as="p" hint-placeholder-count="2">
+        <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:12px;font-weight:700">{{ p.ini }}</div><div><div style="font-size:14px;font-weight:700">{{ p.name }}</div><div style="font-size:12px;color:var(--muted)">{{ p.when }} · em <a href="#">{{ p.lesson }}</a></div></div></div>
+          <div style="font-size:14px;line-height:1.55">{{ p.text }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</div>
+</sc-if>
+
+<!-- ── CONTINUAR ASSISTINDO ── -->
+<sc-if value="{{ isContinuar }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;align-items:center;gap:10px"><h1 style="margin:0;font-size:36px">Continuar aprendendo</h1><span style="background:var(--surface2);color:var(--muted);font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px">2</span></div>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;border-bottom:1px solid var(--border)">
+    <div style="display:flex;gap:4px;overflow-x:auto">
+      <sc-for list="{{ contTabs }}" as="t" hint-placeholder-count="4">
+        <div style="padding:10px 14px;font-size:14px;font-weight:600;color:{{ t.color }};border-bottom:2px solid {{ t.line }};white-space:nowrap">{{ t.label }}</div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;gap:8px;padding-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:13px;width:220px">Pesquisar conteúdo...</div>
+      <div style="display:flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:600">Esta área</div>
+    </div>
+    </sc-if>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax({{ cardMin }},1fr));gap:18px">
+    <sc-for list="{{ courses }}" as="c" hint-placeholder-count="3">
+      <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="aspect-ratio:16/10;position:relative"><image-slot id="{{ c.slotWide }}" shape="rect" placeholder="{{ c.coverHint }}"></image-slot><div style="position:absolute;top:10px;right:10px;display:flex;gap:6px;pointer-events:none"><span style="width:30px;height:30px;border-radius:50%;background:rgba(11,11,13,.6);color:#F3EFE6;display:grid;place-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.heart }}"></path></svg></span><span style="width:30px;height:30px;border-radius:50%;background:rgba(11,11,13,.6);color:#F3EFE6;display:grid;place-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.star }}"></path></svg></span></div></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:15px;font-weight:700;letter-spacing:.02em;text-transform:uppercase">{{ c.title }}</div>
+          <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:5px;border-radius:99px;background:var(--surface2)"><div style="width:{{ c.progress }}%;height:100%;border-radius:99px;background:var(--accent)"></div></div><span style="font-size:12px;color:var(--muted)">{{ c.progress }}%</span></div>
+          <div style="font-size:12px;color:var(--muted)">{{ c.done }}/{{ c.total }} aulas</div>
+          <button onClick="{{ goCurso }}" style="height:42px;border-radius:9px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer">Acessar</button>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="text-align:center;font-size:12px;color:var(--muted)">Exibindo 3 de 3</div>
+</div>
+</sc-if>
+
+<!-- ── PÁGINA DO CURSO ── -->
+<sc-if value="{{ isCurso }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:{{ courseCols }};gap:32px;align-items:start">
+  <div style="display:flex;flex-direction:column;gap:28px;min-width:0">
+    <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}"><div style="aspect-ratio:3/4;max-width:260px;position:relative;border-radius:16px;overflow:hidden"><image-slot id="cover-li-page-m" shape="rect" placeholder="Capa do curso"></image-slot></div></sc-if>
+    <div>
+      <div style="color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Formação executiva online</div>
+      <h1 style="margin:0 0 12px;font-size:{{ pageTitleSize }}">Líder de Impacto</h1>
+      <p style="margin:0;color:var(--muted);font-size:15px;line-height:1.6;max-width:640px">Formação para líderes que influenciam, desenvolvem pessoas e geram resultados reais. 28 aulas em 6 módulos com Valmer Albuquerque.</p>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;padding:16px 18px;border-radius:14px;background:var(--surface);border:1px solid var(--border)">
+      <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;font-size:13px"><span style="font-weight:600">Seu progresso</span><span style="color:var(--muted)">12 de 28 aulas</span></div><div style="height:6px;border-radius:99px;background:var(--surface2)"><div style="width:42%;height:100%;border-radius:99px;background:var(--accent)"></div></div></div>
+      <button onClick="{{ goPlayer }}" style="height:44px;padding:0 20px;border-radius:10px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer">Continuar · Aula 3.2</button>
+    </div>
+    <div>
+      <h2 style="margin:0 0 14px;font-size:18px;font-weight:800">Conteúdo do curso</h2>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{ modules }}" as="m" hint-placeholder-count="4">
+          <div style="border:1px solid var(--border);background:var(--surface);border-radius:14px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:14px;padding:16px 18px">
+              <div style="width:34px;height:34px;border-radius:10px;background:{{ m.numBg }};color:{{ m.numColor }};display:grid;place-items:center;font-size:13px;font-weight:800;flex-shrink:0">{{ m.n }}</div>
+              <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700">{{ m.title }}</div><div style="font-size:12px;color:var(--muted)">{{ m.count }} aulas · {{ m.dur }}</div></div>
+              <div style="font-size:12px;font-weight:700;color:{{ m.stateColor }}">{{ m.state }}</div>
+            </div>
+            <sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}">
+            <div style="border-top:1px solid var(--border);display:flex;flex-direction:column">
+              <sc-for list="{{ m.lessons }}" as="l" hint-placeholder-count="3">
+                <button onClick="{{ goPlayer }}" style="display:flex;align-items:center;gap:12px;padding:12px 18px;border:none;border-top:1px solid var(--border);background:{{ l.bg }};color:var(--text);font:inherit;text-align:left;cursor:pointer">
+                  <div style="width:20px;height:20px;border-radius:50%;border:2px solid {{ l.ringColor }};background:{{ l.ringBg }};display:grid;place-items:center;flex-shrink:0"><sc-if value="{{ l.done }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1A1205" stroke-width="3.5"><path d="m5 12 5 5L20 7"></path></svg></sc-if></div>
+                  <div style="flex:1;font-size:14px;font-weight:{{ l.weight }}">{{ l.title }}</div>
+                  <div style="font-size:12px;color:var(--muted)">{{ l.dur }}</div>
+                </button>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  <aside style="display:flex;flex-direction:column;gap:16px;position:{{ asideSticky }};top:84px">
+    <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}"><div style="aspect-ratio:3/4;position:relative;border-radius:16px;overflow:hidden"><image-slot id="cover-li-page" shape="rect" placeholder="Capa do curso"></image-slot></div></sc-if>
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:14px;font-weight:700">Este curso inclui</div>
+      <sc-for list="{{ includes }}" as="i" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)"><span style="color:var(--accent);display:flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ i.icon }}"></path></svg></span>{{ i.label }}</div></sc-for>
+    </div>
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;gap:14px;align-items:center">
+      <div style="width:56px;height:56px;border-radius:50%;flex-shrink:0;overflow:hidden"><image-slot id="prof-avatar" shape="circle" placeholder="Foto"></image-slot></div>
+      <div><div style="font-size:12px;color:var(--muted)">Professor</div><div style="font-size:16px;font-weight:800">Valmer Albuquerque</div></div>
+    </div>
+  </aside>
+</div>
+</sc-if>
+
+<!-- ── PLAYER ── -->
+<sc-if value="{{ isPlayer }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1400px;margin:0 auto;display:grid;grid-template-columns:{{ playerCols }};gap:24px;align-items:start">
+  <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+    <div style="position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;display:grid;place-items:center">
+      <image-slot id="video-frame" shape="rect" placeholder="Frame do vídeo"></image-slot>
+      <div style="position:absolute;inset:0;display:grid;place-items:center;pointer-events:none"><div style="width:68px;height:68px;border-radius:50%;background:rgba(217,164,65,.95);display:grid;place-items:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="#1A1205"><path d="M7 4v16l13-8z"></path></svg></div></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 18px 14px;background:linear-gradient(transparent,rgba(0,0,0,.82));display:flex;flex-direction:column;gap:10px;pointer-events:none;color:#fff">
+        <div style="position:relative;height:5px;border-radius:99px;background:rgba(255,255,255,.25)"><div style="width:38%;height:100%;border-radius:99px;background:#D9A441"></div><div style="position:absolute;left:38%;top:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;background:#D9A441;box-shadow:0 0 0 4px rgba(217,164,65,.3)"></div><div style="position:absolute;left:24%;top:-2px;width:2px;height:9px;background:#fff;opacity:.7"></div><div style="position:absolute;left:61%;top:-2px;width:2px;height:9px;background:#fff;opacity:.7"></div></div>
+        <div style="display:flex;align-items:center;gap:14px;font-size:12px;font-weight:600"><span style="display:flex"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20 9 12l10-8zM5 19V5"></path></svg></span><span style="display:flex"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16l13-8z"></path></svg></span><span style="display:flex"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8zM19 5v14"></path></svg></span><span>08:42 / 22:10</span><span style="flex:1"></span><span style="padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.4)">1.0x</span><span style="display:flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM7 10h3M14 10h3M7 14h10"></path></svg></span><span style="display:flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div style="min-width:0"><div style="color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Módulo 3 · Aula 2</div><h1 style="margin:0;font-size:{{ playerTitleSize }}">Cultura organizacional do líder</h1></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;width:100%;max-width:480px">
+        <button style="flex:1 1 140px;justify-content:center;height:46px;padding:0 16px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.chevL }}"></path></svg>Anterior</button>
+        <button style="flex:1 1 180px;justify-content:center;height:46px;padding:0 16px;border-radius:9px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.check }}"></path></svg>Concluir e avançar</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--border);font-size:13px"><span style="color:var(--accent);display:flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2"></path></svg></span><span style="color:var(--muted)">Capítulos</span><span style="font-weight:700">Introdução</span><span style="color:var(--muted)">·</span><span style="color:var(--muted)">Os 3 sinais de uma cultura forte</span><span style="color:var(--muted)">·</span><span style="color:var(--muted)">Plano de ação</span></div>
+    <div style="display:flex;gap:4px;border-bottom:1px solid var(--border);overflow-x:auto">
+      <sc-for list="{{ playerTabs }}" as="t" hint-placeholder-count="4"><div style="padding:10px 14px;font-size:14px;font-weight:600;color:{{ t.color }};border-bottom:2px solid {{ t.line }};white-space:nowrap">{{ t.label }}</div></sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;font-size:15px;line-height:1.65;color:var(--text);max-width:760px">
+      <p style="margin:0">Nesta aula você vai entender como a cultura de uma organização é formada pelos comportamentos que o líder tolera, recompensa e repete. Vamos diferenciar cultura forte de cultura tóxica e mapear o papel do líder na criação dela.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:600"><span style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:10px;font-weight:800">PDF</span>Material complementar · Aula 3.2</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:600"><span style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:10px;font-weight:800">DOC</span>Exercício: mapa de cultura</div>
+      </div>
+    </div>
+  </div>
+  <aside style="border:1px solid var(--border);background:var(--surface);border-radius:16px;overflow:hidden;position:{{ asideSticky }};top:84px;max-height:{{ playlistMaxH }};display:flex;flex-direction:column">
+    <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:800">Líder de Impacto</div><div style="font-size:12px;color:var(--muted)">12/28</div></div>
+    <div style="overflow-y:auto;display:flex;flex-direction:column">
+      <sc-for list="{{ playlist }}" as="m" hint-placeholder-count="3">
+        <div style="padding:12px 18px 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">{{ m.title }}</div>
+        <sc-for list="{{ m.lessons }}" as="l" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 18px;background:{{ l.bg }};border-left:3px solid {{ l.edge }}">
+            <div style="width:18px;height:18px;border-radius:50%;border:2px solid {{ l.ringColor }};background:{{ l.ringBg }};flex-shrink:0;display:grid;place-items:center"><sc-if value="{{ l.done }}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1A1205" stroke-width="3.5"><path d="m5 12 5 5L20 7"></path></svg></sc-if></div>
+            <div style="flex:1;font-size:13px;font-weight:{{ l.weight }};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.title }}</div>
+            <div style="font-size:11px;color:var(--muted)">{{ l.dur }}</div>
+          </div>
+        </sc-for>
+      </sc-for>
+    </div>
+  </aside>
+</div>
+</sc-if>
+
+<!-- ── AVALIAÇÕES (aluno) ── -->
+<sc-if value="{{ isAvaliacoes }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+  <div><h1 style="margin:0 0 8px;font-size:36px">Avaliações</h1><p style="margin:0;color:var(--muted);font-size:14px">Quizzes e provas dos seus cursos. A avaliação final libera o certificado.</p></div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <sc-for list="{{ quizzes }}" as="q" hint-placeholder-count="3">
+      <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:18px 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+        <div style="width:44px;height:44px;border-radius:12px;background:{{ q.badgeBg }};color:{{ q.badgeColor }};display:grid;place-items:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ q.icon }}"></path></svg></div>
+        <div style="flex:1;min-width:200px"><div style="font-size:15px;font-weight:700">{{ q.title }}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">{{ q.course }} · {{ q.meta }}</div></div>
+        <span style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:{{ q.badgeBg }};color:{{ q.badgeColor }}">{{ q.status }}</span>
+        <button style="height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--border);background:{{ q.btnBg }};color:{{ q.btnColor }};font:inherit;font-size:13px;font-weight:700;cursor:pointer">{{ q.cta }}</button>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- ── COMUNIDADE ── -->
+<sc-if value="{{ isComunidade }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:{{ communityCols }};gap:24px;align-items:start">
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+  <aside style="display:flex;flex-direction:column;gap:6px">
+    <div style="font-size:18px;font-weight:800;margin-bottom:10px">Comunidade</div>
+    <sc-for list="{{ channels }}" as="ch" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:{{ ch.bg }};color:{{ ch.color }};font-size:14px;font-weight:600"><span style="color:var(--accent)">#</span>{{ ch.label }}</div></sc-for>
+  </aside>
+  </sc-if>
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:12px;align-items:center"><div style="width:40px;height:40px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:12px;flex-shrink:0">VA</div><div style="flex:1;height:44px;border-radius:10px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;padding:0 14px;color:var(--muted);font-size:14px">Compartilhe algo com a comunidade...</div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div style="display:flex;gap:14px;font-size:13px;color:var(--muted)"><span style="display:flex;align-items:center;gap:5px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.image }}"></path></svg>Imagem</span><span style="display:flex;align-items:center;gap:5px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.list }}"></path></svg>Enquete</span><span style="display:flex;align-items:center;gap:5px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.file }}"></path></svg>Anexo</span></div><button style="height:36px;padding:0 16px;border-radius:9px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer">Publicar</button></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface)">Recentes ▾</div><div style="font-size:13px;color:var(--muted)">32 publicações</div></div>
+    <sc-for list="{{ posts }}" as="p" hint-placeholder-count="3">
+      <article style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:12px;font-weight:700">{{ p.ini }}</div><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700">{{ p.name }}</div><div style="font-size:12px;color:var(--muted)">{{ p.when }} · em <a href="#">{{ p.lesson }}</a></div></div></div>
+        <div style="font-size:15px;line-height:1.6">{{ p.text }}</div>
+        <div style="display:flex;gap:18px;font-size:13px;color:var(--muted);padding-top:12px;border-top:1px solid var(--border)"><span style="display:flex;align-items:center;gap:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.heart }}"></path></svg>{{ p.likes }} curtidas</span><span style="display:flex;align-items:center;gap:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.msg }}"></path></svg>{{ p.comments }} comentários</span><span style="margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--accent);font-weight:600"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.share }}"></path></svg>Compartilhar</span></div>
+      </article>
+    </sc-for>
+  </div>
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+  <aside style="display:flex;flex-direction:column;gap:16px">
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:800">Próximo encontro ao vivo</div>
+      <div style="display:flex;gap:12px;align-items:center"><div style="width:52px;height:56px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;line-height:1"><span style="font-size:20px">30</span><span style="font-size:10px;letter-spacing:.1em">SET</span></div><div><div style="font-size:14px;font-weight:700">Mentoria em grupo</div><div style="font-size:12px;color:var(--muted)">Terça · 20h · Zoom</div></div></div>
+      <button style="height:38px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer">Adicionar ao calendário</button>
+    </div>
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:800">Fixados</div>
+      <div style="font-size:13px;line-height:1.5;color:var(--muted)"><a href="#">Regras da comunidade</a> · <a href="#">Como enviar seu capítulo</a> · <a href="#">Calendário de mentorias</a></div>
+    </div>
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:800">Membros ativos</div>
+      <sc-for list="{{ activeMembers }}" as="m" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px"><div style="width:30px;height:30px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:11px;font-weight:700">{{ m.ini }}</div><div style="flex:1;font-size:13px;font-weight:600">{{ m.name }}</div><div style="font-size:12px;color:var(--accent);font-weight:700">{{ m.pts }} pts</div></div></sc-for>
+    </div>
+  </aside>
+  </sc-if>
+</div>
+</sc-if>
+
+<!-- ── TRILHAS ── -->
+<sc-if value="{{ isTrilhas }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+  <div><h1 style="margin:0 0 8px;font-size:36px">Trilhas de aprendizado</h1><p style="margin:0;color:var(--muted);font-size:14px">Sequências guiadas que combinam aulas, exercícios e mentorias.</p></div>
+  <sc-for list="{{ trailsFull }}" as="t" hint-placeholder-count="3">
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:18px;padding:{{ cardPad }};display:grid;grid-template-columns:{{ trailCols }};gap:24px;align-items:center">
+      <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)">{{ t.tag }}</div>
+        <div style="font-size:20px;font-weight:800;letter-spacing:-.01em">{{ t.title }}</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.55">{{ t.desc }}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
+          <sc-for list="{{ t.stepsArr }}" as="s" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:6px"><div style="width:26px;height:26px;border-radius:50%;background:{{ s.bg }};color:{{ s.color }};border:2px solid {{ s.ring }};display:grid;place-items:center;font-size:11px;font-weight:800">{{ s.n }}</div><sc-if value="{{ s.line }}" hint-placeholder-val="{{ true }}"><div style="width:22px;height:2px;background:{{ s.lineColor }}"></div></sc-if></div></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:{{ trailAlign }}">
+        <div style="font-size:13px;color:var(--muted)">{{ t.doneSteps }} de {{ t.steps }} etapas · {{ t.hours }}</div>
+        <button style="height:42px;padding:0 20px;border-radius:9px;border:none;background:{{ t.btnBg }};color:{{ t.btnColor }};font:inherit;font-size:14px;font-weight:700;cursor:pointer;border:1px solid var(--border)">{{ t.cta }}</button>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</sc-if>
+
+<!-- ── CERTIFICADOS ── -->
+<sc-if value="{{ isCertificados }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+  <div><h1 style="margin:0 0 8px;font-size:36px">Certificados</h1><p style="margin:0;color:var(--muted);font-size:14px">Emitidos automaticamente ao concluir 100% das aulas e avaliações.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px">
+    <sc-for list="{{ certs }}" as="c" hint-placeholder-count="3">
+      <div style="border:1px solid var(--border);background:var(--surface);border-radius:18px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="aspect-ratio:1.414;background:{{ c.paperBg }};border-bottom:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;padding:22px;position:relative">
+          <div style="display:flex;justify-content:space-between;align-items:center"><div style="width:26px;height:26px;border-radius:50%;border:2px solid #D9A441;display:grid;place-items:center;color:#D9A441;font-weight:800;font-size:9px">LI</div><div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:{{ c.paperMuted }}">Certificado</div></div>
+          <div><div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:{{ c.paperMuted }};margin-bottom:6px">Certificamos que</div><div style="font-size:17px;font-weight:800;color:{{ c.paperText }};letter-spacing:-.01em">Valmer Albuquerque</div><div style="font-size:11px;color:{{ c.paperMuted }};margin-top:4px">concluiu {{ c.title }}</div></div>
+          <sc-if value="{{ c.locked }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:rgba(11,11,13,.55);backdrop-filter:blur(3px);display:grid;place-items:center;color:#F3EFE6;font-size:13px;font-weight:700">Conclua o curso para emitir</div></sc-if>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:15px;font-weight:700">{{ c.title }}</div>
+          <div style="font-size:12px;color:var(--muted)">{{ c.meta }}</div>
+          <sc-if value="{{ c.locked }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:5px;border-radius:99px;background:var(--surface2)"><div style="width:{{ c.progress }}%;height:100%;border-radius:99px;background:var(--accent)"></div></div><span style="font-size:12px;color:var(--muted)">{{ c.progress }}%</span></div></sc-if>
+          <button style="height:40px;border-radius:9px;border:1px solid var(--border);background:{{ c.btnBg }};color:{{ c.btnColor }};font:inherit;font-size:13px;font-weight:700;cursor:pointer">{{ c.cta }}</button>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- ── PERFIL ── -->
+<sc-if value="{{ isPerfil }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1000px;margin:0 auto;display:grid;grid-template-columns:{{ profileCols }};gap:24px;align-items:start">
+  <div style="border:1px solid var(--border);background:var(--surface);border-radius:18px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+    <div style="width:96px;height:96px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:28px;border:2px solid var(--accent)">VA</div>
+    <div><div style="font-size:20px;font-weight:800">Valmer Albuquerque</div><div style="font-size:13px;color:var(--muted)">Membro desde mai/2026</div></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;margin-top:6px">
+      <div style="padding:12px 8px;border-radius:12px;background:var(--surface2)"><div style="font-size:20px;font-weight:800">12</div><div style="font-size:11px;color:var(--muted)">aulas</div></div>
+      <div style="padding:12px 8px;border-radius:12px;background:var(--surface2)"><div style="font-size:20px;font-weight:800">1</div><div style="font-size:11px;color:var(--muted)">certificado</div></div>
+      <div style="padding:12px 8px;border-radius:12px;background:var(--surface2)"><div style="font-size:20px;font-weight:800;color:var(--accent)">340</div><div style="font-size:11px;color:var(--muted)">pontos</div></div>
+    </div>
+    <button style="width:100%;height:40px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer">Alterar foto</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:16px;font-weight:800">Dados pessoais</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Nome completo<input value="Valmer Albuquerque" style="height:44px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:0 14px;font:inherit;font-size:14px"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">E-mail<input value="valmer@lideredeimpacto.com.br" style="height:44px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:0 14px;font:inherit;font-size:14px"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">WhatsApp<input value="(11) 99999-0000" style="height:44px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:0 14px;font:inherit;font-size:14px"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Empresa / cargo<input value="Diretor executivo" style="height:44px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:0 14px;font:inherit;font-size:14px"></label>
+      </div>
+    </div>
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:16px;font-weight:800">Preferências</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:14px;font-weight:600">Tema</div><div style="font-size:12px;color:var(--muted)">Escuro ou claro</div></div><button onClick="{{ toggleTheme }}" style="height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer">{{ themeLabel }}</button></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:14px;font-weight:600">Lembretes de aula</div><div style="font-size:12px;color:var(--muted)">E-mail e WhatsApp</div></div><div style="width:44px;height:26px;border-radius:99px;background:var(--accent);position:relative"><div style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff"></div></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0"><div><div style="font-size:14px;font-weight:600">Reprodução automática</div><div style="font-size:12px;color:var(--muted)">Avançar para a próxima aula</div></div><div style="width:44px;height:26px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);position:relative"><div style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--muted)"></div></div></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap"><button style="height:42px;padding:0 18px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);font:inherit;font-size:14px;font-weight:600;cursor:pointer">Alterar senha</button><button style="height:42px;padding:0 20px;border-radius:9px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer">Salvar alterações</button></div>
+  </div>
+</div>
+</sc-if>
+
+</main>
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<nav style="position:sticky;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);height:76px;padding-bottom:12px;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -8px 24px rgba(0,0,0,.18)">
+  <sc-for list="{{ mobileTabs }}" as="n" hint-placeholder-count="5">
+    <button onClick="{{ n.go }}" style="border:none;background:none;color:{{ n.color }};font:inherit;font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;padding:0;min-height:44px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ n.icon }}"></path></svg>{{ n.label }}</button>
+  </sc-for>
+</nav>
+</sc-if>
+</sc-if>
+
+<!-- ═══════════ ADMIN ═══════════ -->
+<sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:grid;grid-template-columns:{{ adminCols }};min-height:{{ frameMinH }}">
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+  <aside style="background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;gap:4px;align-self:stretch;scrollbar-width:none">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 8px 18px"><div style="width:30px;height:30px;border-radius:50%;border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent);font-weight:800;font-size:10px">LI</div><div style="font-weight:800;letter-spacing:.06em;font-size:10px;line-height:1.05">LÍDER DE<br>IMPACTO</div><span style="margin-left:auto;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;background:var(--accent-soft);color:var(--accent)">ADMIN</span></div>
+    <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-size:13px;margin-bottom:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.search }}"></path></svg>Pesquisar <span style="margin-left:auto;font-size:10px;border:1px solid var(--border);padding:1px 5px;border-radius:4px">⌘K</span></div>
+    <sc-for list="{{ adminNav }}" as="g" hint-placeholder-count="3">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:12px 10px 4px">{{ g.group }}</div>
+      <sc-for list="{{ g.items }}" as="n" hint-placeholder-count="3">
+        <button onClick="{{ n.go }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;border:none;background:{{ n.bg }};color:{{ n.color }};font:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer;width:100%"><span style="color:{{ n.iconColor }};display:flex;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ n.icon }}"></path></svg></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ n.label }}</span><sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:5px;background:{{ n.badgeBg }};color:{{ n.badgeColor }}">{{ n.badge }}</span></sc-if></button>
+      </sc-for>
+    </sc-for>
+    <div style="flex:1;min-height:12px"></div>
+    <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:2px">
+    <sc-for list="{{ adminFooterNav }}" as="n" hint-placeholder-count="2"><button onClick="{{ n.go }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;border:none;background:{{ n.bg }};color:{{ n.color }};font:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer;width:100%"><span style="color:{{ n.iconColor }};display:flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ n.icon }}"></path></svg></span><span style="flex:1">{{ n.label }}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.chevR }}"></path></svg></button></sc-for>
+    <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;border:none;background:transparent;color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer;text-align:left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.eye }}"></path></svg>Ver como aluno</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 10px 0;border-top:1px solid var(--border);margin-top:10px"><div style="width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:10px">VA</div><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Valmer Albuquerque</div></div>
+  </aside>
+  </sc-if>
+  <div style="min-width:0;display:flex;flex-direction:column">
+    <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10"><span style="display:flex;color:var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.menu }}"></path></svg></span><div style="font-weight:800;font-size:13px">Admin</div><div style="flex:1"></div><div style="width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:10px">VA</div></div>
+    </sc-if>
+    <div style="padding:{{ padY }} {{ padX }};display:flex;flex-direction:column;gap:20px">
+
+    <!-- Admin: Dashboard -->
+    <sc-if value="{{ isAdminDash }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px"><div><h1 style="margin:0 0 4px;font-size:24px;font-weight:800;letter-spacing:-.02em">Boa tarde, Valmer</h1><div style="font-size:14px;color:var(--muted)">O pulso da sua área de membros</div></div><div style="display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)"><sc-for list="{{ periods }}" as="p" hint-placeholder-count="3"><div style="padding:8px 14px;font-size:13px;font-weight:600;background:{{ p.bg }};color:{{ p.color }}">{{ p.label }}</div></sc-for></div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+        <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+          <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:8px"><div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">{{ k.label }}</div><div style="font-size:30px;font-weight:800;letter-spacing:-.02em">{{ k.value }}</div><div style="font-size:12px;color:{{ k.deltaColor }};font-weight:600">{{ k.delta }} <span style="color:var(--muted);font-weight:500">vs. período anterior</span></div></div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:{{ dashCols }};gap:14px;align-items:start">
+        <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:15px;font-weight:800">Acessos de alunos por dia</div><div style="font-size:12px;color:var(--muted)">últimos 14 dias</div></div>
+          <div style="display:flex;align-items:flex-end;gap:6px;height:180px">
+            <sc-for list="{{ bars }}" as="b" hint-placeholder-count="14"><div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:{{ b.h }}%;border-radius:6px 6px 2px 2px;background:{{ b.bg }}"></div></div></sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>10/09</span><span>16/09</span><span>23/09</span></div>
+        </div>
+        <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:15px;font-weight:800">Acontecendo agora</div>
+          <sc-for list="{{ activity }}" as="a" hint-placeholder-count="4"><div style="display:flex;gap:10px;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--border)"><div style="width:30px;height:30px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:10px;font-weight:700;flex-shrink:0">{{ a.ini }}</div><div style="font-size:13px;line-height:1.45"><b>{{ a.name }}</b> {{ a.action }}<div style="font-size:11px;color:var(--muted)">{{ a.when }}</div></div></div></sc-for>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:{{ dashCols }};gap:14px;align-items:start">
+        <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:15px;font-weight:800">Conteúdos mais assistidos</div>
+          <sc-for list="{{ topLessons }}" as="l" hint-placeholder-count="5"><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;gap:12px;font-size:13px"><div style="min-width:0"><div style="font-weight:700;text-transform:uppercase;letter-spacing:.02em">{{ l.title }}</div><div style="font-size:11px;color:var(--muted)">{{ l.course }}</div></div><div style="font-weight:700">{{ l.views }}</div></div><div style="height:5px;border-radius:99px;background:var(--surface2)"><div style="width:{{ l.pct }}%;height:100%;border-radius:99px;background:var(--accent)"></div></div></div></sc-for>
+        </div>
+        <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:15px;font-weight:800">Saúde dos produtos</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+            <div style="padding:14px;border-radius:12px;background:var(--surface2)"><div style="font-size:22px;font-weight:800">3</div><div style="font-size:11px;color:var(--muted)">Produtos ativos</div></div>
+            <div style="padding:14px;border-radius:12px;background:var(--surface2)"><div style="font-size:22px;font-weight:800">39%</div><div style="font-size:11px;color:var(--muted)">Taxa de conclusão</div></div>
+            <div style="padding:14px;border-radius:12px;background:var(--surface2)"><div style="font-size:22px;font-weight:800">4,8</div><div style="font-size:11px;color:var(--muted)">Avaliação média</div></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- Admin: página genérica (lista/tabela) -->
+    <sc-if value="{{ isGenericTable }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;overflow:hidden">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px"><h1 style="margin:0;font-size:20px;font-weight:800">{{ g.title }}</h1><sc-if value="{{ gHasStats }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted)">{{ g.stats }}</span></sc-if></div><div style="display:flex;gap:8px"><button style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.download }}"></path></svg></button><button style="height:36px;padding:0 14px;border-radius:8px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.plus }}"></path></svg>{{ g.cta }}</button></div></div>
+        <div style="display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--border);overflow-x:auto"><sc-for list="{{ gTabs }}" as="t" hint-placeholder-count="3"><div style="padding:10px 12px;font-size:13px;font-weight:600;color:{{ t.color }};border-bottom:2px solid {{ t.line }};white-space:nowrap">{{ t.label }}</div></sc-for></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px"><div style="flex:1;min-width:200px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--muted);font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.search }}"></path></svg>Pesquisar...</div><div style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.filter }}"></path></svg>Filtro</div></div>
+        <div style="overflow-x:auto"><div style="min-width:{{ tableMin }}">
+          <div style="display:grid;grid-template-columns:{{ g.cols }};gap:12px;padding:10px 20px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface2)"><sc-for list="{{ g.head }}" as="hd" hint-placeholder-count="5"><span>{{ hd }}</span></sc-for></div>
+          <sc-for list="{{ g.rows }}" as="row" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:{{ g.cols }};gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);font-size:13px">
+              <sc-for list="{{ row }}" as="c" hint-placeholder-count="5">
+                <div style="min-width:0">
+                  <sc-if value="{{ c.isBadge }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;background:{{ c.bg }};color:{{ c.color }}">{{ c.t }}</span></sc-if>
+                  <sc-if value="{{ c.isBar }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:5px;border-radius:99px;background:var(--surface2)"><div style="width:{{ c.pct }}%;height:100%;border-radius:99px;background:var(--accent)"></div></div><span style="font-size:12px;color:var(--muted)">{{ c.t }}</span></div></sc-if>
+                  <sc-if value="{{ c.isText }}" hint-placeholder-val="{{ true }}"><div style="font-weight:{{ c.weight }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.t }}</div><sc-if value="{{ c.hasS }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.s }}</div></sc-if></sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div></div>
+        <div style="display:flex;justify-content:space-between;padding:12px 20px;font-size:12px;color:var(--muted)"><span>Por página: 10</span><span>1 / 1</span></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isGenericCards }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px"><div><h1 style="margin:0 0 4px;font-size:24px;font-weight:800;letter-spacing:-.02em">{{ g.title }}</h1><div style="font-size:14px;color:var(--muted)">{{ g.sub }}</div></div><button style="height:38px;padding:0 14px;border-radius:8px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.plus }}"></path></svg>{{ g.cta }}</button></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+        <sc-for list="{{ g.cards }}" as="c" hint-placeholder-count="4">
+          <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:20px;display:flex;gap:14px;align-items:flex-start;cursor:pointer"><div style="width:42px;height:42px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ c.icon }}"></path></svg></div><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700">{{ c.title }}</div><div style="font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5">{{ c.desc }}</div></div><span style="color:var(--muted);display:flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.chevR }}"></path></svg></span></div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- Admin: Conteúdos -->
+    <sc-if value="{{ isAdminConteudos }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;overflow:hidden">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px"><h1 style="margin:0;font-size:20px;font-weight:800">Gerenciar produtos</h1><div style="display:flex;gap:8px"><button style="height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.folder }}"></path></svg>Nova pasta</button><button style="height:36px;padding:0 14px;border-radius:8px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.plus }}"></path></svg>Novo produto</button></div></div>
+        <div style="display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--border);overflow-x:auto"><sc-for list="{{ prodTabs }}" as="t" hint-placeholder-count="5"><div style="padding:10px 12px;font-size:13px;font-weight:600;color:{{ t.color }};border-bottom:2px solid {{ t.line }};white-space:nowrap">{{ t.label }}</div></sc-for></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px"><div style="flex:1;min-width:200px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;padding:0 12px;color:var(--muted);font-size:13px">Pesquise pelo título, categoria, tipo...</div><div style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;font-size:13px;font-weight:600">Tipo ▾</div><div style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;font-size:13px;font-weight:600">Situação ▾</div></div>
+        <div style="overflow-x:auto">
+          <div style="min-width:{{ tableMin }}">
+            <div style="display:grid;grid-template-columns:56px 1fr 120px 120px 130px 40px;gap:12px;padding:10px 20px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface2)"><span></span><span>Título</span><span>Tipo</span><span>Situação</span><span>Atualização</span><span></span></div>
+            <sc-for list="{{ products }}" as="p" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:56px 1fr 120px 120px 130px 40px;gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);font-size:13px">
+                <div style="width:44px;height:56px;border-radius:6px;overflow:hidden;position:relative"><image-slot id="{{ p.slot }}" shape="rect" placeholder=""></image-slot></div>
+                <div style="min-width:0"><div style="font-weight:700;text-transform:uppercase;letter-spacing:.02em">{{ p.title }}</div><div style="font-size:12px;color:var(--muted)">Cód. {{ p.code }} · {{ p.lessons }} aulas · {{ p.students }} alunos</div></div>
+                <div>{{ p.type }}</div>
+                <div><span style="font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;background:{{ p.badgeBg }};color:{{ p.badgeColor }}">{{ p.status }}</span></div>
+                <div style="color:var(--muted)">{{ p.updated }}</div>
+                <div style="display:flex;justify-content:center;color:var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.more }}"></path></svg></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding:12px 20px;font-size:12px;color:var(--muted)">Mostrando 1–3 de 3</div>
+      </div>
+    </sc-if>
+
+    <!-- Admin: Membros -->
+    <sc-if value="{{ isAdminMembros }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;overflow:hidden">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px"><h1 style="margin:0;font-size:20px;font-weight:800">Membros</h1><span style="font-size:12px;color:var(--muted)">139 total · <b style="color:var(--ok)">137 ativos</b> · 2 inativos · 59 nunca acessaram</span></div><div style="display:flex;gap:8px"><button style="height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.download }}"></path></svg>Exportar</button><button style="height:36px;padding:0 14px;border-radius:8px;border:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.plus }}"></path></svg>Cadastrar</button></div></div>
+        <div style="display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--border);overflow-x:auto"><sc-for list="{{ memberTabs }}" as="t" hint-placeholder-count="5"><div style="padding:10px 12px;font-size:13px;font-weight:600;color:{{ t.color }};border-bottom:2px solid {{ t.line }};white-space:nowrap">{{ t.label }}</div></sc-for></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px"><div style="flex:1;min-width:200px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;padding:0 12px;color:var(--muted);font-size:13px">Pesquise por nome, e-mail, CPF ou tag...</div><div style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent-soft);display:flex;align-items:center;font-size:13px;font-weight:600;color:var(--accent)">Status · Ativo ×</div><div style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;font-size:13px;font-weight:600">Grupos ▾</div><div style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;font-size:13px;font-weight:600">+ Filtro</div></div>
+        <div style="overflow-x:auto">
+          <div style="min-width:{{ tableMin }}">
+            <div style="display:grid;grid-template-columns:minmax(220px,1fr) 180px 90px 110px 110px 40px;gap:12px;padding:10px 20px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface2)"><span>Membro</span><span>Grupo</span><span>Matrículas</span><span>Criado em</span><span>Último acesso</span><span></span></div>
+            <sc-for list="{{ members }}" as="m" hint-placeholder-count="8">
+              <div style="display:grid;grid-template-columns:minmax(220px,1fr) 180px 90px 110px 110px 40px;gap:12px;align-items:center;padding:11px 20px;border-bottom:1px solid var(--border);font-size:13px">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0"><div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0">{{ m.ini }}</div><div style="min-width:0"><div style="font-weight:700">{{ m.name }}</div><div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.email }}</div></div></div>
+                <div><span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--surface2)">{{ m.group }}</span></div>
+                <div style="font-weight:700;color:var(--accent)">{{ m.enroll }}</div>
+                <div style="color:var(--muted)">{{ m.created }}</div>
+                <div><span style="font-size:12px;font-weight:600;color:{{ m.lastColor }}">{{ m.last }}</span></div>
+                <div style="display:flex;justify-content:center;color:var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="{{ I.more }}"></path></svg></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 20px;font-size:12px;color:var(--muted)"><span>Mostrando 1–8 de 137</span><span>1 / 18 ›</span></div>
+      </div>
+    </sc-if>
+
+    </div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Aparência&quot;},&quot;viewport&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;'desktop'|'mobile'&quot;,&quot;section&quot;:&quot;Aparência&quot;}}">
+const ICONS = {
+  home: 'M3 11 12 3l9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  play: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM10 8l6 4-6 4z',
+  route: 'M6 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 16h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h4',
+  chat: 'M21 12a8 8 0 0 1-11.6 7.2L4 21l1.8-5.4A8 8 0 1 1 21 12z',
+  award: 'M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8.2 13.8 7 22l5-3 5 3-1.2-8.2',
+  user: 'M20 21a8 8 0 1 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-3.5-3.5',
+  bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0',
+  grid: 'M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z',
+  clipboard: 'M9 4h6v3H9zM9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2',
+  rocket: 'M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2M12 15l-3-3a22 22 0 0 1 2-3.9A12.9 12.9 0 0 1 22 2c0 2.7-.9 7.5-6 11a22 22 0 0 1-4 2zM9 12H4s.5-3 2-4 5 0 5 0M12 15v5s3-.5 4-2 0-5 0-5',
+  video: 'M2 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM16 10l6-3v10l-6-3',
+  users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+  inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z',
+  activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  dollar: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  external: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3',
+  monitor: 'M2 4h20v12H2zM8 20h8M12 16v4',
+  sparkles: 'M12 3l1.9 5.6 5.6 1.9-5.6 1.9L12 18l-1.9-5.6-5.6-1.9 5.6-1.9zM19 2v3M20.5 3.5h-3M5 17v3M6.5 18.5h-3',
+  layout: 'M3 3h18v18H3zM3 9h18M9 21V9',
+  filter: 'M22 3H2l8 9.5V19l4 2v-8.5z',
+  zap: 'M13 2 3 14h9l-1 8 10-12h-9z',
+  send: 'M22 2 11 13M22 2l-7 20-4-9-9-4z',
+  calendar: 'M3 5h18v16H3zM16 3v4M8 3v4M3 10h18',
+  mail: 'M3 5h18v14H3zM3 5l9 7 9-7',
+  heart: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z',
+  star: 'm12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z',
+  check: 'm5 12 5 5L20 7',
+  chevR: 'm9 6 6 6-6 6', chevD: 'm6 9 6 6 6-6', chevL: 'm15 6-6 6 6 6',
+  download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  plus: 'M12 5v14M5 12h14',
+  list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  book: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
+  file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
+  folder: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z',
+  more: 'M12 12h.01M12 5h.01M12 19h.01',
+  menu: 'M4 6h16M4 12h16M4 18h16',
+  logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+  help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
+  percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  bookmark: 'M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z',
+  shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  phone: 'M5 2h14v20H5zM12 18h.01',
+  msg: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+  trophy: 'M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.7V17a2 2 0 0 1-1 1.7l-1 .3h8l-1-.3a2 2 0 0 1-1-1.7v-2.3M18 2H6v7a6 6 0 0 0 12 0z',
+  edit: 'M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z',
+  globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20',
+  link: 'M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1',
+  upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+  db: 'M12 8c5 0 9-1.3 9-3s-4-3-9-3-9 1.3-9 3 4 3 9 3zM3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3',
+  bot: 'M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M15 13v2M9 13v2',
+  map: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
+  lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
+  clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  image: 'M3 3h18v18H3zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+  share: 'M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4',
+  megaphone: 'M3 11l18-5v12L3 14zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+  tag: 'M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8zM7 7h.01',
+};
+class Component extends DCLogic {
+  state = { screen: 'home', theme: null, mobile: null };
+  go(screen) { return () => this.setState({ screen }); }
+  renderVals() {
+    const p = this.props;
+    const screen = this.state.screen;
+    const theme = this.state.theme ?? p.theme ?? 'dark';
+    const mobile = this.state.mobile ?? (p.viewport === 'mobile');
+    const D = !mobile;
+    const act = (id) => screen === id;
+    const chip = (id, label) => ({ label, go: this.go(id), bg: act(id) ? 'var(--accent)' : 'transparent', color: act(id) ? 'var(--accent-ink)' : 'var(--text)', border: act(id) ? 'var(--accent)' : 'var(--border)' });
+    const navItem = (id, label, icon, badge) => ({ label, icon: ICONS[icon] || ICONS.grid, badge: badge || '', hasBadge: !!badge, badgeBg: badge === 'Novo' ? 'var(--accent-soft)' : 'transparent', badgeColor: badge === 'Novo' ? 'var(--accent)' : 'var(--muted)', go: this.go(id), bg: act(id) ? 'var(--accent-soft)' : 'transparent', color: act(id) ? 'var(--accent)' : 'var(--text)', iconColor: act(id) ? 'var(--accent)' : 'var(--muted)' });
+    const cell = (t, s) => ({ t, s: s || '', hasS: !!s, isBadge: false, isBar: false, isText: true, weight: s ? 700 : 500 });
+    const badge = (t, kind) => ({ t, s: '', hasS: false, isBadge: true, isBar: false, isText: false, bg: kind === 'ok' ? 'rgba(61,187,122,.15)' : kind === 'warn' ? 'rgba(224,107,107,.15)' : kind === 'acc' ? 'var(--accent-soft)' : 'var(--surface2)', color: kind === 'ok' ? 'var(--ok)' : kind === 'warn' ? 'var(--warn)' : kind === 'acc' ? 'var(--accent)' : 'var(--muted)' });
+    const bar = (pct) => ({ t: pct + '%', s: '', hasS: false, isBadge: false, isBar: true, isText: false, pct });
+    const card = (icon, title, desc) => ({ icon: ICONS[icon], title, desc });
+    const G = {
+      admArea: { title: 'Área de membros', sub: 'Gerencie suas áreas de membros e turmas', mode: 'cards', cta: 'Criar área de membros', cards: [card('monitor', 'Principal', 'Subplataforma principal · lideredeimpacto.com.br'), card('users', 'Turma Autores Signature', 'Grupo de acesso · 69 membros'), card('layout', 'Aparência', 'Logo, cores, banner e templates de e-mail'), card('trophy', 'Gamificação', 'Pontos, níveis e ranking por área')] },
+      admAval: { title: 'Avaliações', stats: '4 total · 3 publicadas · 1 rascunho', tabs: ['Avaliações', 'Banco de questões', 'Auditoria'], cta: 'Nova avaliação', cols: 'minmax(220px,1fr) 130px 120px 90px 90px 40px', head: ['Avaliação', 'Tipo', 'Status', 'Questões', 'Sessões', ''], rows: [[cell('Avaliação final · Líder de Impacto', 'Módulo 5'), cell('Prova'), badge('Publicada', 'ok'), cell('20'), cell('38'), cell('')], [cell('Quiz · Cultura organizacional', 'Módulo 3'), cell('Quiz'), badge('Publicada', 'ok'), cell('8'), cell('61'), cell('')], [cell('Autoavaliação de liderança', 'Módulo 1'), cell('Formulário'), badge('Publicada', 'ok'), cell('12'), cell('112'), cell('')], [cell('Simulado editorial', 'Editora Signature'), cell('Simulado'), badge('Rascunho'), cell('6'), cell('—'), cell('')]] },
+      admDesafios: { title: 'Desafios', stats: '2 ativos', tabs: ['Desafios', 'Ranking', 'Recompensas'], cta: 'Novo desafio', cols: 'minmax(220px,1fr) 140px 120px 120px 40px', head: ['Desafio', 'Período', 'Participantes', 'Status', ''], rows: [[cell('Semana da cultura', 'Complete o módulo 3 em 7 dias'), cell('22/09 – 29/09'), cell('41'), badge('Ativo', 'ok'), cell('')], [cell('Primeiro capítulo entregue', 'Editora Signature'), cell('01/09 – 30/09'), cell('18'), badge('Ativo', 'ok'), cell('')]] },
+      admCom: { title: 'Comunidade', stats: '32 publicações · 12 comentários · 2 fixados', tabs: ['Publicações', 'Canais', 'Moderação', 'Dashboards'], cta: 'Novo canal', cols: 'minmax(220px,1fr) 150px 100px 100px 120px 40px', head: ['Publicação', 'Autor', 'Curtidas', 'Comentários', 'Status', ''], rows: [[cell('Estamos na Câmara procedendo atualização…', '# Home · há 15 dias'), cell('Edson Otani'), cell('4'), cell('2'), badge('Publicado', 'ok'), cell('')], [cell('Na atualidade não sou líder…', '# Home · há 15 dias'), cell('Edson Otani'), cell('2'), cell('1'), badge('Publicado', 'ok'), cell('')], [cell('Valmer, não consigo ver o PDF…', '# Dúvidas · há um mês'), cell('Ana Paula Pacheco'), cell('1'), cell('3'), badge('Respondido', 'acc'), cell('')]] },
+      admVideo: { title: 'Estúdio de vídeo', stats: '35 vídeos · 68,9 GB de 500 GB', tabs: ['Vídeos', 'Estatísticas', 'IA'], cta: 'Upload', cols: 'minmax(240px,1fr) 110px 120px 80px 120px 40px', head: ['Título', 'Status', 'Criação', 'IA', 'Atualização', ''], rows: [['A estrutura de escrita do seu capítulo', '29/05/2026'], ['Como estruturar o seu projeto', '29/05/2026'], ['Comece por aqui', '28/05/2026'], ['O que são os riscos', '27/05/2026'], ['Cultura forte × cultura tóxica', '27/05/2026'], ['Qual é o papel do líder na criação da cultura', '27/05/2026'], ['O que é cultura organizacional', '27/05/2026']].map(([t, d]) => [cell(t, 'MP4 · 1080p'), badge('Disponível', 'ok'), cell(d), cell('Não'), cell(d), cell('')]) },
+      admMat: { title: 'Matrículas', stats: '69 total · 0 pendentes · 68 aprovadas', tabs: ['Matrículas', 'Progresso', 'Feedbacks de conteúdo', 'Avaliações', 'Correção'], cta: 'Inscrever', cols: 'minmax(200px,1fr) 150px 110px 110px 120px 90px 40px', head: ['Nome', 'Conteúdo', 'Iniciada', 'Concluída', 'Progresso', 'Situação', ''], rows: [['Vanessa Félix', 'vanessa.felixts@gmail.com', '21/09/26', '—', 66], ['Layla Jatobá', 'laylacjatoba@gmail.com', '21/09/26', '21/09/26', 100], ['Silvia Svensson Paulino', 'silviasvensson07@gmail.com', '08/09/26', '08/09/26', 100], ['Ana Maria Martins Camelo', 'admanamartins@gmail.com', '18/09/26', '—', 66], ['Pamela Forziati', 'pamelaforziati@hotmail.com', '—', '—', 0], ['Nayara de Souza Silveira', 'psi.nayarasilveira@gmail.com', '08/09/26', '09/09/26', 100], ['Kesia Costa Leite', 'kleitepsi@gmail.com', '02/09/26', '02/09/26', 100]].map(([n, e, i, c, p]) => [cell(n, e), cell('Editora Signature'), cell(i), cell(c), bar(p), badge('Ativa', 'ok'), cell('')]) },
+      admCert: { title: 'Certificados', stats: '2 modelos · 14 emitidos', tabs: ['Certificados criados', 'Emissão'], cta: 'Criar certificado', cols: 'minmax(220px,1fr) 130px 160px 110px 90px 40px', head: ['Certificado', 'Tipo', 'Produtos', 'Criado em', 'Emitidos', ''], rows: [[cell('Certificado de conclusão · Líder de Impacto', 'Cód. CERT-01'), cell('Conclusão'), cell('Líder de Impacto'), cell('12/05/26'), cell('3'), cell('')], [cell('Certificado · Mentoria editorial', 'Cód. CERT-02'), cell('Conclusão'), cell('Editora Signature'), cell('28/05/26'), cell('11'), cell('')]] },
+      admAnalytics: { title: 'Analytics', stats: '2.316 eventos · 23 membros ativos · 97 sessões', tabs: ['Dashboards', 'Sessões', 'Eventos'], cta: 'Exportar', cols: 'minmax(200px,1fr) 160px 120px 120px 40px', head: ['Evento', 'Tipo', 'Ocorrências', 'Última', ''], rows: [[cell('video::progress', 'Progresso de vídeo'), cell('Vídeo'), cell('1.180'), cell('há 2 h'), cell('')], [cell('Visualização', 'Página de aula'), cell('Navegação'), cell('340'), cell('há 1 h'), cell('')], [cell('Atividade', 'Comunidade e comentários'), cell('Interação'), cell('210'), cell('há 4 h'), cell('')], [cell('Aula concluída'), cell('Progresso'), cell('64'), cell('ontem'), cell('')], [cell('Login'), cell('Sessão'), cell('97'), cell('há 30 min'), cell('')]] },
+      admFin: { title: 'Vendas e financeiro', sub: 'Vendas, assinaturas e carteira financeira', mode: 'cards', cta: 'Nova oferta', cards: [card('dollar', 'Vendas', 'Gerencie as vendas da plataforma · 11 no período'), card('inbox', 'Assinaturas', 'Gerencie as assinaturas recorrentes'), card('activity', 'Financeiro', 'Saldo, saques e carteira'), card('percent', 'Meus afiliados', 'Gerencie os afiliados e comissões'), card('tag', 'Ofertas e cupons', 'Preços, parcelamento e descontos'), card('link', 'Integrações', 'Hotmart, Stripe, Pagar.me, Eduzz e webhooks')] },
+      admConfig: { title: 'Configurações da plataforma', sub: 'Assinatura, integrações e configurações gerais', mode: 'cards', cta: 'Ver plano', cards: [card('settings', 'Geral', 'Nome, domínio padrão, SEO e habilitações'), card('globe', 'Domínios', 'Conecte domínios próprios'), card('mail', 'Disparos de e-mails', 'Logs, entregas e templates'), card('phone', 'Aplicativo', 'App mobile da plataforma'), card('upload', 'Importação', 'Upload em massa de membros e matrículas'), card('file', 'Logs', 'Eventos administrativos e auditoria'), card('users', 'Equipe & acesso', '3 administradores ativos'), card('link', 'Integrações & webhooks', 'Conectores e automações externas')] },
+      admPaginas: { title: 'Páginas', stats: '3 páginas · 2 publicadas', tabs: ['Páginas', 'Templates', 'Domínios'], cta: 'Nova página', cols: 'minmax(220px,1fr) 160px 120px 120px 40px', head: ['Página', 'URL', 'Status', 'Atualização', ''], rows: [[cell('Página de vendas · Líder de Impacto'), cell('/lider-de-impacto'), badge('Publicada', 'ok'), cell('20/09/26'), cell('')], [cell('Captura · Aula gratuita'), cell('/aula-gratuita'), badge('Publicada', 'ok'), cell('15/09/26'), cell('')], [cell('Obrigado · Signature'), cell('/obrigado'), badge('Rascunho'), cell('10/09/26'), cell('')]] },
+      admAutomacoes: { title: 'Automações', stats: '3 ativas', tabs: ['Automações', 'Histórico'], cta: 'Nova automação', cols: 'minmax(220px,1fr) 180px 110px 110px 40px', head: ['Automação', 'Gatilho', 'Execuções', 'Status', ''], rows: [[cell('Boas-vindas ao grupo Autores'), cell('Matrícula em Editora Signature'), cell('69'), badge('Ativa', 'ok'), cell('')], [cell('Lembrete de aula inacabada'), cell('7 dias sem acesso'), cell('132'), badge('Ativa', 'ok'), cell('')], [cell('Certificado emitido'), cell('Conclusão de curso'), cell('14'), badge('Ativa', 'ok'), cell('')]] },
+      admCampanhas: { title: 'Campanhas', stats: '133 e-mails · 51 clicados · 42 abertos', tabs: ['Campanhas', 'Listas', 'Modelos'], cta: 'Nova campanha', cols: 'minmax(220px,1fr) 120px 110px 110px 110px 40px', head: ['Campanha', 'Enviados', 'Abertura', 'Cliques', 'Status', ''], rows: [[cell('Novidade: Avaliações', 'Enviada em 21/09'), cell('137'), cell('31%'), cell('18%'), badge('Enviada', 'ok'), cell('')], [cell('Mentoria ao vivo · 30/09', 'Agendada'), cell('—'), cell('—'), cell('—'), badge('Agendada', 'acc'), cell('')]] },
+      admEventos: { title: 'Eventos', stats: '70 eventos · 1 ao vivo agendado', tabs: ['Eventos', 'Acessos', 'Termos de uso', 'Registro de auditoria'], cta: 'Novo evento', cols: 'minmax(220px,1fr) 130px 160px 120px 40px', head: ['Usuário', 'Tipo', 'Entidade', 'Data', ''], rows: [['Ana Paula Pacheco', '21/09 13:45'], ['Vanessa Félix', '21/09 11:17'], ['Layla Jatobá', '21/09 08:38'], ['Ana Maria Martins Camelo', '18/09 21:16'], ['Silvia Svensson Paulino', '08/09 11:04']].map(([n, d]) => [cell(n), cell('Matrícula'), cell('Editora Signature'), cell(d), cell('')]) },
+    };
+    const adminNav = [
+      { group: '', items: [navItem('admDash', 'Home', 'home'), navItem('admArea', 'Área de membros', 'monitor')] },
+      { group: 'Educação', items: [navItem('admConteudos', 'Conteúdos', 'grid'), navItem('admAval', 'Avaliações', 'clipboard'), navItem('admDesafios', 'Desafios', 'rocket'), navItem('admCom', 'Comunidade', 'chat'), navItem('admVideo', 'Estúdio de vídeo', 'video')] },
+      { group: 'Inteligência artificial', items: [navItem('admIA', 'Assistente do professor', 'sparkles', 'Novo'), navItem('admBase', 'Base de conhecimento', 'db', 'Novo')] },
+      { group: 'Marketing', items: [navItem('admPaginas', 'Páginas', 'layout'), navItem('admFunis', 'Funis', 'filter', 'Em breve'), navItem('admAutomacoes', 'Automações', 'zap'), navItem('admCampanhas', 'Campanhas', 'send'), navItem('admEventos', 'Eventos', 'calendar', 'Novo')] },
+      { group: 'Relatórios', items: [navItem('admMembros', 'Membros', 'users'), navItem('admMat', 'Matrículas', 'inbox'), navItem('admCert', 'Certificados', 'award'), navItem('admAnalytics', 'Analytics', 'activity'), navItem('admFin', 'Vendas e financeiro', 'dollar')] },
+    ];
+    const generic = G[screen];
+    const tabs = (arr, i) => arr.map((label, k) => ({ label, color: k === i ? 'var(--text)' : 'var(--muted)', line: k === i ? 'var(--accent)' : 'transparent' }));
+    const lesson = (title, dur, st) => ({ title, dur, done: st === 'done', ringColor: st === 'todo' ? 'var(--border)' : 'var(--accent)', ringBg: st === 'done' ? 'var(--accent)' : 'transparent', bg: st === 'now' ? 'var(--accent-soft)' : 'transparent', edge: st === 'now' ? 'var(--accent)' : 'transparent', weight: st === 'now' ? 700 : 500 });
+    const modules = [
+      { n: '01', title: 'Fundamentos da liderança', count: 5, dur: '1h 40', state: 'Concluído', open: false, lessons: [] },
+      { n: '02', title: 'Comunicação dentro da liderança', count: 4, dur: '1h 20', state: 'Concluído', open: false, lessons: [] },
+      { n: '03', title: 'Cultura organizacional', count: 6, dur: '2h 05', state: 'Em andamento', open: true, lessons: [lesson('O que é cultura organizacional', '18 min', 'done'), lesson('Cultura organizacional do líder', '22 min', 'now'), lesson('Cultura forte × cultura tóxica', '19 min', 'todo'), lesson('Qual é o papel do líder na criação da cultura', '24 min', 'todo'), lesson('O que são os riscos', '15 min', 'todo'), lesson('Material complementar', '8 min', 'todo')] },
+      { n: '04', title: 'Desenvolvimento de pessoas', count: 5, dur: '1h 50', state: 'Bloqueado', open: false, lessons: [] },
+      { n: '05', title: 'Resultados e legado', count: 8, dur: '2h 30', state: 'Bloqueado', open: false, lessons: [] },
+    ].map(m => ({ ...m, numBg: m.state === 'Concluído' ? 'var(--accent)' : m.state === 'Em andamento' ? 'var(--accent-soft)' : 'var(--surface2)', numColor: m.state === 'Concluído' ? 'var(--accent-ink)' : m.state === 'Em andamento' ? 'var(--accent)' : 'var(--muted)', stateColor: m.state === 'Bloqueado' ? 'var(--muted)' : 'var(--accent)' }));
+    const posts = [
+      { ini: 'EH', name: 'Edson Hideyuki Otani', when: 'há 15 dias', lesson: 'Comportamentos que impedem você de crescer', text: 'Estamos na Câmara procedendo atualização de sistemas, estão sendo analisados para serem contratados sistemas de gerenciamento via IA.', likes: 4, comments: 2 },
+      { ini: 'EH', name: 'Edson Hideyuki Otani', when: 'há 15 dias', lesson: 'O primeiro fundamento da liderança', text: 'Na atualidade não sou líder, dai não tenho liderados, sou um dos liderados.', likes: 2, comments: 1 },
+      { ini: 'AP', name: 'Ana Paula Pacheco', when: 'há um mês', lesson: 'Qual é o seu porquê?', text: 'Valmer, não consigo ver o PDF que falou das questões. Pode reenviar?', likes: 1, comments: 3 },
+    ];
+    const stepArr = (total, done) => Array.from({ length: total }, (_, i) => ({ n: i + 1, bg: i < done ? 'var(--accent)' : 'transparent', color: i < done ? 'var(--accent-ink)' : 'var(--muted)', ring: i < done ? 'var(--accent)' : 'var(--border)', line: i < total - 1, lineColor: i < done - 1 ? 'var(--accent)' : 'var(--border)' }));
+    const trailsFull = [
+      { tag: 'Trilha principal', title: 'Do gestor ao líder de impacto', desc: 'Sequência completa da formação: fundamentos, comunicação, cultura, pessoas e legado.', steps: 5, doneSteps: 2, hours: '9h 25', cta: 'Continuar trilha' },
+      { tag: 'Autoria', title: 'Escreva seu capítulo do livro', desc: 'Da estrutura do projeto até a entrega editorial para a Editora Signature.', steps: 3, doneSteps: 0, hours: '2h 10', cta: 'Iniciar trilha' },
+      { tag: 'Mentoria', title: 'Encontros ao vivo 2026', desc: 'Gravações e materiais das mentorias em grupo, na ordem em que aconteceram.', steps: 4, doneSteps: 4, hours: '6h 00', cta: 'Rever trilha' },
+    ].map(t => ({ ...t, stepsArr: stepArr(t.steps, t.doneSteps), btnBg: t.doneSteps > 0 && t.doneSteps < t.steps ? 'var(--accent)' : 'transparent', btnColor: t.doneSteps > 0 && t.doneSteps < t.steps ? 'var(--accent-ink)' : 'var(--text)' }));
+    const paper = theme === 'dark' ? { paperBg: '#15151A', paperText: '#F3EFE6', paperMuted: '#9B98A3' } : { paperBg: '#FBFAF6', paperText: '#14131A', paperMuted: '#6E6B78' };
+    const certs = [
+      { title: 'Mentoria editorial', meta: 'Emitido em 21/09/2026 · 3 aulas · 2h 10', locked: false, cta: 'Baixar PDF', progress: 100 },
+      { title: 'Líder de Impacto', meta: '28 aulas · 9h 25 · avaliação final pendente', locked: true, cta: 'Continuar curso', progress: 42 },
+      { title: 'Encontros ao vivo 2026', meta: 'Emitido em 02/09/2026 · 4 encontros', locked: false, cta: 'Baixar PDF', progress: 100 },
+    ].map(c => ({ ...c, ...paper, btnBg: c.locked ? 'transparent' : 'var(--accent)', btnColor: c.locked ? 'var(--text)' : 'var(--accent-ink)' }));
+    const members = [
+      ['Juliana Conti Elias', 'contato@julianaconti.com.br', '25/08/26', '21/09/26'], ['Valéria Laranjeiras', 'valerialaranjeiraspsi@gmail.com', '28/08/26', 'Nunca'], ['Franciele Foschiera', 'francifos1421@gmail.com', '28/08/26', '01/09/26'], ['Kesia Costa Leite', 'kleitepsi@gmail.com', '02/09/26', '03/09/26'], ['Nayara de Souza Silveira', 'psi.nayarasilveira@gmail.com', '04/09/26', '11/09/26'], ['Pamela Forziati', 'pamelaforziati@hotmail.com', '04/09/26', '15/09/26'], ['Ana Maria Martins Camelo', 'admanamartins@gmail.com', '08/09/26', '18/09/26'], ['Silvia Svensson Paulino', 'silviasvensson07@gmail.com', '08/09/26', '12/09/26'],
+    ].map(([name, email, created, last]) => ({ name, email, created, last, ini: name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(), group: 'Autores · Signature', enroll: last === 'Nunca' ? '—' : '1', lastColor: last === 'Nunca' ? 'var(--warn)' : 'var(--text)' }));
+    const barsRaw = [12, 18, 9, 30, 44, 26, 15, 20, 58, 72, 40, 22, 35, 66];
+    return {
+      theme, isMobile: mobile, isDesktop: D,
+      themeLabel: theme === 'dark' ? '☾ Escuro' : '☼ Claro', mobileLabel: mobile ? '▭ Mobile' : '▭ Desktop',
+      toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
+      toggleMobile: () => this.setState({ mobile: !mobile }),
+      framePad: mobile ? '36px 12px' : '0', frameMax: mobile ? '390px' : '100%', frameBorder: mobile ? '1px solid var(--border)' : 'none', frameRadius: mobile ? '44px' : '0', frameShadow: mobile ? '0 0 0 10px #000,0 30px 80px rgba(0,0,0,.5)' : 'none', frameMinH: mobile ? '820px' : 'calc(100vh - 53px)',
+      padX: mobile ? '20px' : '40px', padY: mobile ? '24px' : '44px', padBottom: mobile ? '90px' : '48px', cardPad: mobile ? '18px' : '24px',
+      loginCols: D ? '1.1fr 1fr' : '1fr', heroCols: D ? '1.1fr 1fr' : '1fr', heroMinH: D ? '340px' : '300px', heroPad: D ? '40px' : '24px', heroTitleSize: D ? '52px' : '34px',
+      cardMin: mobile ? '150px' : '220px', courseCols: D ? 'minmax(0,1fr) 340px' : '1fr', pageTitleSize: D ? '56px' : '38px', asideSticky: D ? 'sticky' : 'static',
+      playerCols: D ? 'minmax(0,1fr) 340px' : '1fr', playerTitleSize: D ? '38px' : '28px', playlistMaxH: D ? 'calc(100vh - 110px)' : 'none',
+      communityCols: D ? '220px minmax(0,1fr) 280px' : '1fr', trailCols: D ? 'minmax(0,1fr) 220px' : '1fr', trailAlign: D ? 'flex-end' : 'flex-start', profileCols: D ? '300px minmax(0,1fr)' : '1fr',
+      adminCols: D ? '240px minmax(0,1fr)' : '1fr', dashCols: D ? 'minmax(0,1.6fr) minmax(0,1fr)' : '1fr', tableMin: '820px',
+      I: ICONS,
+      studentScreens: [chip('mapa', 'Mapa do sistema'), chip('login', 'Login'), chip('home', 'Home'), chip('continuar', 'Continuar'), chip('curso', 'Curso'), chip('player', 'Player'), chip('avaliacoes', 'Avaliações'), chip('comunidade', 'Comunidade'), chip('trilhas', 'Trilhas'), chip('certificados', 'Certificados'), chip('perfil', 'Perfil')],
+      adminScreens: [chip('admDash', 'Home'), chip('admArea', 'Área de membros'), chip('admConteudos', 'Conteúdos'), chip('admAval', 'Avaliações'), chip('admVideo', 'Estúdio'), chip('admMembros', 'Membros'), chip('admMat', 'Matrículas'), chip('admCert', 'Certificados'), chip('admAnalytics', 'Analytics'), chip('admFin', 'Financeiro'), chip('admConfig', 'Configurações')],
+      isMapa: act('mapa'), isLogin: act('login'), isHome: act('home'), isContinuar: act('continuar'), isCurso: act('curso'), isPlayer: act('player'), isAvaliacoes: act('avaliacoes'), isComunidade: act('comunidade'), isTrilhas: act('trilhas'), isCertificados: act('certificados'), isPerfil: act('perfil'),
+      isStudentApp: !act('login') && !act('mapa') && !screen.startsWith('adm'), isAdmin: screen.startsWith('adm'), isAdminDash: act('admDash'), isAdminConteudos: act('admConteudos'), isAdminMembros: act('admMembros'),
+      isGeneric: !!generic, isGenericTable: !!generic && generic.mode !== 'cards', isGenericCards: !!generic && generic.mode === 'cards',
+      g: generic || { title: '', sub: '', stats: '', cta: '', cols: '1fr', head: [], rows: [], cards: [], tabs: [] },
+      gTabs: generic ? tabs(generic.tabs || [], 0) : [], gHasStats: !!(generic && generic.stats), gHasSub: !!(generic && generic.sub),
+      goHome: this.go('home'), goCurso: this.go('curso'), goPlayer: this.go('player'), goContinuar: this.go('continuar'), goTrilhas: this.go('trilhas'), goComunidade: this.go('comunidade'), goPerfil: this.go('perfil'), goAdmin: this.go('admDash'), goMapa: this.go('mapa'),
+      studentNav: [navItem('home', 'Vitrine', 'home'), navItem('continuar', 'Continuar assistindo', 'play'), navItem('trilhas', 'Trilhas', 'route'), navItem('avaliacoes', 'Avaliações', 'clipboard'), navItem('comunidade', 'Comunidade', 'chat'), navItem('certificados', 'Certificados', 'award')].map(n => ({ ...n, color: n.bg === 'transparent' ? 'var(--muted)' : 'var(--accent)' })),
+      mobileTabs: [navItem('home', 'Início', 'home'), navItem('continuar', 'Aulas', 'play'), navItem('trilhas', 'Trilhas', 'route'), navItem('comunidade', 'Comunidade', 'chat'), navItem('perfil', 'Perfil', 'user')].map(n => ({ ...n, color: n.bg === 'transparent' ? 'var(--muted)' : 'var(--accent)' })),
+      adminNav,
+      adminFooterNav: [navItem('admConfig', 'Configurações', 'settings'), navItem('portal', 'Portal do cliente', 'external')],
+      sitemap: [
+        { side: 'Área do aluno', desc: 'O que o aluno vê após o login', items: [navItem('login', 'Login / primeiro acesso', 'lock'), navItem('home', 'Vitrine (home)', 'home'), navItem('continuar', 'Continuar assistindo', 'play'), navItem('curso', 'Página do curso', 'book'), navItem('player', 'Player da aula', 'video'), navItem('avaliacoes', 'Avaliações e quizzes', 'clipboard'), navItem('trilhas', 'Trilhas', 'route'), navItem('comunidade', 'Comunidade', 'chat'), navItem('certificados', 'Certificados', 'award'), navItem('perfil', 'Meu perfil', 'user')] },
+        { side: 'Painel admin', desc: 'Gestão da plataforma (equipe Valmer)', items: [navItem('admDash', 'Home · indicadores', 'home'), navItem('admArea', 'Área de membros', 'monitor'), navItem('admConteudos', 'Conteúdos · produtos, aulas, trilhas', 'grid'), navItem('admAval', 'Avaliações', 'clipboard'), navItem('admDesafios', 'Desafios', 'rocket'), navItem('admCom', 'Comunidade · moderação', 'chat'), navItem('admVideo', 'Estúdio de vídeo', 'video'), navItem('admMembros', 'Membros e grupos', 'users'), navItem('admMat', 'Matrículas', 'inbox'), navItem('admCert', 'Certificados', 'award'), navItem('admAnalytics', 'Analytics', 'activity'), navItem('admFin', 'Vendas e financeiro', 'dollar')] },
+        { side: 'Marketing e config.', desc: 'Aquisição, automações e plataforma', items: [navItem('admPaginas', 'Páginas', 'layout'), navItem('admAutomacoes', 'Automações', 'zap'), navItem('admCampanhas', 'Campanhas de e-mail', 'send'), navItem('admEventos', 'Eventos e auditoria', 'calendar'), navItem('admConfig', 'Configurações', 'settings'), navItem('admIA', 'Assistente IA (em breve)', 'sparkles')] },
+      ],
+      quizzes: [
+        { title: 'Autoavaliação de liderança', course: 'Líder de Impacto · Módulo 1', meta: '12 questões · 15 min', status: 'Concluída · 92%', kind: 'ok', cta: 'Ver resultado', icon: ICONS.check },
+        { title: 'Quiz · Cultura organizacional', course: 'Líder de Impacto · Módulo 3', meta: '8 questões · 10 min', status: 'Disponível', kind: 'acc', cta: 'Iniciar', icon: ICONS.play },
+        { title: 'Avaliação final', course: 'Líder de Impacto · Módulo 5', meta: '20 questões · 40 min · nota mínima 7', status: 'Bloqueada', kind: 'mute', cta: 'Conclua os módulos', icon: ICONS.lock },
+      ].map(q => ({ ...q, badgeBg: q.kind === 'ok' ? 'rgba(61,187,122,.15)' : q.kind === 'acc' ? 'var(--accent-soft)' : 'var(--surface2)', badgeColor: q.kind === 'ok' ? 'var(--ok)' : q.kind === 'acc' ? 'var(--accent)' : 'var(--muted)', btnBg: q.kind === 'acc' ? 'var(--accent)' : 'transparent', btnColor: q.kind === 'acc' ? 'var(--accent-ink)' : 'var(--text)' })),
+      courses: [
+        { title: 'Líder de Impacto', progress: 42, done: 12, total: 28, slot: 'cover-li', slotWide: 'cover-li-w', coverHint: 'Capa · Líder de Impacto' },
+        { title: 'Editora Signature', progress: 0, done: 0, total: 3, slot: 'cover-sig', slotWide: 'cover-sig-w', coverHint: 'Capa · Mentoria editorial' },
+        { title: 'Encontros ao vivo 2026', progress: 100, done: 4, total: 4, slot: 'cover-live', slotWide: 'cover-live-w', coverHint: 'Capa · Encontros ao vivo' },
+      ],
+      trails: trailsFull, trailsFull, posts, postsShort: posts.slice(0, 2), modules, certs, members,
+      contTabs: tabs(['Conteúdos', 'Favoritos', 'Anotações', 'Turmas'], 0),
+      playerTabs: tabs(['Descrição', 'Materiais', 'Comentários (12)', 'Anotações'], 0),
+      prodTabs: tabs(['Produtos', 'Materiais', 'Trilhas', 'Oferta', 'Classificação'], 0),
+      memberTabs: tabs(['Membros', 'Grupos de acesso', 'Vouchers', 'Gamificação', 'Tags'], 0),
+      includes: [['video', '28 aulas em vídeo · 9h 25'], ['file', 'Materiais em PDF e exercícios'], ['users', 'Mentorias em grupo ao vivo'], ['award', 'Certificado de conclusão'], ['phone', 'Acesso por computador, celular ou tablet'], ['chat', 'Fórum de dúvidas']].map(([i, label]) => ({ icon: ICONS[i], label })),
+      playlist: modules.filter(m => m.open || m.n === '02' || m.n === '04').map(m => ({ title: `Módulo ${m.n} · ${m.title}`, lessons: m.open ? m.lessons : (m.n === '02' ? [lesson('Escuta ativa na liderança', '20 min', 'done'), lesson('Feedback que desenvolve', '22 min', 'done')] : [lesson('Delegação e autonomia', '21 min', 'todo'), lesson('Plano de desenvolvimento individual', '25 min', 'todo')]) })),
+      channels: ['Home', 'Dúvidas das aulas', 'Autores · Signature', 'Encontros ao vivo'].map((label, i) => ({ label, bg: i === 0 ? 'var(--accent-soft)' : 'transparent', color: i === 0 ? 'var(--accent)' : 'var(--text)' })),
+      activeMembers: [{ ini: 'NS', name: 'Nayara Silveira', pts: 520 }, { ini: 'SP', name: 'Silvia Paulino', pts: 410 }, { ini: 'JE', name: 'Juliana Elias', pts: 385 }],
+      periods: [{ label: '7 dias' }, { label: '30 dias' }, { label: '6 meses' }].map((x, i) => ({ ...x, bg: i === 1 ? 'var(--accent-soft)' : 'transparent', color: i === 1 ? 'var(--accent)' : 'var(--muted)' })),
+      kpis: [{ label: 'Receita', value: 'R$ 0,00', delta: '11 vendas', deltaColor: 'var(--muted)' }, { label: 'Novos alunos', value: '13', delta: '↘ −51,9%', deltaColor: 'var(--warn)' }, { label: 'Acessos de alunos', value: '18', delta: '↘ −51,4%', deltaColor: 'var(--warn)' }, { label: 'Matrículas', value: '69', delta: 'Conclusão 39,1%', deltaColor: 'var(--ok)' }],
+      bars: barsRaw.map((h, i) => ({ h, bg: i === barsRaw.length - 1 ? 'var(--accent)' : 'var(--surface2)' })),
+      activity: [{ ini: 'EH', name: 'Edson Otani', action: 'publicou no fórum', when: 'há 15 dias' }, { ini: 'AP', name: 'Ana Paula Pacheco', action: 'concluiu Editora Signature', when: '21/09 · 14:44' }, { ini: 'LJ', name: 'Layla Jatobá', action: 'concluiu Editora Signature', when: '21/09 · 09:33' }, { ini: 'VF', name: 'Vanessa Félix', action: 'iniciou Editora Signature', when: '21/09 · 23:16' }],
+      topLessons: [['Comece por aqui', 'Editora Signature', 10], ['Como estruturar o seu projeto', 'Editora Signature', 10], ['A estrutura de escrita do seu capítulo', 'Editora Signature', 8], ['Cultura organizacional do líder', 'Líder de Impacto', 3], ['Comunicação dentro da liderança', 'Líder de Impacto', 3]].map(([title, course, views]) => ({ title, course, views, pct: views * 10 })),
+      products: [
+        { title: 'Como ganhar 50 mil por mês', code: 166, lessons: 0, students: 0, type: 'Curso online', status: 'Publicado', updated: '23/08/26 · 13:31', slot: 'adm-p1' },
+        { title: 'Editora Signature', code: 165, lessons: 3, students: 69, type: 'Curso online', status: 'Não listado', updated: '28/05/26 · 19:21', slot: 'adm-p2' },
+        { title: 'Líder de Impacto', code: 164, lessons: 28, students: 137, type: 'Curso online', status: 'Não listado', updated: '12/05/26 · 00:48', slot: 'adm-p3' },
+      ].map(x => ({ ...x, badgeBg: x.status === 'Publicado' ? 'rgba(61,187,122,.15)' : 'rgba(224,107,107,.15)', badgeColor: x.status === 'Publicado' ? 'var(--ok)' : 'var(--warn)' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

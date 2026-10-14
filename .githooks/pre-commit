@@ -1,0 +1,13 @@
+#!/bin/sh
+# Barreira comum a Codex, Cursor, Claude e humanos: roda em todo commit.
+# Ativada por `npm install` (script "prepare" -> scripts/ativar-hooks.mjs).
+
+if git diff --cached --name-only | grep -E '(^|/)\.env(\..+)?$' | grep -v -E '\.env\.example$'; then
+  echo "[guard] Arquivo .env no commit. Segredo fica fora do git; documente em .env.example." >&2
+  exit 1
+fi
+
+node scripts/check-compliance.mjs --quiet || {
+  echo "[guard] Commit bloqueado pelo auditor. Corrija as violacoes acima." >&2
+  exit 1
+}

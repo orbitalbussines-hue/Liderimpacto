@@ -1,0 +1,21 @@
+# PostgreSQL local identico ao de producao. Nunca SQLite, nem em teste.
+# Porta do host em DB_PORT (.env): cada projeto da maquina usa uma diferente.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-lider_impacto_dev}
+      POSTGRES_USER: ${DB_USER:-dev}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev}
+    ports:
+      - "${DB_PORT:-5442}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-dev}"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
