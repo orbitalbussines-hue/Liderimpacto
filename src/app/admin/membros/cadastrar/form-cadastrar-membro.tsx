@@ -18,11 +18,15 @@ export interface FormCadastrarMembroProps {
   papeis: PapelCriador[];
   grupos: { id: string; nome: string }[];
   area: string;
+  /** Link do fim do cadastro (padrão: lista de membros). */
+  voltar?: { href: string; rotulo: string };
+  /** Texto do botão de envio (padrão: "Cadastrar"). */
+  textoEnviar?: string;
 }
 
 type Feito = { nome: string; link: { url: string; expiraEm: string } | null; emailEnviado: boolean; aviso: string | null };
 
-export function FormCadastrarMembro({ papeis, grupos, area }: FormCadastrarMembroProps) {
+export function FormCadastrarMembro({ papeis, grupos, area, voltar = { href: "/admin/membros", rotulo: "Ver membros" }, textoEnviar = "Cadastrar" }: FormCadastrarMembroProps) {
   const [papel, setPapel] = useState<PapelCriador>(papeis[0] ?? "ALUNO");
   const [grupoIds, setGrupoIds] = useState<string[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -43,8 +47,8 @@ export function FormCadastrarMembro({ papeis, grupos, area }: FormCadastrarMembr
           <Button variant="contorno" size="42" onClick={() => setFeito(null)}>
             Cadastrar outro
           </Button>
-          <Link href="/admin/membros" className={buttonVariants({ size: "42" })}>
-            Ver membros
+          <Link href={voltar.href} className={buttonVariants({ size: "42" })}>
+            {voltar.rotulo}
           </Link>
         </div>
       </div>
@@ -96,7 +100,7 @@ export function FormCadastrarMembro({ papeis, grupos, area }: FormCadastrarMembr
         </p>
       )}
       <Button type="submit" size="42" carregando={pendente} className="self-start">
-        Cadastrar
+        {textoEnviar}
       </Button>
     </form>
   );

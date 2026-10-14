@@ -63,3 +63,28 @@ export const ROTULO_SITUACAO_VIDEO = {
   PRONTO: "Pronto",
   FALHOU: "Falhou",
 } as const;
+
+/** Reprocessar só depois do envio concluído (o provedor recusa ENVIANDO de novo). */
+export const podeReprocessar = (s: keyof typeof ROTULO_SITUACAO_VIDEO) => s === "FALHOU" || s === "PROCESSANDO";
+
+/** Tom do selo da situação (o mesmo do editor da aula). */
+export const TOM_SITUACAO_VIDEO = { ENVIANDO: "neutro", PROCESSANDO: "accent", PRONTO: "ok", FALHOU: "warn" } as const;
+
+/** Bytes para a tela do estúdio: KB/MB/GB/TB com uma casa ("1,4 GB"). */
+export function formatarBytes(bytes: number): string {
+  const unidades = ["KB", "MB", "GB", "TB"];
+  let valor = Math.max(0, bytes) / 1024;
+  let i = 0;
+  while (valor >= 1024 && i < unidades.length - 1) {
+    valor /= 1024;
+    i++;
+  }
+  return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${unidades[i]}`;
+}
+
+/** Soma de durações em horas e minutos ("12 h 05 min", "45 min", "0 min"). */
+export function formatarHoras(segundos: number): string {
+  const min = Math.floor(Math.max(0, segundos) / 60);
+  const h = Math.floor(min / 60);
+  return h > 0 ? `${h} h ${String(min % 60).padStart(2, "0")} min` : `${min} min`;
+}

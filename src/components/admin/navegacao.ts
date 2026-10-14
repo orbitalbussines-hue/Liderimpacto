@@ -1,7 +1,7 @@
 import {
-  Activity, Award, Building2, Calendar, ClipboardList, Database, DollarSign, Download, FileText,
+  Activity, Award, Calendar, ClipboardList, Database, DollarSign, Download, FileText,
   Filter, FolderPlus, Globe, House, Inbox, LayoutGrid, LayoutTemplate, Link2, Mail, MessageSquare,
-  Monitor, PanelsTopLeft, Percent, Palette, Plus, Rocket, Route, Send, Settings, ShieldCheck, Smartphone,
+  Monitor, PanelsTopLeft, Percent, Palette, Plus, Rocket, Route, Send, Settings, ShieldCheck,
   Sparkles, Tag, Trophy, Upload, Users, Video, Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -99,10 +99,13 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
         titulo: "Área de membros",
         subtitulo: "Gerencie suas áreas de membros e turmas",
         acao: novo("Criar área de membros"),
+        // Atalhos do hub (a tela própria em /admin/area-de-membros lê daqui; sem href = "Em breve").
         cards: [
-          { icone: Monitor, titulo: "Principal", descricao: "Subplataforma principal · lideredeimpacto.com.br" },
-          { icone: Users, titulo: "Turma Autores Signature", descricao: "Grupo de acesso · 69 membros" },
-          { icone: LayoutTemplate, titulo: "Aparência", descricao: "Logo, cores, banner e templates de e-mail" },
+          { icone: Palette, titulo: "Aparência", descricao: "Cor da marca da área do aluno", href: "/admin/configuracoes/aparencia" },
+          { icone: LayoutTemplate, titulo: "Construtor da vitrine", descricao: "Destaque e fileiras da página inicial do aluno", href: "/admin/construtor" },
+          { icone: MessageSquare, titulo: "Comunidade", descricao: "Canais, denúncias e silenciados", href: "/admin/comunidade?aba=canais" },
+          { icone: Award, titulo: "Modelo de certificado", descricao: "Título, texto e assinatura do PDF de conclusão", href: "/admin/certificados/modelo" },
+          { icone: Upload, titulo: "Importação", descricao: "Membros em massa por planilha CSV", href: "/admin/membros/importar" },
           { icone: Trophy, titulo: "Gamificação", descricao: "Pontos, níveis e ranking por área" },
         ],
       }),
@@ -307,31 +310,16 @@ export const RODAPE_NAVEGACAO: ItemNavegacao[] = [
     {
       tipo: "cards",
       titulo: "Configurações da plataforma",
-      subtitulo: "Assinatura, integrações e configurações gerais",
-      acao: { rotulo: "Ver plano", icone: Plus },
+      subtitulo: "Área, equipe, registros e integrações",
       cards: [
-        { icone: Settings, titulo: "Geral", descricao: "Nome, domínio padrão, SEO e habilitações" },
-        { icone: Palette, titulo: "Aparência", descricao: "Cor da marca e tema da área do aluno", href: "/admin/configuracoes/aparencia" },
-        { icone: Globe, titulo: "Domínios", descricao: "Conecte domínios próprios" },
-        { icone: Mail, titulo: "Disparos de e-mails", descricao: "Logs, entregas e templates" },
-        { icone: Smartphone, titulo: "Aplicativo", descricao: "App mobile da plataforma" },
+        { icone: Settings, titulo: "Geral", descricao: "Nome da área, endereço, fuso e idioma", href: "/admin/configuracoes/geral" },
+        { icone: Palette, titulo: "Aparência", descricao: "Cor da marca da área do aluno", href: "/admin/configuracoes/aparencia" },
+        { icone: Globe, titulo: "Domínios", descricao: "Endereço atual e domínio próprio", href: "/admin/configuracoes/dominios" },
+        { icone: ShieldCheck, titulo: "Equipe e acesso", descricao: "Donos e administradores da área", href: "/admin/configuracoes/equipe" },
+        { icone: FileText, titulo: "Logs", descricao: "Trilha de auditoria e registros excluídos", href: "/admin/configuracoes/logs" },
         { icone: Upload, titulo: "Importação", descricao: "Upload em massa de membros e matrículas", href: "/admin/membros/importar" },
-        { icone: FileText, titulo: "Logs", descricao: "Eventos administrativos e auditoria" },
-        { icone: ShieldCheck, titulo: "Equipe e acesso", descricao: "Administradores e permissões" },
+        { icone: Mail, titulo: "Disparos de e-mails", descricao: "Logs, entregas e templates" },
         { icone: Link2, titulo: "Integrações e webhooks", descricao: "Conectores e automações externas" },
-      ],
-    },
-    { papelMinimo: "DONO" }
-  ),
-  item(
-    "portal-do-cliente", "Portal do cliente", Building2, 3,
-    {
-      tipo: "cards",
-      titulo: "Portal do cliente",
-      subtitulo: "Plano, faturas e suporte da sua assinatura da plataforma",
-      cards: [
-        { icone: DollarSign, titulo: "Plano e faturas", descricao: "Assinatura da plataforma e histórico de cobrança" },
-        { icone: MessageSquare, titulo: "Suporte", descricao: "Abra e acompanhe chamados" },
       ],
     },
     { papelMinimo: "DONO" }

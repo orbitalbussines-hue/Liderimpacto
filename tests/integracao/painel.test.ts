@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { cabecalhosLogados, novoCriador, trilhaDe } from "./_apoio";
+import { intervalo, ultimosDias } from "@/lib/painel/periodo";
 import { cursoPronto, envelhecer, matricular, membroCom } from "./_progresso";
 
 const req = vi.hoisted(() => ({ h: new Headers() }));
@@ -41,6 +42,8 @@ const diaSP = (n: number) => SP.format(new Date(Date.now() - n * 86_400_000));
 /** Instante `hh:mm` de Brasília do dia `n` dias atrás. */
 const em = (n: number, hhmm: string) => new Date(`${diaSP(n)}T${hhmm}:00-03:00`);
 const umaHoraAtras = () => new Date(Date.now() - 3_600_000);
+/** Últimos N dias terminando hoje (o padrão da tela). */
+const u = (n: number) => ultimosDias(n, diaSP(0));
 
 type Membro = Awaited<ReturnType<typeof membroCom>>;
 
@@ -103,7 +106,7 @@ describe("KPIs (período de 7 dias x 7 anteriores)", () => {
     await concluida(cr.id, a3, curso.aulas[0].id, em(7, "23:30"));
     await concluida(cr.id, admin, curso.aulas[2].id, umaHoraAtras());
 
-    expect(await c.kpisDoPainel(cr.id, 7)).toEqual({
+    expect(await c.kpisDoPainel(cr.id, u(7))).toEqual({
       ativos: 2,
       ativosAnt: 2,
       novos: 2,
@@ -116,17 +119,39 @@ describe("KPIs (período de 7 dias x 7 anteriores)", () => {
       aulasAnt: 1,
     });
     // 30 dias: tudo é período atual (o dia 14 inclusive), nada no anterior.
-    const k30 = await c.kpisDoPainel(cr.id, 30);
+    const k30 = await c.kpisDoPainel(cr.id, u(30));
     expect([k30.ativos, k30.ativosAnt, k30.novos, k30.novosAnt, k30.aulas, k30.aulasAnt]).toEqual([3, 0, 3, 0, 3, 0]);
   });
 
   it("criador novo: tudo zero (sem erro, sem divisão por zero)", async () => {
     const cr = await novoCriador();
-    const k = await c.kpisDoPainel(cr.id, 90);
+    const k = await c.kpisDoPainel(cr.id, u(90));
     expect(Object.values(k).every((v) => v === 0)).toBe(true);
     expect(await c.saudeDosProdutos(cr.id)).toEqual({ publicados: 0, taxaMedia: null, alunosComMatricula: 0 });
-    expect(await c.maisAssistidas(cr.id, 90)).toEqual([]);
+    expect(await c.maisAssistidas(cr.id, u(90))).toEqual([]);
     expect(await c.acontecendoAgora(cr.id)).toEqual([]);
+  });
+});
+
+describe("Intervalo no passado (?de=&ate=)", () => {
+  it("nada depois de `ate` conta (borda 23:30 x 00:30 de Brasília); o anterior são os mesmos N dias antes de `de`", async () => {
+    const cr = await novoCriador();
+    const curso = await cursoPronto(cr.id, { aulas: 2 });
+    const [a1, a2] = [await membroCom(cr.id), await membroCom(cr.id)];
+    await atividade(cr.id, a1, 0, 3, 10);
+    await atividade(cr.id, a2, 1, 15); // 15 = período anterior
+    await concluida(cr.id, a1, curso.aulas[0].id, em(10, "12:00"));
+    await concluida(cr.id, a1, curso.aulas[1].id, em(8, "23:30")); // último dia, 23:30: conta
+    await concluida(cr.id, a2, curso.aulas[0].id, em(7, "00:30")); // dia seguinte ao `ate`: fora
+    await concluida(cr.id, a2, curso.aulas[1].id, umaHoraAtras());
+    await visualizacoes(cr.id, curso.aulas[0].id, 9, 4);
+    await visualizacoes(cr.id, curso.aulas[0].id, 2, 50);
+
+    const p = intervalo(diaSP(12), diaSP(8)); // 5 dias; anterior = 17..13 dias atrás
+    const k = await c.kpisDoPainel(cr.id, p);
+    // Os vínculos foram criados agora (depois do `ate`): não são "novos" deste período.
+    expect([k.ativos, k.ativosAnt, k.novos, k.novosAnt, k.aulas, k.aulasAnt]).toEqual([1, 1, 0, 0, 2, 0]);
+    expect((await c.maisAssistidas(cr.id, p)).map((l) => l.visualizacoes)).toEqual([4]);
   });
 });
 
@@ -171,11 +196,11 @@ describe("Conteúdos mais assistidos e saúde dos produtos", () => {
     await visualizacoes(cr.id, y.id, 1, 3);
     await visualizacoes(cr.id, z.id, 8, 50);
 
-    expect((await c.maisAssistidas(cr.id, 7)).map((l) => [l.titulo, l.curso, l.visualizacoes])).toEqual([
+    expect((await c.maisAssistidas(cr.id, u(7))).map((l) => [l.titulo, l.curso, l.visualizacoes])).toEqual([
       [x.titulo, curso.produto.titulo, 7],
       [y.titulo, curso.produto.titulo, 3],
     ]);
-    expect((await c.maisAssistidas(cr.id, 30))[0]).toMatchObject({ aulaId: z.id, visualizacoes: 50 });
+    expect((await c.maisAssistidas(cr.id, u(30)))[0]).toMatchObject({ aulaId: z.id, visualizacoes: 50 });
   });
 
   it("publicados, taxa média de conclusão por produto publicado e alunos com matrícula valendo", async () => {

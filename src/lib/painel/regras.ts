@@ -1,18 +1,9 @@
 /**
- * Regras PURAS do painel do admin (passo 6): período, variação contra o período anterior,
+ * Regras PURAS do painel do admin (passo 6): variação contra o período anterior,
  * tempo relativo e a frase de cada evento do "Acontecendo agora". Sem banco, testadas em
- * regras.test.ts. Definição de cada métrica: docs/back.md (Painel) e RN-122.
+ * regras.test.ts. Definição de cada métrica: docs/back.md (Painel) e RN-122. O período (`?de=&ate=`)
+ * mora em `periodo.ts`.
  */
-
-export const DIAS_PERIODO = [7, 30, 90] as const;
-export type DiasPeriodo = (typeof DIAS_PERIODO)[number];
-export const PERIODO_PADRAO: DiasPeriodo = 30;
-
-/** `?periodo=7|30|90`; qualquer outra coisa (ausente, lixo, lista) = 30. */
-export function lerPeriodo(valor: string | string[] | undefined): DiasPeriodo {
-  const n = typeof valor === "string" && /^\d{1,2}$/.test(valor) ? Number(valor) : NaN;
-  return DIAS_PERIODO.find((d) => d === n) ?? PERIODO_PADRAO;
-}
 
 export type Variacao =
   | { tipo: "alta" | "queda"; percentual: number }

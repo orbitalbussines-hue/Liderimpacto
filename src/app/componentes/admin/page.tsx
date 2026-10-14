@@ -5,7 +5,7 @@ import { CartaoKpi } from "@/components/admin/cartao-kpi";
 import { PaginaCards } from "@/components/admin/pagina-cards";
 import { PaginaTabela } from "@/components/admin/pagina-tabela";
 import { secaoPorSlug } from "@/components/admin/navegacao";
-import { SeletorPeriodo } from "@/components/admin/seletor-periodo";
+import { SeletorDatas } from "@/components/admin/seletor-datas";
 import { ShellAdmin } from "@/components/admin/shell-admin";
 import { buttonVariants } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
@@ -97,8 +97,17 @@ export default function CatalogoAdmin() {
         <PaginaCards titulo={config.titulo} subtitulo={config.subtitulo} acao={config.acao} cards={config.cards} />
       </Secao>
 
-      <Secao id="kpi" titulo="CartaoKpi + SeletorPeriodo" arquivo="admin/cartao-kpi.tsx · seletor-periodo.tsx">
-        <CabecalhoPagina variante="admin" titulo="Boa tarde, Valmer" descricao="O pulso da sua área de membros" acoes={<SeletorPeriodo />} />
+      <Secao id="kpi" titulo="CartaoKpi + SeletorDatas" arquivo="admin/cartao-kpi.tsx · seletor-datas.tsx">
+        {/* Datas fixas: o catálogo não lê relógio (nas telas, `hoje` vem de hojeEmBrasilia()). */}
+        <CabecalhoPagina
+          variante="admin"
+          titulo="Boa tarde, Valmer"
+          descricao="O pulso da sua área de membros"
+          acoes={<SeletorDatas valor={{ de: "2026-10-01", ate: "2026-10-14" }} hoje="2026-10-14" caminho="/componentes/admin" />}
+        />
+        <div className="flex flex-wrap gap-2.5">
+          <SeletorDatas valor={null} hoje="2026-10-14" caminho="/componentes/admin" />
+        </div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
           {KPIS_DASHBOARD.map((k) => (
             <CartaoKpi key={k.rotulo} {...k} />

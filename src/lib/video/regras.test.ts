@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { motivoDoBloqueio, podeAssistir } from "./acesso";
-import { faixaDaParte, lerCaminhoHls, mimeDoVideo, TAMANHO_PARTE_VIDEO, totalDePartes, validarEnvioVideo } from "./regras";
+import { faixaDaParte, formatarBytes, formatarHoras, lerCaminhoHls, podeReprocessar, mimeDoVideo, TAMANHO_PARTE_VIDEO, totalDePartes, validarEnvioVideo } from "./regras";
 import { JANELA_SESSAO_MS, limiteDeSessoes, sessaoViva, sessoesAEncerrar } from "./sessoes";
 
 const GB = 1024 ** 3;
@@ -106,5 +106,26 @@ describe("limite de telas (RN-115)", () => {
     expect(limiteDeSessoes({ VIDEO_LIMITE_SESSOES: "3" })).toBe(3);
     expect(limiteDeSessoes({ VIDEO_LIMITE_SESSOES: "0" })).toBe(2);
     expect(limiteDeSessoes({ VIDEO_LIMITE_SESSOES: "abc" })).toBe(2);
+  });
+});
+
+describe("formatação do estúdio de vídeo", () => {
+  it("bytes sobem de unidade e nunca ficam negativos", () => {
+    expect(formatarBytes(0)).toBe("0 KB");
+    expect(formatarBytes(512 * 1024)).toBe("512 KB");
+    expect(formatarBytes(1.5 * 1024 ** 3)).toBe("1,5 GB");
+    expect(formatarBytes(3 * 1024 ** 4)).toBe("3 TB");
+    expect(formatarBytes(-10)).toBe("0 KB");
+  });
+  it("reprocessar só depois do envio", () => {
+    expect(podeReprocessar("FALHOU")).toBe(true);
+    expect(podeReprocessar("PROCESSANDO")).toBe(true);
+    expect(podeReprocessar("ENVIANDO")).toBe(false);
+    expect(podeReprocessar("PRONTO")).toBe(false);
+  });
+  it("horas de conteúdo", () => {
+    expect(formatarHoras(0)).toBe("0 min");
+    expect(formatarHoras(59 * 60 + 59)).toBe("59 min");
+    expect(formatarHoras(12 * 3600 + 5 * 60)).toBe("12 h 05 min");
   });
 });

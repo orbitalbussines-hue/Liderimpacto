@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diaMes, formatarTaxa, fraseDoEvento, lerPeriodo, tempoRelativo, textoDaVariacao, variacao } from "./regras";
-
-describe("lerPeriodo", () => {
-  it("aceita 7, 30 e 90; o resto vira 30", () => {
-    expect([lerPeriodo("7"), lerPeriodo("30"), lerPeriodo("90")]).toEqual([7, 30, 90]);
-    for (const v of [undefined, "", "15", "7d", "-7", "07a", ["7", "90"], "999"]) expect(lerPeriodo(v)).toBe(30);
-  });
-});
+import { diaMes, formatarTaxa, fraseDoEvento, tempoRelativo, textoDaVariacao, variacao } from "./regras";
 
 describe("variacao", () => {
   it("alta, queda e igual em % do anterior", () => {

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import type { PapelCriador, PapelPlataforma } from "@/lib/db/schema/_enums";
 import { criadores, criadores_membros } from "@/lib/db/schema/criadores";
 import { vivos } from "@/lib/db/soft-delete";
-import { criadorDoHost } from "./host";
+import { criadorDoHost, urlDaArea } from "./host";
 
 /**
  * Area da requisicao, resolvida pelo HOST + banco. Sem Next aqui (o teste chama direto com
@@ -36,6 +36,11 @@ export function dominioDaPlataforma(): string {
 /** Origem real da plataforma (protocolo + porta): BETTER_AUTH_URL; sem ela, https://<dominio>. */
 export function urlDaPlataforma(): string {
   return process.env.BETTER_AUTH_URL ?? `https://${dominioDaPlataforma()}`;
+}
+
+/** Endereco da area na tela: `<slug>.<PLATAFORMA_DOMINIO>` e a URL de verdade (com porta no dev). */
+export function enderecoDaArea(slug: string): { host: string; url: string } {
+  return { host: `${slug}.${dominioDaPlataforma()}`, url: urlDaArea(urlDaPlataforma(), slug) };
 }
 
 /** `null` = host que nao e area nenhuma (slug invalido, criador inexistente ou SUSPENSO) -> 404. */

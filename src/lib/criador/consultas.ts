@@ -39,3 +39,26 @@ export async function marcaDoCriador(criadorId: string) {
     .where(and(eq(criadores.id, criadorId), vivos(criadores)));
   return c ?? null;
 }
+
+/** Configurações > Geral e Domínios: nome, slug, domínio próprio reservado e versão (trava). */
+export async function dadosDaArea(criadorId: string) {
+  const [c] = await db
+    .select({ nome: criadores.nome, slug: criadores.slug, dominioProprio: criadores.dominio_proprio, versao: criadores.updated_at })
+    .from(criadores)
+    .where(and(eq(criadores.id, criadorId), vivos(criadores)));
+  return c ?? null;
+}
+
+/**
+ * Cartão da área principal no hub "Área de membros": membros ATIVOS (qualquer papel), alunos
+ * ativos e cursos PUBLICADOS. Uma consulta, só do criador.
+ */
+export async function resumoDaArea(criadorId: string) {
+  const r = await db.execute<{ membros: number; alunos: number; cursos: number }>(sql`
+    select
+      (select count(*)::int from criadores_membros m where m.criador_id = ${criadorId} and m.is_deleted = false and m.status = 'ATIVO') as membros,
+      (select count(*)::int from criadores_membros m where m.criador_id = ${criadorId} and m.is_deleted = false and m.status = 'ATIVO' and m.papel = 'ALUNO') as alunos,
+      (select count(*)::int from produtos p where p.criador_id = ${criadorId} and p.is_deleted = false and p.status = 'PUBLICADO') as cursos
+  `);
+  return r.rows[0] ?? { membros: 0, alunos: 0, cursos: 0 };
+}

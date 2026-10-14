@@ -268,23 +268,83 @@ ADR-0007, RN-122. Migração `0005_painel_atividades`. Nenhuma variável de ambi
 | `criadores_membros_atividades` | um dia de atividade de aula por (membro, dia de Brasília), único entre os vivos; índice (criador, dia). Escrito pelo upsert do progresso (`registrar.ts`, CTE `ativ`, só na 1ª batida do dia de cada aula) e pela conclusão pelo botão; carga inicial pelo progresso existente |
 | `ix_produtos_modulos_aulas_progressos_concluidas` | (criador, `concluida_em` desc) onde concluída e viva: "Aulas concluídas" e "Acontecendo agora" |
 
-Período: `?periodo=7|30|90` (`lerPeriodo`, padrão 30) = hoje e os N−1 dias anteriores em Brasília;
-o anterior são os N dias antes dele. Instantes comparados com a meia-noite de Brasília convertida.
-Métricas de aluno contam só vínculos vivos com papel ALUNO.
+Período (`src/lib/painel/periodo.ts`, puro e testado; o mesmo do Analytics e dos Logs):
+`?de=AAAA-MM-DD&ate=AAAA-MM-DD`, dias de Brasília, ambos inclusivos. `lerIntervalo(searchParams, hoje)` (com `hoje` de
+`hojeEmBrasilia()` injetado) aceita só formato válido + data que existe + `de ≤ ate ≤ hoje` + no máximo 366 dias; senão
+cai no legado `?periodo=7|30|90` (últimos N dias) e, sem nada, nos **últimos 30 dias**. Devolve `{ de, ate, dias }`.
+**Período anterior** (`periodoAnterior`) = os mesmos N dias imediatamente antes de `de`. Nas consultas, `limites(periodo)`
+monta a CTE `t` com `ini`/`fim`/`ini_ant` (dias) e `t_ini`/`t_ini_ant`/`t_fim` = meia-noite de Brasília convertida
+(`t_fim` = meia-noite do dia SEGUINTE a `ate`, exclusivo): dia entra se `between ini and fim`, instante se
+`>= t_ini and < t_fim`. **Nada depois de `ate` conta** (um intervalo no passado não vê atividade posterior). Comparar
+instante com a meia-noite convertida usa o índice; nada de `::date` em UTC. Atalhos do seletor (`intervaloDoAtalho`):
+hoje, ontem, últimos 7/30/90 dias, este mês, mês passado, últimos 3/6/12 meses (do dia seguinte ao mesmo dia N meses
+atrás até hoje). Métricas de aluno contam só vínculos vivos com papel ALUNO.
 
 | Função (`src/lib/painel/`) | Retorno / definição | Cache |
 |--------|----------|----------|
-| `kpisDoPainel(criadorId, dias)` | `{ ativos, ativosAnt, novos, novosAnt, matriculas, matriculasAnt, validas, validasConcluidas, aulas, aulasAnt }`. Ativos = alunos distintos com dia em `criadores_membros_atividades`; novos = `criadores_membros.created_at`; matrículas = `produtos_matriculas.iniciada_em` (criação e reativação gravam o início); válidas = ATIVA e não expirada agora (taxa = `validasConcluidas / validas`, `concluida_em` preenchida); aulas = `concluida_em` do progresso | `kpisCacheados` |
+| `kpisDoPainel(criadorId, periodo)` | `{ ativos, ativosAnt, novos, novosAnt, matriculas, matriculasAnt, validas, validasConcluidas, aulas, aulasAnt }`. Ativos = alunos distintos com dia em `criadores_membros_atividades`; novos = `criadores_membros.created_at`; matrículas = `produtos_matriculas.iniciada_em` (criação e reativação gravam o início); válidas = ATIVA e não expirada agora (taxa = `validasConcluidas / validas`, `concluida_em` preenchida); aulas = `concluida_em` do progresso | `kpisCacheados` |
 | `acessosPorDia(criadorId)` | `{ dia: "AAAA-MM-DD", alunos }[]`, sempre 14 (hoje por último), zeros por `generate_series` | `acessosCacheados` |
-| `maisAssistidas(criadorId, dias, limite = 5)` | `{ aulaId, titulo, curso, visualizacoes }[]`: soma de `produtos_modulos_aulas_visualizacoes` no período (aula, módulo e produto vivos) | `maisAssistidasCacheadas` |
+| `maisAssistidas(criadorId, periodo, limite = 5)` | `{ aulaId, titulo, curso, visualizacoes }[]`: soma de `produtos_modulos_aulas_visualizacoes` no período (aula, módulo e produto vivos) | `maisAssistidasCacheadas` |
 | `saudeDosProdutos(criadorId)` | `{ publicados, taxaMedia: 0..1 \| null, alunosComMatricula }`: média por produto PUBLICADO das taxas de conclusão das matrículas válidas | `saudeCacheada` |
 | `acontecendoAgora(criadorId, limite = 8)` | `EventoPainel[]` (`matricula`, `reativacao`, `membro`, `publicacao`, `video`, `conclusao`), mais recentes primeiro. Trilha: `produtos_matriculas` criar/atualizar com `iniciada_em`, `criadores_membros` criar, `produtos` publicar → PUBLICADO, `produtos_modulos_aulas_videos` → PRONTO; progresso: `concluida_em` de ALUNO. Só ids da trilha + nome/título por JOIN; `detalhes` (pode ter e-mail) nunca é lido. Número "3.2" = posição entre módulos publicados e aulas vivas | nenhum |
 
 Regras puras em `regras.ts` (testadas): `variacao` (base zero = "novo", os dois zero = "sem-dados"),
 `textoDaVariacao` (seta + sinal + versão por extenso), `tempoRelativo` ("há 5 min", "21/09 · 14:44"
 em Brasília), `fraseDoEvento`. Cache (`cache.ts`): `"use cache"` + `cacheLife("minutes")` +
-`cacheTag("painel:<criador>")`, chamado só DEPOIS de `membroDaPagina(EQUIPE)` em cada bloco.
+`cacheTag("painel:<criador>")` (a chave inclui o período `de`/`ate`), chamado só DEPOIS de `membroDaPagina(EQUIPE)` em cada bloco.
 Tela: `src/app/admin/page.tsx` + `_components/` (um `<Suspense>` com esqueleto por bloco).
+
+## Analytics do admin (`/admin/analytics`)
+
+RN-139. Sem migração, sem tabela nova, sem variável nova: lê as tabelas do progresso (ADR-0006), do
+painel (ADR-0007), das matrículas e das avaliações. Filtros na URL: `?aba=visao-geral|conteudo|retencao|avaliacoes`,
+`?de=&ate=` (o `lerIntervalo` e os limites `limites()` do painel — ver "Período" no Painel; legado `?periodo=`), `?curso=<produto>` (uuid; de outro criador = "todos") e `?ordem=estrutura` no Conteúdo.
+Em todas: criador do HOST, vivos em cada tabela (produto, módulo, aula, avaliação, questão, vínculo) e só vínculos
+vivos com papel ALUNO.
+
+| Métrica | Definição exata | Fonte | Período / curso |
+|---------|-----------------|-------|-----------------|
+| Alunos ativos | alunos distintos com dia em `criadores_membros_atividades` | atividades | período e anterior. Com curso: alunos com progresso no curso e `updated_at` (última batida) no período; anterior = nulo ("indisponível por curso": a batida nova apaga a anterior). Por isso, com curso e intervalo no passado, quem voltou a assistir depois de `ate` não conta |
+| Horas assistidas | soma de `segundos_assistidos` (segundos ÚNICOS, bitmap) | progresso | **acumulado** desde sempre, sem período e sem comparação (não existe segundos por dia); filtra curso |
+| Aulas concluídas | progressos com `concluida_em` no período | progresso | período e anterior; filtra curso |
+| Conclusão de cursos | matrículas valendo (ATIVA, não expirada) com `concluida_em` ÷ matrículas valendo, hoje; e matrículas com `concluida_em` no período | matrículas | taxa = hoje; contagem = período e anterior; filtra curso |
+| Aprovação em avaliações | pares (aluno, avaliação) com ≥ 1 tentativa aprovada ÷ pares com tentativa finalizada (`finalizada_em`) | tentativas | período e anterior (variação em p.p.); filtra curso |
+| Série "Alunos ativos por dia" | alunos distintos por dia, um ponto por dia com zeros; acima de 92 dias, um ponto por SEMANA (segunda a domingo, recortada no período; alunos distintos na semana) e a tela diz "por semana" | atividades | período; **não** separa por curso (dito na tela) |
+| Série "Visualizações de aula por dia" | soma de `produtos_modulos_aulas_visualizacoes` (1 por aluno, aula e dia); acima de 92 dias, soma por semana | agregado do Top 10 | período; filtra curso |
+| Conteúdo por aula | começaram = progresso com segundo assistido ou concluído; concluíram; **abandono = começaram e não concluídos (abaixo de 90%) ÷ começaram**; tempo médio = média dos segundos únicos de quem começou; maior queda = maior abandono (empate: mais gente parada) | progresso | situação de hoje (sem período); aulas vivas de módulos PUBLICADOS; filtra curso |
+| Conteúdo por curso | alunos distintos que começaram alguma aula (módulo publicado); matrículas de aluno com o curso concluído; segundos do curso ÷ quem começou | progresso, matrículas | hoje; filtra curso |
+| Retenção (coortes) | aluno entra na semana (segunda a domingo, Brasília) da PRIMEIRA matrícula viva; célula k = % da coorte com dia de atividade de aula k semanas depois; 8 semanas, a atual inclusive; < 5 alunos = amostra pequena | matrículas, atividades | fixas 8 semanas; com curso, a coorte é a 1ª matrícula NAQUELE curso, mas a atividade vale em qualquer aula |
+| Avaliações | por avaliação viva (publicada, ou com tentativa no período): tentativas, alunos distintos, alunos com ≥ 1 aprovada, nota média das tentativas; top 3 questões por erros (`correcao` congelada; empate pela taxa); questão removida aparece como "removida" | tentativas, questões | período; filtra curso |
+
+| Função (`src/lib/analytics/`) | Retorno | Cache (`cache.ts`) |
+|--------|---------|-------|
+| `cursosDoCriador(criadorId)` | `{ id, titulo }[]` (produtos vivos) | `cursosCacheados` |
+| `kpisAnalytics(criadorId, periodo, curso)` | `{ ativos, ativosAnt \| null, aulas, aulasAnt, validas, validasConcluidas, cursosConcluidos, cursosConcluidosAnt, avaliados, aprovados, avaliadosAnt, aprovadosAnt }`, UMA instrução | `visaoGeralCacheada` |
+| `horasAssistidas(criadorId, periodo, curso)` | `{ segundos, segundosAnt: null, recorte: "acumulado" }`. **Ponto único de troca**: quando existir `segundos` em `criadores_membros_atividades` (próxima migração), vira soma por período e `recorte: "periodo"`; a tela já trata os dois casos | idem |
+| `serieDiaria(criadorId, periodo, curso)` | `{ dia, alunos, visualizacoes }[]` de `de` a `ate`; por semana acima de 92 dias (`agrupamentoDaSerie`; `dia` = 1º dia da semana dentro do período) | idem |
+| `conteudo(criadorId, curso)` | `{ cursos: CursoConteudo[], aulas: AulaAnalytics[] }` (duas instruções em paralelo) | `conteudoCacheado` |
+| `coortes(criadorId, curso)` | `LinhaCoorte[]` (8, a mais antiga primeiro) | `coortesCacheadas` |
+| `avaliacoesAnalytics(criadorId, periodo, curso)` (`consultas-avaliacoes.ts`) | `AvaliacaoAnalytics[]` com `questoes` (top 3), duas instruções | `avaliacoesCacheadas` |
+
+Cache: `"use cache"` + `cacheLife("minutes")` + `cacheTag("analytics:<criador>")` (chave com criador, `de`/`ate` e curso), chamado só DEPOIS de
+`membroDaPagina(EQUIPE)` (`src/app/admin/analytics/_components/contexto.ts`). Regras puras em `regras.ts` (testadas):
+`lerAba`, `lerCurso`, `lerOrdem`, `consulta`, `taxa` (base zero = nula), `variacaoEmPontos`, `formatarHoras`,
+`formatarDuracao`, `abandono`, `maiorQueda`, `ordenarAulas`, `montarCoortes`, `faixaDeCalor`, `gerarCsv`.
+
+### `GET /admin/analytics/exportar?aba=&de=&ate=&curso=&ordem=` (CSV)
+
+- Route handler `src/app/admin/analytics/exportar/route.ts` → `atenderExportacao(req)` (`src/lib/analytics/exportar.ts`).
+- Sessão PLENA do host (cookie de outro host não vale) + papel DONO/ADMIN lido do banco (`avaliarMembro`, recusa na
+  trilha): `401` sem sessão, `403` ALUNO ou apex, `200` `text/csv; charset=utf-8` com `Content-Disposition: attachment`
+  (`analytics-<aba>-<de>-a-<ate>.csv` nas abas com período; `analytics-<aba>-<hoje>.csv` em Conteúdo e Retenção) e
+  `Cache-Control: no-store`. Lê SEM cache (sai fresco). Período com a MESMA leitura da tela (`lerIntervalo`, legado
+  `periodo=` aceito); série por semana acima de 92 dias (1ª coluna `semana_inicio`).
+- **Decisão: só agregados.** Nenhuma linha por aluno, nenhum nome, e-mail ou id de pessoa; ids só de curso, aula e
+  avaliação (para cruzar planilhas). Formato para o Excel PT-BR: `;`, vírgula decimal, BOM, CRLF; taxas em fração 0..1;
+  texto que começa com `= + - @` ganha `'` (não vira fórmula). Colunas em `src/lib/analytics/csv.ts`.
+
+Tela: `src/app/admin/analytics/page.tsx` + `_components/` (filtros = abas em link, curso por form GET, período pelo
+`SeletorDatas` só nas abas que o usam, preservando `aba`/`curso`/`ordem`; uma aba por `<Suspense>`; `GraficoBarrasDia` = barras CSS de um eixo no estilo do `GraficoAcessos`).
 
 ## Avaliações, certificados e trilhas (passo 7)
 
@@ -529,6 +589,31 @@ sessão = 401 sem corpo; SUPER_ADMIN sem vínculo = `{ "naoLidas": 0 }`. A tela 
 `INTERVALO_POLLING_MS` SÓ com a aba visível (`document.visibilityState`). A rota lê a sessão com
 `sessaoDosCabecalhos(h, { renovar: false })`: o polling NÃO conta como uso (aba esquecida expira em 1 h).
 
+## Telas restantes do admin: estúdio, área de membros e configurações
+
+### Estúdio de vídeo (`src/lib/video/estudio.ts`, DONO e ADMIN)
+
+| Função | Devolve |
+|--------|---------|
+| `listarVideos(criadorId, { busca?, situacao?, produtoId?, pagina, porPagina })` | `{ total, linhas }`: vídeo vivo + aula, módulo e produto VIVOS do mesmo criador (vídeo de aula removida some), mais novo primeiro. Busca no título da aula ou no nome do arquivo |
+| `totaisDoEstudio(criadorId)` | `{ videos, segundosProntos, bytesOriginais, processando, falhos }` — armazenamento ESTIMADO pelo tamanho dos originais (o HLS não tem tamanho gravado) |
+| `produtosComVideo(criadorId)` | opções do filtro "Curso" |
+| `estadoDaFila(criadorId, filas?)` | `{ disponivel: true, aguardando, processando, falhos }` ou `{ disponivel: false }`. Lê até 500 jobs por estado da fila e da DLQ (`getJobs`) e conta SÓ os jobs cujo `videoId` é do criador (a fila é da plataforma). Redis fora, sem `REDIS_URL` ou mais de 2,5 s: indisponível, nunca lança. Filas de leitura próprias (`criarFilasDoEstudio`) com ouvinte de `error` |
+
+Reprocessar na tela = `acaoReprocessarVideo` (só FALHOU/PROCESSANDO: `podeReprocessar` em `src/lib/video/regras.ts`), com `ModalConfirmacaoBlock`. Trocar vídeo = editor da aula.
+
+### Área e configurações
+
+| Função / action | Quem | O quê |
+|-----------------|------|-------|
+| `dadosDaArea(criadorId)` (`src/lib/criador/consultas.ts`) | páginas Geral/Domínios | nome, slug, `dominioProprio`, versão (trava) |
+| `resumoDaArea(criadorId)` | hub Área de membros | `{ membros, alunos, cursos }`: vínculos ATIVOS, alunos ativos, produtos PUBLICADOS |
+| `enderecoDaArea(slug)` (`src/lib/criador/area.ts`) | telas | `{ host: "<slug>.<PLATAFORMA_DOMINIO>", url }` |
+| `acaoRenomearArea({ nome, versao })` (`src/lib/actions/configuracoes.ts`) | só DONO | nome 2–80, trava pelo `updated_at` do criador, trilha `"antigo" → "novo"` na transação — RN-141 |
+| `listarMembros(criadorId, { papeis: ["DONO","ADMIN"], ... })` | Equipe e acesso | filtro novo `papeis`; convidar = `acaoCadastrarMembro` com papel ADMIN |
+| `listarTrilha(criadorId, { pessoa?, acao?, tabela?, periodo?: { de, ate }, somenteExclusoes?, cursor?, limite })` (`src/lib/audit/consultas.ts`) | Logs (só DONO) | período = `?de=&ate=` (`lerIntervaloExplicito`; sem ele = desde o início), `created_at` entre a meia-noite de Brasília de `de` e a do dia seguinte a `ate` (exclusivo); keyset `(created_at, id) desc`, devolve `proximo` (`"<ms>_<uuid>"`). Sai só `detalhes` passado por `detalheSeguro` (`src/lib/audit/regras.ts`) + `titulo` (primeiro trecho entre aspas); `dados_*` nunca são selecionados — RN-140 |
+| `entidadesDaTrilha(criadorId)` | Logs | tabelas que já aparecem na trilha do criador, com rótulo |
+
 ## Variáveis de ambiente (passo 3)
 
 | Variável | Dev (docker-compose) | Produção | Para quê |
@@ -570,7 +655,8 @@ aplicacao NAO tem `UPDATE` nem `DELETE` nela:
 REVOKE UPDATE, DELETE ON auditoria FROM app_usuario;
 ```
 
-Nunca grave senha, hash, token ou codigo OTP em `dados_*`.
+Nunca grave senha, hash, token ou codigo OTP em `dados_*`. O visualizador do DONO
+(Configurações > Logs) mostra só `detalhes` mascarado — RN-140.
 
 ## Comandos
 

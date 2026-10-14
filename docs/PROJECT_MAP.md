@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 526 |
+| Arquivos TS/TSX | 561 |
 | Tabelas (Drizzle) | 44 |
-| Server Actions (arquivos) | 28 |
-| Rotas de API | 6 |
-| Paginas | 48 |
-| Componentes | 144 |
+| Server Actions (arquivos) | 29 |
+| Rotas de API | 7 |
+| Paginas | 56 |
+| Componentes | 145 |
 
 ## Arvore (profundidade 3)
 
@@ -35,11 +35,14 @@ app/
   admin/
     _components/
     [secao]/
+    analytics/
+    area-de-membros/
     avaliacoes/
     certificados/
     comunidade/
     configuracoes/
     conteudos/
+    estudio-de-video/
     matriculas/
     membros/
     trilhas/
@@ -101,7 +104,8 @@ components/
     saudacao.test.ts
     saudacao.ts
     seletor-cor-marca.tsx
-    seletor-periodo.tsx
+    seletor-datas.test.tsx
+    seletor-datas.tsx
     shell-admin.tsx
     sidebar-admin.tsx
     tabela-tipos.ts
@@ -277,6 +281,7 @@ lib/
     certificados.ts
     comunidade-moderacao.ts
     comunidade.ts
+    configuracoes.ts
     criadores.ts
     favoritos.ts
     grupos.ts
@@ -295,6 +300,14 @@ lib/
     trilhas.ts
     usuarios-senha.ts
     videos.ts
+  analytics/
+    cache.ts
+    consultas-avaliacoes.ts
+    consultas.ts
+    csv.ts
+    exportar.ts
+    regras.test.ts
+    regras.ts
   armazenamento/
     arquivos.ts
     cliente.ts
@@ -302,7 +315,10 @@ lib/
     regras.test.ts
     regras.ts
   audit/
+    consultas.ts
     registrar.ts
+    regras.test.ts
+    regras.ts
   auth/
     auth.ts
     autorizacao.ts
@@ -406,6 +422,8 @@ lib/
   painel/
     cache.ts
     consultas.ts
+    periodo.test.ts
+    periodo.ts
     regras.test.ts
     regras.ts
   perfil/
@@ -445,6 +463,7 @@ lib/
     chaves.test.ts
     chaves.ts
     entrega.ts
+    estudio.ts
     ffmpeg.test.ts
     ffmpeg.ts
     fila.ts
@@ -608,6 +627,7 @@ proxy.ts
 
 | Rota | Metodos |
 |------|---------|
+| `/admin/analytics/exportar` | GET |
 | `/api/notificacoes/contagem` | GET |
 | `/api/progresso` | POST |
 | `/api/video/[id]/chave` | GET |
@@ -627,6 +647,7 @@ proxy.ts
 - `src/lib/actions/certificados.ts`: `acaoSalvarModeloCertificado()`, `acaoGerarNovaVersaoCertificado()`, `acaoRevogarCertificado()`, `acaoBaixarCertificado()`
 - `src/lib/actions/comunidade-moderacao.ts`: `acaoFixarPublicacao()`, `acaoOcultar()`, `acaoResolverDenuncia()`, `acaoSilenciarMembro()`, `acaoDessilenciarMembro()`, `acaoCriarCanal()`, `acaoSalvarCanal()`, `acaoRemoverCanal()`
 - `src/lib/actions/comunidade.ts`: `acaoPublicar()`, `acaoEditarPublicacao()`, `acaoRemoverPublicacao()`, `acaoVotarEnquete()`, `acaoCurtir()`, `acaoComentar()`, `acaoEditarComentario()`, `acaoRemoverComentario()`, `acaoDenunciar()`, `acaoIniciarEnvioAnexo()`, `acaoConfirmarEnvioAnexo()`, `acaoLinkDoAnexo()`, `acaoMaisPublicacoes()`
+- `src/lib/actions/configuracoes.ts`: `acaoRenomearArea()`
 - `src/lib/actions/criadores.ts`: `acaoCriarCriador()`, `acaoAlterarSituacaoCriador()`
 - `src/lib/actions/favoritos.ts`: `acaoFavoritar()`, `acaoDesfavoritar()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
@@ -663,6 +684,8 @@ proxy.ts
 - `src/app/(aluno)/trilhas/[id]/page.tsx`
 - `src/app/(aluno)/trilhas/page.tsx`
 - `src/app/admin/[secao]/page.tsx`
+- `src/app/admin/analytics/page.tsx`
+- `src/app/admin/area-de-membros/page.tsx`
 - `src/app/admin/avaliacoes/[id]/alunos/page.tsx`
 - `src/app/admin/avaliacoes/[id]/page.tsx`
 - `src/app/admin/avaliacoes/nova/page.tsx`
@@ -671,10 +694,16 @@ proxy.ts
 - `src/app/admin/certificados/page.tsx`
 - `src/app/admin/comunidade/page.tsx`
 - `src/app/admin/configuracoes/aparencia/page.tsx`
+- `src/app/admin/configuracoes/dominios/page.tsx`
+- `src/app/admin/configuracoes/equipe/convidar/page.tsx`
+- `src/app/admin/configuracoes/equipe/page.tsx`
+- `src/app/admin/configuracoes/geral/page.tsx`
+- `src/app/admin/configuracoes/logs/page.tsx`
 - `src/app/admin/conteudos/[id]/aulas/[aulaId]/page.tsx`
 - `src/app/admin/conteudos/[id]/page.tsx`
 - `src/app/admin/conteudos/novo/page.tsx`
 - `src/app/admin/conteudos/page.tsx`
+- `src/app/admin/estudio-de-video/page.tsx`
 - `src/app/admin/matriculas/importar/page.tsx`
 - `src/app/admin/matriculas/page.tsx`
 - `src/app/admin/membros/cadastrar/page.tsx`

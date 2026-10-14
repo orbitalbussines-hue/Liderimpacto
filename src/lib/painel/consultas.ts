@@ -1,25 +1,31 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import type { DiasPeriodo, EventoPainel } from "./regras";
+import type { Intervalo } from "./periodo";
+import type { EventoPainel } from "./regras";
 
 /**
  * LEITURAS do painel do admin (passo 6). `criadorId` vem SEMPRE do host. Cada bloco = UMA
- * instrução agregada (sem N+1). Dias no calendário de Brasília: o período de N dias é hoje e os
- * N−1 dias anteriores; o anterior equivalente são os N dias antes dele. Coluna `instante` é
- * comparada com a MEIA-NOITE de Brasília convertida (usa índice; nada de `::date` em UTC).
- * Só membros com papel ALUNO entram nas métricas de aluno. Definições: docs/back.md (Painel).
+ * instrução agregada (sem N+1). Dias no calendário de Brasília: o período é `de..ate` (inclusivos,
+ * `src/lib/painel/periodo.ts`); o anterior equivalente são os mesmos N dias antes de `de`. Nada
+ * depois de `ate` conta. Coluna `instante` é comparada com a MEIA-NOITE de Brasília convertida
+ * (usa índice; nada de `::date` em UTC). Só membros com papel ALUNO entram nas métricas de aluno.
+ * Definições: docs/back.md (Painel).
  */
 
-const HOJE = sql.raw(`(now() at time zone 'America/Sao_Paulo')::date`);
-/** CTE `t` com os limites do período (`ini`..`hoje`) e do anterior (`ini_ant`..`ini - 1`); `t_*` = meia-noite de Brasília. */
-const limites = (dias: DiasPeriodo) => sql`
+export const HOJE = sql.raw(`(now() at time zone 'America/Sao_Paulo')::date`);
+/**
+ * CTE `t` com os limites do período (`ini`..`fim`, dias) e do anterior (`ini_ant`..`ini - 1`).
+ * `t_ini`, `t_ini_ant` = meia-noite de Brasília do dia; `t_fim` = meia-noite do dia SEGUINTE a
+ * `fim` (exclusivo): instante entra se `>= t_ini and < t_fim`.
+ */
+export const limites = (p: Pick<Intervalo, "de" | "ate">) => sql`
   t0 as (
-    select h.hoje, h.hoje - (${dias}::int - 1) as ini, h.hoje - (2 * ${dias}::int - 1) as ini_ant
-    from (select ${HOJE} as hoje) h
+    select ${p.de}::date as ini, ${p.ate}::date as fim, ${p.de}::date - (${p.ate}::date - ${p.de}::date + 1) as ini_ant
   ),
   t as (
     select t0.*, (t0.ini::timestamp at time zone 'America/Sao_Paulo') as t_ini,
+      ((t0.fim + 1)::timestamp at time zone 'America/Sao_Paulo') as t_fim,
       (t0.ini_ant::timestamp at time zone 'America/Sao_Paulo') as t_ini_ant
     from t0
   )`;
@@ -38,27 +44,27 @@ export interface KpisPainel {
   aulasAnt: number;
 }
 
-export async function kpisDoPainel(criadorId: string, dias: DiasPeriodo): Promise<KpisPainel> {
+export async function kpisDoPainel(criadorId: string, periodo: Intervalo): Promise<KpisPainel> {
   const c = sql`${criadorId}::uuid`;
   const { rows } = await db.execute<Record<string, number>>(sql`
-    with ${limites(dias)}
+    with ${limites(periodo)}
     select
       (select count(distinct a.membro_id) filter (where a.dia >= t.ini) from criadores_membros_atividades a
         join criadores_membros m on m.id = a.membro_id and m.papel = 'ALUNO' and m.is_deleted = false
-        where a.criador_id = ${c} and a.is_deleted = false and a.dia between t.ini_ant and t.hoje)::int as "ativos",
+        where a.criador_id = ${c} and a.is_deleted = false and a.dia between t.ini_ant and t.fim)::int as "ativos",
       (select count(distinct a.membro_id) filter (where a.dia < t.ini) from criadores_membros_atividades a
         join criadores_membros m on m.id = a.membro_id and m.papel = 'ALUNO' and m.is_deleted = false
-        where a.criador_id = ${c} and a.is_deleted = false and a.dia between t.ini_ant and t.hoje)::int as "ativosAnt",
+        where a.criador_id = ${c} and a.is_deleted = false and a.dia between t.ini_ant and t.fim)::int as "ativosAnt",
       (select count(*) filter (where m.created_at >= t.t_ini) from criadores_membros m
-        where m.criador_id = ${c} and m.is_deleted = false and m.papel = 'ALUNO' and m.created_at >= t.t_ini_ant)::int as "novos",
+        where m.criador_id = ${c} and m.is_deleted = false and m.papel = 'ALUNO' and m.created_at >= t.t_ini_ant and m.created_at < t.t_fim)::int as "novos",
       (select count(*) filter (where m.created_at < t.t_ini) from criadores_membros m
-        where m.criador_id = ${c} and m.is_deleted = false and m.papel = 'ALUNO' and m.created_at >= t.t_ini_ant)::int as "novosAnt",
+        where m.criador_id = ${c} and m.is_deleted = false and m.papel = 'ALUNO' and m.created_at >= t.t_ini_ant and m.created_at < t.t_fim)::int as "novosAnt",
       (select count(*) filter (where pm.iniciada_em >= t.t_ini) from produtos_matriculas pm
         join criadores_membros m on m.id = pm.membro_id and m.papel = 'ALUNO' and m.is_deleted = false
-        where pm.criador_id = ${c} and pm.is_deleted = false and pm.iniciada_em >= t.t_ini_ant)::int as "matriculas",
+        where pm.criador_id = ${c} and pm.is_deleted = false and pm.iniciada_em >= t.t_ini_ant and pm.iniciada_em < t.t_fim)::int as "matriculas",
       (select count(*) filter (where pm.iniciada_em < t.t_ini) from produtos_matriculas pm
         join criadores_membros m on m.id = pm.membro_id and m.papel = 'ALUNO' and m.is_deleted = false
-        where pm.criador_id = ${c} and pm.is_deleted = false and pm.iniciada_em >= t.t_ini_ant)::int as "matriculasAnt",
+        where pm.criador_id = ${c} and pm.is_deleted = false and pm.iniciada_em >= t.t_ini_ant and pm.iniciada_em < t.t_fim)::int as "matriculasAnt",
       (select count(*) from produtos_matriculas pm
         join criadores_membros m on m.id = pm.membro_id and m.papel = 'ALUNO' and m.is_deleted = false
         where pm.criador_id = ${c} and pm.is_deleted = false and pm.status = 'ATIVA' and (pm.expira_em is null or pm.expira_em > now()))::int as "validas",
@@ -68,10 +74,10 @@ export async function kpisDoPainel(criadorId: string, dias: DiasPeriodo): Promis
           and pm.concluida_em is not null)::int as "validasConcluidas",
       (select count(*) filter (where p.concluida_em >= t.t_ini) from produtos_modulos_aulas_progressos p
         join criadores_membros m on m.id = p.membro_id and m.papel = 'ALUNO' and m.is_deleted = false
-        where p.criador_id = ${c} and p.concluida and p.is_deleted = false and p.concluida_em >= t.t_ini_ant)::int as "aulas",
+        where p.criador_id = ${c} and p.concluida and p.is_deleted = false and p.concluida_em >= t.t_ini_ant and p.concluida_em < t.t_fim)::int as "aulas",
       (select count(*) filter (where p.concluida_em < t.t_ini) from produtos_modulos_aulas_progressos p
         join criadores_membros m on m.id = p.membro_id and m.papel = 'ALUNO' and m.is_deleted = false
-        where p.criador_id = ${c} and p.concluida and p.is_deleted = false and p.concluida_em >= t.t_ini_ant)::int as "aulasAnt"
+        where p.criador_id = ${c} and p.concluida and p.is_deleted = false and p.concluida_em >= t.t_ini_ant and p.concluida_em < t.t_fim)::int as "aulasAnt"
     from t
   `);
   return rows[0] as unknown as KpisPainel;
@@ -105,16 +111,16 @@ export interface AulaMaisAssistida {
   visualizacoes: number;
 }
 
-/** Aulas com mais visualizações (agregado do Top 10: 1 por membro/aula/dia) no período. */
-export async function maisAssistidas(criadorId: string, dias: DiasPeriodo, limite = 5): Promise<AulaMaisAssistida[]> {
+/** Aulas com mais visualizações (agregado do Top 10: 1 por membro/aula/dia) no período `de..ate`. */
+export async function maisAssistidas(criadorId: string, periodo: Intervalo, limite = 5): Promise<AulaMaisAssistida[]> {
   const { rows } = await db.execute<{ aulaId: string; titulo: string; curso: string; visualizacoes: number }>(sql`
-    with ${limites(dias)}
+    with ${limites(periodo)}
     select a.id as "aulaId", a.titulo, p.titulo as curso, sum(v.visualizacoes)::int as visualizacoes
     from t, produtos_modulos_aulas_visualizacoes v
     join produtos_modulos_aulas a on a.id = v.aula_id and a.is_deleted = false
     join produtos_modulos mo on mo.id = a.modulo_id and mo.is_deleted = false
     join produtos p on p.id = mo.produto_id and p.is_deleted = false
-    where v.criador_id = ${criadorId}::uuid and v.is_deleted = false and v.dia between t.ini and t.hoje
+    where v.criador_id = ${criadorId}::uuid and v.is_deleted = false and v.dia between t.ini and t.fim
     group by a.id, a.titulo, p.titulo
     having sum(v.visualizacoes) > 0
     order by visualizacoes desc, a.titulo

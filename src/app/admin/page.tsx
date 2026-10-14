@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import { saudacaoPorHorario } from "@/components/admin/saudacao";
-import { SeletorPeriodo } from "@/components/admin/seletor-periodo";
+import { SeletorDatas } from "@/components/admin/seletor-datas";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { EQUIPE } from "@/lib/auth/permissoes";
-import { lerPeriodo } from "@/lib/painel/regras";
+import { Esqueleto } from "@/components/ui/esqueleto";
+import { hojeEmBrasilia, lerIntervalo } from "@/lib/painel/periodo";
 import { BlocoAcessos, BlocoAgora, BlocoKpis, BlocoMaisAssistidas, BlocoSaude, type ParametrosPainel } from "./_components/blocos-painel";
 import { EsqueletoCartao, EsqueletoKpis } from "./_components/esqueletos-painel";
 
@@ -15,7 +16,11 @@ async function Saudacao() {
 }
 
 async function Periodo({ parametros }: { parametros: ParametrosPainel }) {
-  return <SeletorPeriodo atual={lerPeriodo((await parametros).periodo)} />;
+  // A guarda (cookies) torna o bloco dinâmico antes de ler o relógio (cacheComponents recusa `new Date()` no prerender).
+  await membroDaPagina(EQUIPE);
+  const p = await parametros;
+  const hoje = hojeEmBrasilia();
+  return <SeletorDatas valor={lerIntervalo(p, hoje)} hoje={hoje} caminho="/admin" />;
 }
 
 /** Duas colunas no desktop (1,6fr | 1fr, como o protótipo); uma no celular. */
@@ -23,7 +28,7 @@ const LINHA = "grid items-start gap-3.5 desk:grid-cols-[minmax(0,1.6fr)_minmax(0
 
 /**
  * Home do admin (DONO e ADMIN; o layout já barra ALUNO e cada bloco confere de novo). Período
- * em `?periodo=7|30|90` (padrão 30). Cada bloco carrega no seu <Suspense> com esqueleto próprio.
+ * em `?de=AAAA-MM-DD&ate=AAAA-MM-DD` (padrão: últimos 30 dias; legado `?periodo=7|30|90`). Cada bloco carrega no seu <Suspense> com esqueleto próprio.
  */
 export default function HomeAdmin({ searchParams }: { searchParams: ParametrosPainel }) {
   return (
@@ -37,7 +42,7 @@ export default function HomeAdmin({ searchParams }: { searchParams: ParametrosPa
         }
         descricao="O pulso da sua área de membros"
         acoes={
-          <Suspense fallback={<SeletorPeriodo />}>
+          <Suspense fallback={<Esqueleto className="h-11 w-[232px] rounded-md desk:h-9" />}>
             <Periodo parametros={searchParams} />
           </Suspense>
         }

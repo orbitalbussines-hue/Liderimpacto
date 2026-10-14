@@ -37,8 +37,8 @@ describe("itemAtivo", () => {
 describe("regra de papel", () => {
   const donos = TODOS_ITENS.filter((i) => i.papelMinimo === "DONO").map((i) => i.slug);
 
-  it("só financeiro, configurações e portal exigem DONO", () => {
-    expect(donos.sort()).toEqual(["configuracoes", "portal-do-cliente", "vendas-e-financeiro"]);
+  it("só financeiro e configurações exigem DONO", () => {
+    expect(donos.sort()).toEqual(["configuracoes", "vendas-e-financeiro"]);
   });
   it("DONO vê tudo", () => {
     expect(TODOS_ITENS.every((i) => papelPodeVer("DONO", i))).toBe(true);
@@ -58,6 +58,17 @@ describe("regra de papel", () => {
 describe("estrutura", () => {
   it("tem os grupos do README e rodapé", () => {
     expect(GRUPOS_NAVEGACAO.map((g) => g.titulo)).toEqual(["", "Educação", "Inteligência artificial", "Marketing", "Relatórios"]);
-    expect(RODAPE_NAVEGACAO.map((i) => i.slug)).toEqual(["configuracoes", "portal-do-cliente"]);
+    expect(RODAPE_NAVEGACAO.map((i) => i.slug)).toEqual(["configuracoes"]);
+  });
+  it("Portal do cliente saiu do menu: a rota genérica dá 404", () => {
+    expect(secaoPorSlug("portal-do-cliente")).toBeNull();
+    expect(secaoAcessivel("portal-do-cliente", "DONO")).toBeNull();
+  });
+  it("Configurações sem o card Aplicativo e com as telas reais ligadas", () => {
+    const cfg = secaoPorSlug("configuracoes")!.molde;
+    if (cfg.tipo !== "cards") throw new Error("molde errado");
+    expect(cfg.cards.some((c) => c.titulo === "Aplicativo")).toBe(false);
+    const hrefs = cfg.cards.map((c) => c.href);
+    for (const t of ["geral", "dominios", "equipe", "logs"]) expect(hrefs).toContain(`/admin/configuracoes/${t}`);
   });
 });

@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { criadores_grupos, criadores_grupos_membros, criadores_membros, usuarios } from "@/lib/db/schema";
+import type { PapelCriador } from "@/lib/db/schema/_enums";
 import { vivos } from "@/lib/db/soft-delete";
 
 /**
@@ -16,6 +17,8 @@ export interface FiltrosMembros {
   busca?: string;
   situacao?: FiltroSituacao;
   grupoId?: string;
+  /** Só estes papéis (Configurações > Equipe e acesso = DONO e ADMIN). */
+  papeis?: readonly PapelCriador[];
   pagina: number;
   porPagina: number;
 }
@@ -42,6 +45,7 @@ export async function listarMembros(criadorId: string, f: FiltrosMembros) {
   if (f.situacao === "ativos") condicoes.push(eq(criadores_membros.status, "ATIVO"));
   if (f.situacao === "inativos") condicoes.push(eq(criadores_membros.status, "INATIVO"));
   if (f.situacao === "nunca") condicoes.push(isNull(criadores_membros.ultimo_acesso_em));
+  if (f.papeis?.length) condicoes.push(inArray(criadores_membros.papel, [...f.papeis]));
   if (f.grupoId) {
     condicoes.push(
       sql`exists (select 1 from criadores_grupos_membros gm where gm.membro_id = "criadores_membros"."id" and gm.grupo_id = ${f.grupoId} and gm.criador_id = ${criadorId} and gm.is_deleted = false)`,

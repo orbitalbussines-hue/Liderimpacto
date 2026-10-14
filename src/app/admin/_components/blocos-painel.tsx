@@ -10,7 +10,8 @@ import { membroDaPagina } from "@/lib/auth/guarda";
 import { EQUIPE } from "@/lib/auth/permissoes";
 import { acessosCacheados, kpisCacheados, maisAssistidasCacheadas, saudeCacheada } from "@/lib/painel/cache";
 import { acontecendoAgora } from "@/lib/painel/consultas";
-import { formatarTaxa, fraseDoEvento, lerPeriodo, tempoRelativo, textoDaVariacao, variacao, type DiasPeriodo } from "@/lib/painel/regras";
+import { frasePeriodo, hojeEmBrasilia, lerIntervalo, rotuloDoPeriodo, type Intervalo } from "@/lib/painel/periodo";
+import { formatarTaxa, fraseDoEvento, tempoRelativo, textoDaVariacao, variacao } from "@/lib/painel/regras";
 import { GraficoAcessos } from "./grafico-acessos";
 
 /**
@@ -19,11 +20,12 @@ import { GraficoAcessos } from "./grafico-acessos";
  * O cache dos agregados vem DEPOIS da guarda (src/lib/painel/cache.ts).
  */
 
-export type ParametrosPainel = Promise<{ periodo?: string | string[] }>;
+export type ParametrosPainel = Promise<{ de?: string | string[]; ate?: string | string[]; periodo?: string | string[] }>;
 
-async function contexto(parametros: ParametrosPainel): Promise<{ criadorId: string; dias: DiasPeriodo }> {
+async function contexto(parametros: ParametrosPainel): Promise<{ criadorId: string; periodo: Intervalo; hoje: string }> {
   const { criador } = await membroDaPagina(EQUIPE);
-  return { criadorId: criador.id, dias: lerPeriodo((await parametros).periodo) };
+  const hoje = hojeEmBrasilia();
+  return { criadorId: criador.id, periodo: lerIntervalo(await parametros, hoje), hoje };
 }
 
 const numero = new Intl.NumberFormat("pt-BR");
@@ -52,11 +54,11 @@ function Kpi({ rotulo, atual, anterior, complemento }: { rotulo: string; atual: 
 }
 
 export async function BlocoKpis({ parametros }: { parametros: ParametrosPainel }) {
-  const { criadorId, dias } = await contexto(parametros);
-  const k = await kpisCacheados(criadorId, dias);
+  const { criadorId, periodo, hoje } = await contexto(parametros);
+  const k = await kpisCacheados(criadorId, periodo);
   const conclusao = k.validas > 0 ? `Taxa de conclusão ${formatarTaxa(k.validasConcluidas / k.validas)}` : "Nenhuma matrícula valendo";
   return (
-    <section aria-label={`Indicadores dos últimos ${dias} dias`} className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
+    <section aria-label={`Indicadores ${frasePeriodo(periodo, hoje)}`} className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
       <Kpi rotulo="Alunos ativos" atual={k.ativos} anterior={k.ativosAnt} />
       <Kpi rotulo="Novos alunos" atual={k.novos} anterior={k.novosAnt} />
       <Kpi rotulo="Matrículas" atual={k.matriculas} anterior={k.matriculasAnt} complemento={conclusao} />
@@ -138,8 +140,8 @@ export async function BlocoAgora() {
 }
 
 export async function BlocoMaisAssistidas({ parametros }: { parametros: ParametrosPainel }) {
-  const { criadorId, dias } = await contexto(parametros);
-  const aulas = await maisAssistidasCacheadas(criadorId, dias);
+  const { criadorId, periodo, hoje } = await contexto(parametros);
+  const aulas = await maisAssistidasCacheadas(criadorId, periodo);
   const topo = aulas[0]?.visualizacoes ?? 1;
   return (
     <Cartao como="section" aria-labelledby="titulo-assistidos" className="flex flex-col gap-3.5">
@@ -147,7 +149,7 @@ export async function BlocoMaisAssistidas({ parametros }: { parametros: Parametr
         <CartaoTitulo id="titulo-assistidos" tamanho={15} como="h2">
           Conteúdos mais assistidos
         </CartaoTitulo>
-        <span className="text-xs text-muted">{dias} dias</span>
+        <span className="text-xs text-muted">{rotuloDoPeriodo(periodo, hoje)}</span>
       </div>
       {aulas.length === 0 ? (
         <EstadoVazio
