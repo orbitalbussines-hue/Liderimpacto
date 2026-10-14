@@ -3,6 +3,7 @@
 import { executar } from "@/lib/acao";
 import { exigirMembro } from "@/lib/auth/autorizacao";
 import { EQUIPE } from "@/lib/auth/permissoes";
+import { pedirReindexacao } from "@/lib/conhecimento/pedir";
 import { gravarLegenda, lerArquivoBruto, removerLegenda } from "@/lib/legendas/servico";
 import { enviarLegendaSchema, removerLegendaSchema } from "@/lib/validators/legendas";
 
@@ -17,7 +18,7 @@ export async function acaoEnviarLegenda(entrada: unknown) {
     const { usuario, criador } = await exigirMembro(EQUIPE);
     const e = enviarLegendaSchema.parse(entrada);
     const bruto = await lerArquivoBruto(criador.id, e.arquivoId);
-    return gravarLegenda({
+    const r = await gravarLegenda({
       criadorId: criador.id,
       usuarioId: usuario.id,
       aulaId: e.aulaId,
@@ -28,6 +29,9 @@ export async function acaoEnviarLegenda(entrada: unknown) {
       substituir: e.substituir,
       arquivoBrutoId: e.arquivoId,
     });
+    // Base de conhecimento (ADR-0014): a transcrição da aula muda junto, depois do commit.
+    await pedirReindexacao(criador.id, { tipo: "AULA", aulaId: e.aulaId }, usuario.id);
+    return r;
   });
 }
 
@@ -35,7 +39,8 @@ export async function acaoRemoverLegenda(entrada: unknown) {
   return executar(async () => {
     const { usuario, criador } = await exigirMembro(EQUIPE);
     const e = removerLegendaSchema.parse(entrada);
-    await removerLegenda({ criadorId: criador.id, usuarioId: usuario.id, legendaId: e.legendaId, versao: e.versao });
+    const { aulaId } = await removerLegenda({ criadorId: criador.id, usuarioId: usuario.id, legendaId: e.legendaId, versao: e.versao });
+    await pedirReindexacao(criador.id, { tipo: "AULA", aulaId }, usuario.id);
     return null;
   });
 }

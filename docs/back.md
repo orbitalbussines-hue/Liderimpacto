@@ -984,3 +984,59 @@ player -> <track src="/api/legendas/<id>"> (modo hidden; o player desenha) e a a
 `listarVideos` (Estúdio) devolve `legendas` = idiomas vivos da aula ("pt-BR · en") ou nulo.
 Demonstração: `npx tsx --conditions=react-server scripts/seed-demo-legendas.ts` (depois do `seed-demo-video.ts`).
 `tests/integracao/legendas.test.ts` roda no `npm test` (precisa do storage no ar; sem ele, pula com aviso).
+
+## Base de conhecimento e assistente do professor (RN-190 a RN-197, ADR-0014)
+
+```
+legenda/aula/curso salvos --(depois do commit)--> fila `conhecimento` (worker:certificados, 3º Worker)
+  -> sincronizarAula/sincronizarProduto: relê a fonte (+ .vtt no storage para os tempos) -> trechos (assinatura)
+texto da equipe -> acaoCriarTexto/acaoSalvarTexto -> trechos NA MESMA transação
+aluno -> POST /api/assistente {pergunta, conversaId?, aulaId?}
+  -> sessão do HOST + CSRF -> assistente ligado -> acessoDaAula (se aulaId)
+  -> recuperarTrechos (SQL: matrícula valendo, publicado; JS: motivoDoBloqueio) -> limite diário (lock)
+  -> sem trecho: resposta fixa (sem API) | com trecho: Claude (stream) -> NDJSON -> grava resposta + tokens
+```
+
+| Tabela (migração 0011) | O que guarda |
+|--------|--------------|
+| `criadores_conhecimento_documentos` | Uma fonte: `fonte` (AULA_TRANSCRICAO, AULA_DESCRICAO, PRODUTO_DESCRICAO, TEXTO; CHECK de coerência com `aula_id`/`produto_id`), título, texto, `incluir`, `assinatura` (sha256 dos trechos), `trechos`, `indexado_em`. FKs compostas para aula e curso; uma derivada viva por (fonte, aula) e por (fonte, curso) |
+| `criadores_conhecimento_documentos_trechos` | Trecho de ~800–1200 caracteres, `ordem`, `inicio_seg` (só transcrição), `busca` = `tsvector` GERADO (`to_tsvector('portuguese', li_sem_acento(texto))`, índice GIN parcial). A migração cria `unaccent` e o invólucro IMMUTABLE `li_sem_acento` |
+| `criadores_assistentes` | 1:1 com o criador: `ligado`, `nome`, `instrucoes` (≤ 800), `limite_diario` (1–200, padrão 20), `todos_os_cursos` |
+| `criadores_assistentes_produtos` | Cursos em que aparece quando `todos_os_cursos = false` (FK composta) |
+| `criadores_assistentes_conversas` | Do membro (FK composta), `aula_id` onde começou, `titulo`, `teste` (playground da equipe) |
+| `criadores_assistentes_conversas_mensagens` | `papel` USUARIO/ASSISTENTE, texto, `fontes` jsonb (só as citadas), tokens de entrada/saída/cache, `modelo`, `sem_resposta`, `interrompida`; `membro_id` repetido para o limite diário (índices por membro e por criador/dia) |
+
+| Action | Quem | O que faz |
+|--------|------|-----------|
+| `acaoCriarTexto({ titulo, texto, produtoId \| null })` (`src/lib/actions/conhecimento.ts`, Zod em `src/lib/validators/ia.ts`) | DONO, ADMIN | Texto puro (invisíveis fora), curso opcional deste criador; trechos na transação; trilha sem o texto |
+| `acaoSalvarTexto({ documentoId, versao, titulo, texto, produtoId })` / `acaoExcluirTexto({ documentoId, versao })` | DONO, ADMIN | Trava por `updated_at`; excluir = lógico do documento e dos trechos (modal de 3 s na tela) |
+| `acaoIncluirDocumento({ documentoId, versao, incluir })` | DONO, ADMIN | Liga/desliga qualquer fonte, com trava e trilha |
+| `acaoTestarBusca({ pergunta })` | DONO, ADMIN | Os trechos que o assistente receberia (cursos do assistente, acesso de equipe). Sem API, sem cota |
+| `acaoSalvarConfigAssistente({ versao, ligado, nome, instrucoes, limiteDiario, todosOsCursos, produtos })` (`src/lib/actions/assistente.ts`) | DONO, ADMIN | Cria/atualiza com trava; cursos vivos deste criador; trilha com antes/depois |
+| `acaoApagarConversa({ conversaId, versao })` | o PRÓPRIO membro | Lógico da conversa e das mensagens, trilha sem o conteúdo; a cota do dia não volta |
+
+| Rota | Conferência | Resposta |
+|------|-------------|----------|
+| `POST /api/assistente` `{ pergunta (2–1000), conversaId?, aulaId?, teste? }` | `Content-Type: application/json` e Origin do próprio host (403); sessão do HOST (401); vínculo (403); `teste` só equipe (403, na trilha); Zod (400); desligado/aula sem acesso (400); limite (429); sem chave (503) | `application/x-ndjson`: `inicio {conversaId, fontes, restantes}`, `texto`, `substituir` (recusa do modelo), `fim {mensagemId, semResposta, citadas, versao}`, `erro`. Cliente desconectou = aborta o modelo e grava `interrompida` |
+
+| Arquivo | O que faz |
+|---------|-----------|
+| `src/lib/conhecimento/regras.ts` | PURO: `dividirEmTrechos`, `dividirTranscricao`, `consultaDaPergunta` (OU, só letras/dígitos), `ROTULO_FONTE` |
+| `src/lib/conhecimento/indexar.ts` | `sincronizarAula`, `sincronizarProduto`, `indexarTexto`, `sincronizar`, `reindexarCriador` (idempotentes) |
+| `src/lib/conhecimento/fila.ts`, `pedir.ts` | Fila `conhecimento` (DLQ `conhecimento-dlq`) e `pedirReindexacao` (fila; fora do ar = na hora; nunca derruba a ação) |
+| `src/lib/conhecimento/busca.ts` | `recuperarTrechos(criadorId, { papel, membroId }, pergunta, { produtos, limite, porDocumento })` — o filtro de acesso |
+| `src/lib/conhecimento/consultas.ts` | Tela da equipe: `fontesDoCriador`, `totaisDaBase`, `textoParaEditar`, `cursosDoCriador` |
+| `src/lib/assistente/regras.ts`, `texto.ts` | PUROS: prompt (`montarSistema`, `montarMensagem`, escape), `citacoesDoTexto`, `custoUsd`/`PRECOS`, `recusaDoLimite`, `tetoDoCriador`, `hrefDaFonte`; renderizador mínimo `blocosDoTexto` |
+| `src/lib/assistente/cliente.ts`, `cliente-falso.ts` | `ClienteIA` + implementação `@anthropic-ai/sdk` (`messages.stream`, `cache_control` no sistema, esforço `low`, `max_tokens` 1500); `ClienteFalso` para testes e seed |
+| `src/lib/assistente/responder.ts`, `rota.ts`, `conversas.ts`, `config.ts`, `tela.ts`, `admin.ts` | Fluxo da pergunta, route handler, conversas e limite (lock por criador), configuração, dados das telas do aluno, perguntas recentes e consumo |
+
+| Variável | Para quê |
+|----------|----------|
+| `ANTHROPIC_API_KEY` | Chave da Anthropic, SÓ no servidor (nunca no cliente, log ou trilha). Ausente = "IA não configurada" |
+| `ANTHROPIC_MODELO` | Modelo (padrão `claude-sonnet-5-5`) |
+| `ANTHROPIC_WORKSPACE_ID` | Opcional: com chave de organização (não ligada a um workspace), vai no cabeçalho `anthropic-workspace-id` de toda chamada (`defaultHeaders`). Sem ela e com essa chave, a API responde 400; a equipe vê "Chave da IA sem workspace: configure ANTHROPIC_WORKSPACE_ID ou use uma chave de workspace", o aluno só a mensagem genérica. O cliente é criado uma vez por processo: mudou a variável, reinicie o app |
+| `ASSISTENTE_TETO_DIARIO_CRIADOR` | Teto de perguntas por criador por dia (padrão 500) |
+
+Comandos: `npm run conhecimento:reindexar -- <slug>` (idempotente) e, só em dev,
+`npm run seed:demo:assistente` (textos de exemplo, reindexação e 3 conversas pelo fluxo real com o
+cliente falso). Teste REAL mínimo (pessoa roda; 2 chamadas, `max_tokens` 300, nada gravado): `npx tsx --env-file=.env --conditions=react-server scripts/assistente-teste-real.ts [slug]`. `tests/integracao/assistente.test.ts` usa só o `ClienteFalso` (o `_ambiente.ts` apaga a chave).

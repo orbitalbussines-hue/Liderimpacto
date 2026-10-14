@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { duracaoCurta, textoDoBloqueio } from "@/components/aluno/formatos";
+import { ChatAssistente } from "@/components/assistente/chat-assistente";
 import { ListaAulas, type GrupoPlaylist } from "@/components/curso/lista-aulas";
+import { assistenteDaAula } from "@/lib/assistente/tela";
 import { EstiloMarca } from "@/components/marca/estilo-marca";
 import { urlDeImagemOuNula } from "@/lib/armazenamento/cliente";
 import { membroDaPagina } from "@/lib/auth/guarda";
@@ -52,7 +55,15 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
   const d = await aulaParaPlayer(q, id, new Date(), (await configPublicada(q.criador.id))?.player);
   if (!d) notFound();
 
-  const [poster, comentarios, situacao] = await Promise.all([urlDeImagemOuNula(q.criador.id, d.aula.thumbChave), d.flags.abas.comentarios ? comentariosDaAula(q, d.aula.id) : null, situacaoNaComunidade(q)]);
+  const [poster, comentarios, situacao, assistente] = await Promise.all([
+    urlDeImagemOuNula(q.criador.id, d.aula.thumbChave),
+    d.flags.abas.comentarios ? comentariosDaAula(q, d.aula.id) : null,
+    situacaoNaComunidade(q),
+    assistenteDaAula(q, { id: d.aula.id, produtoId: d.produto.id, pode: d.pode }),
+  ]);
+  // `?t=` (link de fonte do assistente): abre a aula naquele segundo.
+  const t = typeof busca.t === "string" && /^\d{1,6}$/.test(busca.t) ? Number(busca.t) : null;
+  const inicio = t !== null && (!d.aula.duracaoSeg || t < d.aula.duracaoSeg) ? t : d.retomarEm;
   const eu = q.membro.id ? { membroId: q.membro.id, nome: q.usuario.nome, iniciais: iniciais(q.usuario.nome), imagem: null, equipe: situacao.equipe } : null;
   const atualNaPlaylist = d.playlist.flatMap((m) => m.aulas).find((a) => a.id === d.aula.id);
   const aviso = d.motivoBloqueio
@@ -66,7 +77,7 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
       <AulaInterativa
         aula={{ id: d.aula.id, numero: d.aula.numero, titulo: d.aula.titulo, descricao: d.aula.descricao, duracaoSeg: d.aula.duracaoSeg, capitulos: d.aula.capitulos }}
         eyebrow={eyebrowDaAula(d.aula.numero)}
-        player={aviso ? null : { poster, marcaDagua: `${q.usuario.nome} · ${q.usuario.email}`, retomarEm: d.retomarEm, autoIniciar: busca.auto === "1" }}
+        player={aviso ? null : { poster, marcaDagua: `${q.usuario.nome} · ${q.usuario.email}`, retomarEm: inicio, autoIniciar: busca.auto === "1" }}
         quadro={aviso ? <QuadroAviso aviso={aviso} poster={poster} /> : undefined}
         flags={d.flags}
         concluida={d.progresso.concluida}
@@ -79,6 +90,25 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
         abaInicial={typeof busca.aba === "string" ? busca.aba : undefined}
         legendas={aviso ? [] : d.legendas}
         chaveLegenda={`li:legenda:${q.usuario.id}`}
+        saltoSeg={t}
+        assistente={
+          assistente && (
+            <ChatAssistente
+              nomeAssistente={assistente.nome}
+              inicial={assistente.inicial}
+              aulaId={d.aula.id}
+              avisoPrivacidade
+              vazio={
+                <p className="m-0 text-sm leading-relaxed text-muted">
+                  Tire dúvidas sobre esta aula e as outras do seu curso. A resposta vem só do conteúdo das aulas e cita de onde saiu.{" "}
+                  <Link href="/assistente" className="font-semibold text-text underline-offset-2 hover:underline">
+                    Ver conversas anteriores
+                  </Link>
+                </p>
+              }
+            />
+          )
+        }
         comentarios={
           comentarios && (
             <Comentarios

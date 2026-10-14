@@ -34,3 +34,4 @@ numerado e imutavel — se a decisao muda, cria-se um novo ADR que supersede o a
 | [0011](0011-eventos-ao-vivo.md) | Eventos ao vivo: link só na janela, público por regra única e lembrete por job atrasado | Aceito |
 | [0012](0012-gamificacao-razao-de-pontos.md) | Gamificação: razão de pontos append-only, tudo calculado, desafios por janela; segundos por dia no heartbeat | Aceito |
 | [0013](0013-legendas-e-transcricao.md) | Legendas e transcrição: VTT normalizado no storage, texto puro no banco, entrega pelo app | Aceito |
+| [0014](0014-assistente-ia-base-de-conhecimento.md) | Assistente do professor com Claude: busca full-text, recuperação filtrada pelo acesso e limites no banco | Aceito |

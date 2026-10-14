@@ -1,8 +1,8 @@
 import {
   Activity, Award, Calendar, ClipboardList, Database, DollarSign, Download, FileText,
   Filter, FolderPlus, Globe, House, Inbox, LayoutGrid, LayoutTemplate, Link2, Mail, MessageSquare,
-  Monitor, PanelsTopLeft, Percent, Palette, Plus, Rocket, Route, Send, Settings, ShieldCheck,
-  Sparkles, Tag, Trophy, Upload, Users, Video, Zap,
+  MessagesSquare, Monitor, PanelsTopLeft, Percent, Palette, Plus, Rocket, Route, Send, Settings, ShieldCheck,
+  Tag, Trophy, Upload, Users, Video, Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { Coluna } from "./tabela-tipos";
@@ -163,29 +163,9 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
   {
     titulo: "Inteligência artificial",
     itens: [
-      item(
-        "assistente-do-professor", "Assistente do professor", Sparkles, 3,
-        {
-          tipo: "cards",
-          titulo: "Assistente do professor",
-          subtitulo: "Um assistente que responde dúvidas dos alunos com base nas suas aulas",
-          cards: [
-            { icone: Sparkles, titulo: "Instruções", descricao: "Tom de voz e limites do assistente" },
-            { icone: Video, titulo: "Aulas habilitadas", descricao: "Quais conteúdos ele pode consultar" },
-            { icone: MessageSquare, titulo: "Conversas", descricao: "Histórico e perguntas sem resposta" },
-          ],
-        },
-        { selo: "Novo" }
-      ),
-      item(
-        "base-de-conhecimento", "Base de conhecimento", Database, 3,
-        tabela(
-          "Base de conhecimento", ["Documentos", "Fontes"],
-          [{ titulo: "Documento" }, { titulo: "Origem", largura: 140 }, { titulo: "Status", largura: 120 }, { titulo: "Atualização", largura: 120 }, ACOES_COL],
-          { acaoPrincipal: novo("Adicionar fonte") }
-        ),
-        { selo: "Novo" }
-      ),
+      // ADR-0014: telas próprias em /admin/assistente-do-professor e /admin/base-de-conhecimento.
+      item("assistente-do-professor", "Assistente do professor", MessagesSquare, 3, { tipo: "proprio" }, { selo: "Novo" }),
+      item("base-de-conhecimento", "Base de conhecimento", Database, 3, { tipo: "proprio" }, { selo: "Novo" }),
     ],
   },
   {

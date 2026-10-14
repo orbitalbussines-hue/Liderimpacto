@@ -28,9 +28,12 @@
     "armazenamento:preparar": "tsx --conditions=react-server scripts/armazenamento-preparar.ts",
     "worker:video": "tsx --conditions=react-server scripts/worker-video.ts",
     "worker:certificados": "tsx --conditions=react-server scripts/worker-certificados.ts",
-    "gamificacao:recalcular": "tsx --conditions=react-server scripts/gamificacao-recalcular.ts"
+    "gamificacao:recalcular": "tsx --conditions=react-server scripts/gamificacao-recalcular.ts",
+    "conhecimento:reindexar": "tsx --conditions=react-server scripts/conhecimento-reindexar.ts",
+    "seed:demo:assistente": "tsx --conditions=react-server scripts/seed-demo-assistente.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
     "@aws-sdk/client-s3": "^3.1151.0",
     "@aws-sdk/s3-request-presigner": "^3.1151.0",
     "@base-ui/react": "^1.9.0",

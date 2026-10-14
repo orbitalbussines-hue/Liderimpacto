@@ -51,9 +51,13 @@ export interface AulaInterativaProps {
   legendas?: LegendaPlayer[];
   /** Chave do `localStorage` da escolha de legenda (por pessoa). */
   chaveLegenda?: string;
+  /** Painel "Pergunte ao professor" (ADR-0014), montado no servidor só quando o assistente aparece. */
+  assistente?: ReactNode;
+  /** `?t=` da URL: ao mudar (fonte citada pelo assistente na mesma aula), o vídeo pula para lá. */
+  saltoSeg?: number | null;
 }
 
-type Aba = "descricao" | "transcricao" | "materiais" | "comentarios" | "anotacoes";
+type Aba = "descricao" | "transcricao" | "assistente" | "materiais" | "comentarios" | "anotacoes";
 
 /**
  * Coluna principal da aula (client): player, cabeçalho com Anterior / Concluir e avançar, faixa
@@ -75,6 +79,7 @@ export function AulaInterativa(p: AulaInterativaProps) {
     [
       p.flags.abas.descricao && { valor: "descricao", rotulo: "Descrição" },
       transcricao && { valor: "transcricao", rotulo: "Transcrição" },
+      p.assistente && { valor: "assistente", rotulo: "Pergunte ao professor" },
       p.flags.abas.materiais && { valor: "materiais", rotulo: p.materiais.length ? `Materiais (${p.materiais.length})` : "Materiais" },
       p.flags.abas.comentarios && { valor: "comentarios", rotulo: "Comentários" },
       p.flags.abas.anotacoes && p.podeAnotar && { valor: "anotacoes", rotulo: "Anotações" },
@@ -85,6 +90,14 @@ export function AulaInterativa(p: AulaInterativaProps) {
   useEffect(() => {
     if (p.abaInicial === "comentarios") abasRef.current?.scrollIntoView({ block: "start" });
   }, [p.abaInicial]);
+  // O primeiro valor já entrou como `retomarEm`; só as mudanças seguintes pulam o vídeo.
+  const saltoAnterior = useRef(p.saltoSeg);
+  useEffect(() => {
+    if (p.saltoSeg == null || p.saltoSeg === saltoAnterior.current) return;
+    saltoAnterior.current = p.saltoSeg;
+    player.current?.irPara(p.saltoSeg);
+    document.getElementById("player-aula")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [p.saltoSeg]);
 
   const concluirEAvancar = () =>
     iniciar(async () => {
@@ -222,6 +235,11 @@ export function AulaInterativa(p: AulaInterativaProps) {
           {transcricao && (
             <div id="painel-transcricao" role="tabpanel" aria-label="Transcrição" hidden={aba !== "transcricao"}>
               <TranscricaoAula url={transcricao.url} ativa={aba === "transcricao"} tempo={tempo} onIrPara={irPara} />
+            </div>
+          )}
+          {p.assistente && (
+            <div id="painel-assistente" role="tabpanel" aria-label="Pergunte ao professor" hidden={aba !== "assistente"} className="max-w-[760px]">
+              {p.assistente}
             </div>
           )}
           <div id="painel-materiais" role="tabpanel" aria-label="Materiais" hidden={aba !== "materiais"}>

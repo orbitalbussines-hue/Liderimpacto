@@ -23,3 +23,7 @@ process.env.VIDEO_CHAVE_MESTRA = Buffer.alloc(32, 7).toString("base64");
 process.env.VIDEO_SEGREDO_TOKEN = "segredo-de-token-de-video-somente-de-teste";
 process.env.VIDEO_FILA_PREFIXO = "li-teste";
 delete process.env.VIDEO_LIMITE_SESSOES;
+// Assistente (ADR-0014): o teste NUNCA chama a API real (o .env local pode ter a chave). Quem precisa
+// de modelo injeta o ClienteFalso; sem chave, a rota responde "IA não configurada".
+delete process.env.ANTHROPIC_API_KEY;
+delete process.env.ASSISTENTE_TETO_DIARIO_CRIADOR;

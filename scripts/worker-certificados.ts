@@ -14,8 +14,18 @@
  * É também o "worker de jobs leves": um 2º `Worker` consome a fila `eventos` (lembrete 1 h antes,
  * ADR-0011 item 6), com concorrência e DLQ próprias (`eventos-dlq`) — um PDF atrasado não segura o
  * lembrete. Ao subir, reenfileira o lembrete de todo evento PUBLICADO que ainda não começou.
+ * Um 3º `Worker` consome a fila `conhecimento` (reindexação da base do assistente, ADR-0014), com
+ * DLQ `conhecimento-dlq`; o job é idempotente (relê a fonte e compara a assinatura dos trechos).
  */
 import { type Job, Queue, Worker } from "bullmq";
+import {
+  CONCORRENCIA_WORKER_CONHECIMENTO,
+  esquemaJobConhecimento,
+  type JobConhecimento,
+  NOME_FILA_CONHECIMENTO,
+  NOME_FILA_CONHECIMENTO_DLQ,
+} from "../src/lib/conhecimento/fila";
+import { sincronizar } from "../src/lib/conhecimento/indexar";
 import {
   CONCORRENCIA_WORKER_CERTIFICADOS,
   criarFilaCertificados,
@@ -52,6 +62,13 @@ async function processarEvento(job: Job<JobLembrete>): Promise<number> {
   return n;
 }
 
+async function processarConhecimento(job: Job<JobConhecimento>): Promise<string> {
+  const j = esquemaJobConhecimento.parse(job.data);
+  const r = await sincronizar(j.criadorId, j.alvo, j.autorId);
+  console.log(`[conhecimento] ${j.alvo.tipo} ${Object.values(j.alvo)[1]}: ${r}`);
+  return r;
+}
+
 async function principal() {
   const conexao = conexaoRedis();
   const prefix = prefixoFila();
@@ -77,6 +94,15 @@ async function principal() {
   });
   workerEventos.on("error", (e) => console.error("[eventos] erro do worker:", e.message));
 
+  const dlqConhecimento = new Queue(NOME_FILA_CONHECIMENTO_DLQ, { connection: conexao, prefix });
+  const workerConhecimento = new Worker<JobConhecimento>(NOME_FILA_CONHECIMENTO, processarConhecimento, { connection: conexao, prefix, concurrency: CONCORRENCIA_WORKER_CONHECIMENTO });
+  workerConhecimento.on("failed", (job, erro) => {
+    if (!job) return;
+    console.error(`[conhecimento] ${job.id}: falhou (${job.attemptsMade}/${job.opts.attempts}): ${erro.message}`);
+    if (ehFalhaDefinitiva(job.attemptsMade, job.opts.attempts)) void dlqConhecimento.add("falhou", { ...job.data, erro: erro.message, falhouEm: new Date().toISOString() });
+  });
+  workerConhecimento.on("error", (e) => console.error("[conhecimento] erro do worker:", e.message));
+
   const fila = criarFilaCertificados(conexao);
   const pendentes = await versoesPendentes();
   for (const versaoId of pendentes) await enfileirarCertificado(fila, { versaoId });
@@ -89,14 +115,15 @@ async function principal() {
 
   const desligar = async () => {
     console.log("[certificados] desligando: termina os jobs atuais e para.");
-    await Promise.all([worker.close(), workerEventos.close()]);
-    await Promise.all([dlq.close(), dlqEventos.close()]);
+    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close()]);
+    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close()]);
     process.exit(0);
   };
   process.on("SIGTERM", desligar);
   process.on("SIGINT", desligar);
   console.log(`[certificados] worker ouvindo ${prefix}:${NOME_FILA_CERTIFICADOS} (concorrência ${CONCORRENCIA_WORKER_CERTIFICADOS}); ${pendentes.length} pendente(s) reenfileirada(s).`);
   console.log(`[eventos] worker ouvindo ${prefix}:${NOME_FILA_EVENTOS} (concorrência ${CONCORRENCIA_WORKER_EVENTOS}); ${lembretes.length} lembrete(s) (re)enfileirado(s).`);
+  console.log(`[conhecimento] worker ouvindo ${prefix}:${NOME_FILA_CONHECIMENTO} (concorrência ${CONCORRENCIA_WORKER_CONHECIMENTO}).`);
 }
 
 principal().catch((e: unknown) => {

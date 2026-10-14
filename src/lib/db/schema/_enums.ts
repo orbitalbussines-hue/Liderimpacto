@@ -171,3 +171,14 @@ export type MetaDesafio = (typeof METAS_DESAFIO)[number];
 /** Motivo de um lançamento no razão de pontos. Só AJUSTE_MANUAL pode ser negativo. */
 export const MOTIVOS_PONTOS = ["AULA_CONCLUIDA", "CURSO_CONCLUIDO", "AVALIACAO_APROVADA", "PUBLICACAO_COMUNIDADE", "DESAFIO_CONCLUIDO", "AJUSTE_MANUAL"] as const;
 export type MotivoPontos = (typeof MOTIVOS_PONTOS)[number];
+
+/**
+ * Base de conhecimento do assistente (ADR-0014, RN-190): de onde veio o documento. As três
+ * primeiras são DERIVADAS do catálogo (reindexadas quando a fonte muda); TEXTO é escrito pela equipe.
+ */
+export const FONTES_CONHECIMENTO = ["AULA_TRANSCRICAO", "AULA_DESCRICAO", "PRODUTO_DESCRICAO", "TEXTO"] as const;
+export type FonteConhecimento = (typeof FONTES_CONHECIMENTO)[number];
+
+/** Quem escreveu a mensagem da conversa com o assistente (ADR-0014). */
+export const PAPEIS_MENSAGEM_ASSISTENTE = ["USUARIO", "ASSISTENTE"] as const;
+export type PapelMensagemAssistente = (typeof PAPEIS_MENSAGEM_ASSISTENTE)[number];

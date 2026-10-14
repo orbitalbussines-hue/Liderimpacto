@@ -21,3 +21,5 @@ export * from "./vitrines";
 export * from "./eventos";
 export * from "./gamificacao";
 export * from "./auditoria";
+export * from "./conhecimento";
+export * from "./assistente";

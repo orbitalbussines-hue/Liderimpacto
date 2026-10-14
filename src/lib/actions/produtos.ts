@@ -9,6 +9,7 @@ import { exigirMembro } from "@/lib/auth/autorizacao";
 import { EQUIPE } from "@/lib/auth/permissoes";
 import { pendenciasDoProduto } from "@/lib/catalogo/publicacao";
 import { mensagemDePendencias, ROTULO_STATUS_PRODUTO } from "@/lib/catalogo/regras";
+import { pedirReindexacao } from "@/lib/conhecimento/pedir";
 import { db, type Transacao } from "@/lib/db";
 import { criadores_membros, produtos, produtos_modulos, produtos_modulos_aulas, produtos_modulos_aulas_materiais } from "@/lib/db/schema";
 import { MSG_COLISAO, marcaDeExclusao, travaDeColisao, vivos } from "@/lib/db/soft-delete";
@@ -65,7 +66,7 @@ export async function acaoCriarProduto(entrada: unknown) {
       .strictObject({ titulo: tituloSchema, slug: slugSchema.optional(), descricao: descricaoSchema.default(""), tipo: tipoProdutoSchema })
       .parse(entrada);
     const slug = e.slug ?? slugSchema.parse(sugerirSlug(e.titulo));
-    return db
+    const r = await db
       .transaction(async (tx) => {
         // Codigo sequencial por criador: fila por criador (lock de transacao), nunca reaproveitado.
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`produtos:${criador.id}`}))`);
@@ -89,6 +90,8 @@ export async function acaoCriarProduto(entrada: unknown) {
         return { id: p.id };
       })
       .catch(slugRepetido);
+    if (e.descricao.trim()) await pedirReindexacao(criador.id, { tipo: "PRODUTO", produtoId: r.id }, usuario.id);
+    return r;
   });
 }
 
@@ -108,7 +111,7 @@ export async function acaoSalvarProduto(entrada: unknown) {
       })
       .parse(entrada);
     const cor = e.corMarca ? validarHex(e.corMarca) : null;
-    return db
+    const r = await db
       .transaction(async (tx) => {
         const antes = await travarProduto(tx, criador.id, e.produtoId, e.versao);
         if (e.professorMembroId) {
@@ -147,6 +150,9 @@ export async function acaoSalvarProduto(entrada: unknown) {
         return { versao: linha.updated_at.toISOString() };
       })
       .catch(slugRepetido);
+    // Base de conhecimento (ADR-0014): descrição do curso, depois do commit.
+    await pedirReindexacao(criador.id, { tipo: "PRODUTO", produtoId: e.produtoId }, usuario.id);
+    return r;
   });
 }
 

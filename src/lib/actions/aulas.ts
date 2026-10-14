@@ -9,6 +9,7 @@ import { ALLOWLIST, extensaoDe } from "@/lib/armazenamento/regras";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { exigirMembro, MSG_SEM_PERMISSAO } from "@/lib/auth/autorizacao";
 import { EQUIPE, TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
+import { pedirReindexacao } from "@/lib/conhecimento/pedir";
 import { db, type Transacao } from "@/lib/db";
 import { arquivos, produtos_modulos, produtos_modulos_aulas, produtos_modulos_aulas_materiais } from "@/lib/db/schema";
 import { MSG_COLISAO, marcaDeExclusao, travaDeColisao, vivos } from "@/lib/db/soft-delete";
@@ -81,7 +82,7 @@ export async function acaoSalvarAula(entrada: unknown) {
         capitulos: capitulosSchema,
       })
       .parse(entrada);
-    return db.transaction(async (tx) => {
+    const r = await db.transaction(async (tx) => {
       const { aula, produtoId } = await travarAula(tx, criador.id, e.aulaId, e.versao);
       if (e.preRequisitoAulaId) await conferirPreRequisito(tx, criador.id, aula.id, produtoId, e.preRequisitoAulaId);
       const erroCapitulos = erroDeCapitulosNaDuracao(e.capitulos, aula.duracao_seg);
@@ -106,6 +107,9 @@ export async function acaoSalvarAula(entrada: unknown) {
       });
       return { versao: linha.updated_at.toISOString() };
     });
+    // Base de conhecimento (ADR-0014): título/descrição da aula, depois do commit.
+    await pedirReindexacao(criador.id, { tipo: "AULA", aulaId: e.aulaId }, usuario.id);
+    return r;
   });
 }
 

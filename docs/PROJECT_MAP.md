@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 672 |
-| Tabelas (Drizzle) | 55 |
-| Server Actions (arquivos) | 33 |
-| Rotas de API | 9 |
-| Paginas | 71 |
-| Componentes | 151 |
+| Arquivos TS/TSX | 721 |
+| Tabelas (Drizzle) | 61 |
+| Server Actions (arquivos) | 35 |
+| Rotas de API | 10 |
+| Paginas | 80 |
+| Componentes | 155 |
 
 ## Arvore (profundidade 3)
 
@@ -22,6 +22,7 @@ app/
     pecas.tsx
   (aluno)/
     _vitrine/
+    assistente/
     aula/
     avaliacoes/
     certificados/
@@ -41,7 +42,9 @@ app/
     [secao]/
     analytics/
     area-de-membros/
+    assistente-do-professor/
     avaliacoes/
+    base-de-conhecimento/
     certificados/
     comunidade/
     configuracoes/
@@ -56,6 +59,7 @@ app/
     layout.tsx
     page.tsx
   api/
+    assistente/
     legendas/
     notificacoes/
     progresso/
@@ -102,6 +106,7 @@ components/
     lista-ordenavel.test.tsx
     lista-ordenavel.tsx
     menu-admin.tsx
+    moldura-abas.tsx
     navegacao.test.ts
     navegacao.ts
     pagina-cards.tsx
@@ -130,6 +135,11 @@ components/
     navegacao.ts
     shell-aluno.tsx
     tab-bar-aluno.tsx
+  assistente/
+    chat-assistente.test.tsx
+    chat-assistente.tsx
+    resposta-assistente.tsx
+    stream.ts
   avaliacoes/
     botao-iniciar.tsx
     editor-questao.test.tsx
@@ -290,6 +300,7 @@ lib/
     anotacoes.ts
     aparencia.ts
     arquivos.ts
+    assistente.ts
     aulas.ts
     auth.ts
     avaliacoes-aluno.ts
@@ -298,6 +309,7 @@ lib/
     comunidade-moderacao.ts
     comunidade.ts
     configuracoes.ts
+    conhecimento.ts
     criadores.ts
     eventos.ts
     favoritos.ts
@@ -334,6 +346,19 @@ lib/
     envio.ts
     regras.test.ts
     regras.ts
+  assistente/
+    admin.ts
+    cliente-falso.ts
+    cliente.ts
+    config.ts
+    conversas.ts
+    regras.test.ts
+    regras.ts
+    responder.ts
+    rota.ts
+    tela.ts
+    texto.test.ts
+    texto.ts
   audit/
     consultas.ts
     registrar.ts
@@ -401,6 +426,14 @@ lib/
     regras.test.ts
     regras.ts
     sql.ts
+  conhecimento/
+    busca.ts
+    consultas.ts
+    fila.ts
+    indexar.ts
+    pedir.ts
+    regras.test.ts
+    regras.ts
   criador/
     area.ts
     atual.ts
@@ -503,6 +536,7 @@ lib/
     eventos.test.ts
     eventos.ts
     gamificacao.ts
+    ia.ts
     legendas.ts
     matriculas.ts
     membros.ts
@@ -552,6 +586,18 @@ proxy.ts
 
 ### `arquivos` — src/lib/db/schema/arquivos.ts
 `id`, `criador_id`, `chave`, `finalidade`, `nome_original`, `mime`, `tamanho_bytes`, `status`
+
+### `criadores_assistentes` — src/lib/db/schema/assistente.ts
+`id`, `criador_id`, `ligado`, `nome`, `instrucoes`, `limite_diario`, `todos_os_cursos`
+
+### `criadores_assistentes_produtos` — src/lib/db/schema/assistente.ts
+`id`, `criador_id`, `produto_id`
+
+### `criadores_assistentes_conversas` — src/lib/db/schema/assistente.ts
+`id`, `criador_id`, `membro_id`, `aula_id`, `titulo`, `teste`
+
+### `criadores_assistentes_conversas_mensagens` — src/lib/db/schema/assistente.ts
+`id`, `criador_id`, `conversa_id`, `membro_id`, `papel`, `texto`, `fontes`, `tokens_entrada`, `tokens_saida`, `tokens_cache_leitura`, `tokens_cache_escrita`, `modelo`, `sem_resposta`, `interrompida`
 
 ### `auditoria` — src/lib/db/schema/auditoria.ts
 `id`, `user_id`, `criador_id`, `acao`, `tabela`, `registro_id`, `detalhes`, `dados_anteriores`, `dados_novos`, `created_at`
@@ -603,6 +649,12 @@ proxy.ts
 
 ### `criadores_curtidas` — src/lib/db/schema/comunidade.ts
 `id`, `criador_id`, `membro_id`, `post_id`, `comentario_id`
+
+### `criadores_conhecimento_documentos` — src/lib/db/schema/conhecimento.ts
+`id`, `criador_id`, `fonte`, `aula_id`, `produto_id`, `titulo`, `texto`, `incluir`, `assinatura`, `trechos`, `indexado_em`
+
+### `criadores_conhecimento_documentos_trechos` — src/lib/db/schema/conhecimento.ts
+`id`, `criador_id`, `documento_id`, `ordem`, `texto`, `inicio_seg`, `busca`
 
 ### `criadores_grupos` — src/lib/db/schema/criadores-grupos.ts
 `id`, `criador_id`, `nome`, `tipo`
@@ -720,6 +772,7 @@ proxy.ts
 | Rota | Metodos |
 |------|---------|
 | `/admin/analytics/exportar` | GET |
+| `/api/assistente` | POST |
 | `/api/legendas/[id]` | GET |
 | `/api/notificacoes/contagem` | GET |
 | `/api/progresso` | POST |
@@ -734,6 +787,7 @@ proxy.ts
 - `src/lib/actions/anotacoes.ts`: `acaoCriarAnotacao()`, `acaoEditarAnotacao()`, `acaoRemoverAnotacao()`
 - `src/lib/actions/aparencia.ts`: `acaoSalvarCorDaMarca()`
 - `src/lib/actions/arquivos.ts`: `acaoIniciarEnvio()`, `acaoConfirmarEnvio()`
+- `src/lib/actions/assistente.ts`: `acaoSalvarConfigAssistente()`, `acaoApagarConversa()`
 - `src/lib/actions/aulas.ts`: `acaoSalvarAula()`, `acaoDefinirThumbAula()`, `acaoAdicionarMaterial()`, `acaoRenomearMaterial()`, `acaoRemoverMaterial()`, `acaoLinkDoMaterial()`
 - `src/lib/actions/auth.ts`: `entrar()`, `verificarCodigo()`, `sair()`, `pedirLinkDeSenha()`, `definirNovaSenha()`
 - `src/lib/actions/avaliacoes-aluno.ts`: `acaoIniciarTentativa()`, `acaoResponder()`, `acaoFinalizarTentativa()`
@@ -742,6 +796,7 @@ proxy.ts
 - `src/lib/actions/comunidade-moderacao.ts`: `acaoFixarPublicacao()`, `acaoOcultar()`, `acaoResolverDenuncia()`, `acaoSilenciarMembro()`, `acaoDessilenciarMembro()`, `acaoCriarCanal()`, `acaoSalvarCanal()`, `acaoRemoverCanal()`
 - `src/lib/actions/comunidade.ts`: `acaoPublicar()`, `acaoEditarPublicacao()`, `acaoRemoverPublicacao()`, `acaoVotarEnquete()`, `acaoCurtir()`, `acaoComentar()`, `acaoEditarComentario()`, `acaoRemoverComentario()`, `acaoDenunciar()`, `acaoIniciarEnvioAnexo()`, `acaoConfirmarEnvioAnexo()`, `acaoLinkDoAnexo()`, `acaoMaisPublicacoes()`
 - `src/lib/actions/configuracoes.ts`: `acaoRenomearArea()`
+- `src/lib/actions/conhecimento.ts`: `acaoCriarTexto()`, `acaoSalvarTexto()`, `acaoExcluirTexto()`, `acaoIncluirDocumento()`, `acaoTestarBusca()`
 - `src/lib/actions/criadores.ts`: `acaoCriarCriador()`, `acaoAlterarSituacaoCriador()`
 - `src/lib/actions/eventos.ts`: `acaoCriarEvento()`, `acaoSalvarEvento()`, `acaoPublicarEvento()`, `acaoCancelarEvento()`, `acaoExcluirEvento()`, `acaoConfirmarPresenca()`, `acaoCancelarPresenca()`
 - `src/lib/actions/favoritos.ts`: `acaoFavoritar()`, `acaoDesfavoritar()`
@@ -767,6 +822,7 @@ proxy.ts
 
 ## Paginas
 
+- `src/app/(aluno)/assistente/page.tsx`
 - `src/app/(aluno)/aula/[id]/page.tsx`
 - `src/app/(aluno)/avaliacoes/[id]/page.tsx`
 - `src/app/(aluno)/avaliacoes/[id]/resultado/[tentativaId]/page.tsx`
@@ -788,10 +844,18 @@ proxy.ts
 - `src/app/admin/[secao]/page.tsx`
 - `src/app/admin/analytics/page.tsx`
 - `src/app/admin/area-de-membros/page.tsx`
+- `src/app/admin/assistente-do-professor/consumo/page.tsx`
+- `src/app/admin/assistente-do-professor/page.tsx`
+- `src/app/admin/assistente-do-professor/perguntas/page.tsx`
+- `src/app/admin/assistente-do-professor/testar/page.tsx`
 - `src/app/admin/avaliacoes/[id]/alunos/page.tsx`
 - `src/app/admin/avaliacoes/[id]/page.tsx`
 - `src/app/admin/avaliacoes/nova/page.tsx`
 - `src/app/admin/avaliacoes/page.tsx`
+- `src/app/admin/base-de-conhecimento/page.tsx`
+- `src/app/admin/base-de-conhecimento/testar/page.tsx`
+- `src/app/admin/base-de-conhecimento/textos/[id]/page.tsx`
+- `src/app/admin/base-de-conhecimento/textos/novo/page.tsx`
 - `src/app/admin/certificados/modelo/page.tsx`
 - `src/app/admin/certificados/page.tsx`
 - `src/app/admin/comunidade/page.tsx`

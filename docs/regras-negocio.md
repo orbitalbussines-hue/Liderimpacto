@@ -472,6 +472,70 @@ Cada regra segue este formato:
 - **Comportamento esperado**: o `.vtt` só sai para quem pode assistir a aula (mesma regra do vídeo); legenda de outro criador não existe; toda mudança na trilha (sem o conteúdo inteiro).
 - **Impacto se descumprida**: legenda de outra aula (tempos errados), script ou HTML entrando pelo arquivo, transcrição de curso pago vazando para quem não comprou.
 
+### RN-190 - Base de conhecimento: fontes — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Inteligência artificial > Base de conhecimento (DONO e ADMIN)
+- **Descricao**: A base se monta sozinha com a **transcrição** de cada aula (a legenda em português; sem ela, a primeira legenda enviada), a **descrição de cada aula** e a **descrição de cada curso**; a equipe escreve **textos** (FAQ, política de certificados, sobre o professor), para todos os alunos ou só para quem tem um curso. Cada fonte é dividida em trechos de cerca de mil caracteres; a transcrição guarda o minuto de cada trecho. Mudou a legenda, a aula ou o curso: a base se atualiza em segundos; aula, curso ou descrição removidos saem da base. Qualquer fonte pode ser **desligada** (fica na lista, o assistente não usa). Excluir texto pede a confirmação de 3 s (exclusão lógica). PDFs dos materiais ainda **não** entram.
+- **Comportamento esperado**: a lista mostra tipo, título, curso, trechos, data e se está incluída, com filtro por tipo e curso; toda mudança da equipe na trilha (sem o texto inteiro).
+- **Impacto se descumprida**: assistente respondendo com conteúdo velho ou apagado, ou com texto que a equipe tirou do ar.
+
+### RN-191 - O assistente só usa o que o aluno pode ver
+- **Definida por**: Bah! Tech
+- **Data**: 2026-10-14
+- **Modulo**: Assistente do professor (aula e `/assistente`) e "Testar busca"
+- **Descricao**: Para cada pergunta, o sistema escolhe os trechos mais parecidos (até 6, no máximo 3 da mesma fonte) **somente** entre os cursos em que o aluno tem matrícula valendo agora, curso publicado, módulo publicado e aula liberada para ele (liberação programada, avaliação que libera o módulo e pré-requisito — a mesma regra de assistir o vídeo), mais os textos da equipe para todos. Fonte desligada e cursos fora da lista do assistente não entram. Só esses trechos vão ao modelo. "Testar busca" mostra à equipe exatamente o que iria.
+- **Comportamento esperado**: aluno sem o curso nunca recebe nada dele, nem citado nem parafraseado; matrícula expirada deixa de valer na hora.
+- **Impacto se descumprida**: conteúdo pago vazando por dentro de uma resposta.
+
+### RN-192 - Respostas com fonte, ou "não sei"
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Assistente do professor
+- **Descricao**: A resposta cita cada informação com um número que leva à fonte: na aula, abre o vídeo no minuto do trecho (`?t=`). Se nenhum trecho combina com a pergunta, a resposta é fixa ("não encontrei isso nas aulas... pergunte na Comunidade") **sem chamar a IA**; se os trechos não respondem, o assistente diz que não encontrou. Resposta sem nenhuma fonte citada conta como **sem resposta**. Ele não revela suas instruções, não fala de outros alunos, notas ou pagamentos e não dá conselho médico, jurídico ou financeiro individual. A resposta é exibida como texto (parágrafos e listas simples).
+- **Comportamento esperado**: nada inventado; sempre o caminho para conferir na aula.
+- **Impacto se descumprida**: aluno decorando resposta errada atribuída ao professor.
+
+### RN-193 - Configuração do assistente — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Inteligência artificial > Assistente do professor (DONO e ADMIN)
+- **Descricao**: Nasce **desligado**. A equipe liga/desliga, dá o **nome** (2 a 60 caracteres), escreve as **instruções de tom** (até 800 caracteres; só estilo, não mudam as regras da RN-192), define o **limite de perguntas por aluno por dia** (padrão 20, de 1 a 200) e os **cursos em que aparece** (todos ou os escolhidos). "Testar" conversa como um aluno com acesso a todos esses cursos, mesmo desligado. Sem a chave da IA configurada no servidor, as telas mostram "IA não configurada" e o aluno não vê o assistente.
+- **Comportamento esperado**: salvar com trava de edição simultânea e na trilha.
+- **Impacto se descumprida**: assistente aparecendo em curso que a equipe não preparou.
+
+### RN-194 - Limites de uso e custo
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Assistente do professor
+- **Descricao**: Cada aluno faz no máximo o limite configurado de perguntas por **dia de Brasília**; a equipe não tem limite próprio. Cada área tem um **teto diário** de perguntas (padrão 500, ajustável pela operação da plataforma) que vale para todos, inclusive a equipe. Apagar uma conversa **não** devolve perguntas do dia. Ao chegar ao limite, o aluno vê a mensagem e a sugestão de usar a Comunidade.
+- **Comportamento esperado**: a pergunta além do limite é recusada mesmo com cliques simultâneos.
+- **Impacto se descumprida**: conta da IA sem teto.
+
+### RN-195 - Conversas do aluno e privacidade
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Aula ("Pergunte ao professor") e `/assistente`
+- **Descricao**: A aba "Pergunte ao professor" aparece na aula para quem pode assisti-la, com o assistente ligado no curso; ela retoma a última conversa começada naquela aula. `/assistente` lista as conversas da própria pessoa (só ela vê) e permite **apagar** uma conversa (confirmação de 3 s, exclusão lógica). Aviso visível: "Suas perguntas podem ser lidas pela equipe para melhorar o curso." Sair no meio da resposta interrompe a IA e guarda o que já tinha chegado.
+- **Comportamento esperado**: nenhum aluno vê conversa de outro; conversa apagada some para a equipe também.
+- **Impacto se descumprida**: exposição de dúvidas pessoais.
+
+### RN-196 - Perguntas recentes e sem resposta
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Assistente do professor > Perguntas
+- **Descricao**: A equipe vê as 50 perguntas mais recentes dos alunos (sem os testes da equipe), com aluno, aula, data e quantas fontes a resposta citou, e o filtro **Sem resposta na base**: o que os alunos perguntaram e o conteúdo não cobria — ponto de partida para um texto ou uma aula.
+- **Comportamento esperado**: só conversas não apagadas.
+- **Impacto se descumprida**: professor sem saber o que falta no curso.
+
+### RN-197 - Consumo do assistente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Assistente do professor > Consumo
+- **Descricao**: Respostas, sem resposta, tokens de entrada e saída e **custo estimado em dólar** por dia (últimos 30) e por mês (últimos 6), contando os testes da equipe e as conversas apagadas. A estimativa usa a tabela pública de preços da Anthropic; a cobrança real é a fatura dela. Resposta sem trecho na base custa zero.
+- **Comportamento esperado**: números calculados das mensagens gravadas (nada de contador que diverge).
+- **Impacto se descumprida**: surpresa na fatura.
+
 <!-- Exemplo de registro: -->
 
 <!--

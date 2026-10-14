@@ -128,8 +128,8 @@ export async function gravarLegenda(p: EnvioLegenda): Promise<{ id: string }> {
 }
 
 /** Soft delete com trava; legenda de outro criador = colisão/"não encontrada" (mesma mensagem). */
-export async function removerLegenda(p: { criadorId: string; usuarioId: string; legendaId: string; versao: Date }): Promise<void> {
-  await db.transaction(async (tx) => {
+export async function removerLegenda(p: { criadorId: string; usuarioId: string; legendaId: string; versao: Date }): Promise<{ aulaId: string }> {
+  return db.transaction(async (tx) => {
     const [l] = await tx
       .update(legendas)
       .set(marcaDeExclusao(p.usuarioId))
@@ -145,5 +145,6 @@ export async function removerLegenda(p: { criadorId: string; usuarioId: string; 
       detalhes: `Removeu a legenda ${l.idioma} ("${l.rotulo}") da aula (exclusão lógica)`,
       dadosAnteriores: l,
     });
+    return { aulaId: l.aulaId };
   });
 }
