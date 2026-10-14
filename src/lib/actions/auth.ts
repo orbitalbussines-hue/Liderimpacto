@@ -1,8 +1,13 @@
 "use server";
 
+import { and, eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { db } from "@/lib/db";
+import { criadores_membros, usuarios } from "@/lib/db/schema";
+import { vivos } from "@/lib/db/soft-delete";
+import { EQUIPE } from "@/lib/auth/permissoes";
 import { registrarAuditoriaSegura } from "@/lib/audit/registrar";
 import { auth } from "@/lib/auth/auth";
 import { depoisDaResposta } from "@/lib/auth/depois";
@@ -29,11 +34,37 @@ const esquemaLogin = z.strictObject({
   manterConectado: z.boolean(),
 });
 
-/** Para onde vai quem acabou de entrar: o `?de=` interno, ou o inicio da area. */
-async function destinoDepoisDeEntrar(de: unknown): Promise<string> {
+/** A pessoa (pelo e-mail com que acabou de entrar) e equipe neste criador? So decide o destino. */
+async function ehEquipeNoCriador(email: string, criadorId: string): Promise<boolean> {
+  const [u] = await db
+    .select({ papelPlataforma: usuarios.papel_plataforma, papel: criadores_membros.papel })
+    .from(usuarios)
+    .leftJoin(
+      criadores_membros,
+      and(
+        eq(criadores_membros.usuario_id, usuarios.id),
+        eq(criadores_membros.criador_id, criadorId),
+        eq(criadores_membros.status, "ATIVO"),
+        vivos(criadores_membros),
+      ),
+    )
+    .where(and(sql`lower(${usuarios.email}) = ${email.toLowerCase()}`, vivos(usuarios)));
+  if (!u) return false;
+  return u.papelPlataforma === "SUPER_ADMIN" || (u.papel !== null && EQUIPE.includes(u.papel));
+}
+
+/**
+ * Para onde vai quem acabou de entrar: o `?de=` interno, ou o inicio da area — no criador,
+ * a equipe (DONO/ADMIN, e o SUPER_ADMIN em suporte) comeca no painel; o aluno, na vitrine.
+ * O papel e lido do banco (o cookie recem-criado ainda nao vale nesta requisicao).
+ */
+async function destinoDepoisDeEntrar(de: unknown, email?: string): Promise<string> {
   const destino = destinoSeguro(de);
   if (destino !== "/") return destino;
-  return (await alvoDosCabecalhos(await headers()))?.tipo === "plataforma" ? "/plataforma" : "/";
+  const alvo = await alvoDosCabecalhos(await headers());
+  if (alvo?.tipo === "plataforma") return "/plataforma";
+  if (alvo?.tipo === "criador" && email && (await ehEquipeNoCriador(email, alvo.criador.id))) return "/admin";
+  return "/";
 }
 
 /** Passo 1: senha. Quem tem segundo fator segue para o codigo. */
@@ -49,7 +80,7 @@ export async function entrar(_: EstadoForm, form: FormData): Promise<EstadoForm>
   if (!r.ok) return { erro: r.erro };
   const destino = destinoSeguro(form.get("de"));
   if (r.proximo === "codigo") redirect(destino === "/" ? "/login/verificar" : `/login/verificar?de=${encodeURIComponent(destino)}`);
-  redirect(await destinoDepoisDeEntrar(form.get("de")));
+  redirect(await destinoDepoisDeEntrar(form.get("de"), dados.data.email));
 }
 
 /** Passo 2: codigo de 6 digitos do aplicativo ou um codigo de recuperacao. */

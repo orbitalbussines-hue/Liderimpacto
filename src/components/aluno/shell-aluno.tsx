@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Search } from "lucide-react";
 import { Logo } from "@/components/marca/logo";
 import { EstiloMarca } from "@/components/marca/estilo-marca";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { SinoNotificacoes } from "@/components/notificacoes/sino-notificacoes";
 import { MenuAluno } from "./menu-aluno";
 import { TabBarAluno } from "./tab-bar-aluno";
@@ -21,6 +21,8 @@ export interface ShellAlunoProps {
   notificacoes: number;
   /** Cor da marca em hex (EstiloMarca); sem ela vale o dourado padrão. */
   corMarca?: string;
+  /** Equipe (DONO/ADMIN/suporte): mostra o atalho "Painel admin" no header do desktop. */
+  painelAdmin?: boolean;
   children: ReactNode;
 }
 
@@ -28,7 +30,7 @@ export interface ShellAlunoProps {
  * Casca da área do aluno: header sticky (logo, menu, busca, sino, avatar), conteúdo e,
  * no celular, a tab bar. `data-area="aluno"` é o escopo da cor da marca.
  */
-export function ShellAluno({ usuario, notificacoes, corMarca, children }: ShellAlunoProps) {
+export function ShellAluno({ usuario, notificacoes, corMarca, painelAdmin = false, children }: ShellAlunoProps) {
   return (
     <div data-area="aluno" className="flex min-h-dvh flex-col bg-bg text-text">
       <EstiloMarca cor={corMarca} />
@@ -39,6 +41,13 @@ export function ShellAluno({ usuario, notificacoes, corMarca, children }: ShellA
         </Link>
         <MenuAluno />
         <div className="flex-1" />
+        {painelAdmin && (
+          // No celular o header nao tem folga (320px): la o atalho fica em /perfil.
+          <Link href="/admin" className={buttonVariants({ variant: "contorno", size: "36", className: "hidden shrink-0 desk:inline-flex" })}>
+            <LayoutDashboard aria-hidden />
+            Painel admin
+          </Link>
+        )}
         <Button variant="fantasma" size="icone44" aria-label="Buscar" className="min-w-11 shrink-0">
           <Search aria-hidden />
         </Button>

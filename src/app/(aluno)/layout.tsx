@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { ShellAluno } from "@/components/aluno/shell-aluno";
 import { iniciais } from "@/components/ui/avatar";
 import { membroDaPagina } from "@/lib/auth/guarda";
-import { TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
+import { EQUIPE, TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
 import { hostAtual } from "@/lib/criador/atual";
 import { contarNaoLidas } from "@/lib/notificacoes/consultas";
 
@@ -16,7 +16,12 @@ async function ShellComSessao({ children }: { children: ReactNode }) {
   const { usuario, criador, membro } = await membroDaPagina(TODOS_OS_MEMBROS);
   const naoLidas = membro.id ? await contarNaoLidas(criador.id, membro.id) : 0;
   return (
-    <ShellAluno usuario={{ nome: usuario.nome, iniciais: iniciais(usuario.nome) }} notificacoes={naoLidas} corMarca={criador.cor_marca ?? undefined}>
+    <ShellAluno
+      usuario={{ nome: usuario.nome, iniciais: iniciais(usuario.nome) }}
+      notificacoes={naoLidas}
+      corMarca={criador.cor_marca ?? undefined}
+      painelAdmin={EQUIPE.includes(membro.papel)}
+    >
       {children}
     </ShellAluno>
   );

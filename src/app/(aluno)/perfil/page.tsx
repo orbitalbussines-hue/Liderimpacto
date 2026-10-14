@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { LayoutDashboard, LogOut } from "lucide-react";
 import { duracaoCurta, mesAno } from "@/components/aluno/formatos";
 import { CartaoPerfil } from "@/components/engajamento/cartao-perfil";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Esqueleto } from "@/components/ui/esqueleto";
 import { sair } from "@/lib/actions/auth";
 import { membroDaPagina } from "@/lib/auth/guarda";
-import { TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
+import { EQUIPE, TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
 import { dadosDoPerfil } from "@/lib/perfil/consultas";
 import { numerosDoPerfil, preferenciasDoAluno } from "@/lib/progresso/consultas";
 import { FormularioPerfil } from "./_components/formulario-perfil";
@@ -36,6 +37,13 @@ async function Perfil() {
             { valor: numeros.cursosConcluidos, rotulo: numeros.cursosConcluidos === 1 ? "curso concluído" : "cursos concluídos" },
           ]}
         />
+        {EQUIPE.includes(q.membro.papel) && (
+          // Atalho da equipe para o painel (no desktop ele tambem fica no header; no celular so aqui).
+          <Link href="/admin" className={buttonVariants({ variant: "contorno", size: "40", larguraTotal: true })}>
+            <LayoutDashboard aria-hidden />
+            Painel admin
+          </Link>
+        )}
         <form action={sair}>
           <Button type="submit" variant="fantasma" size="40" larguraTotal className="text-muted">
             <LogOut aria-hidden />
