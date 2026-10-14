@@ -104,6 +104,7 @@ Código, comentário, documentação, UI, mensagem de erro e commit em **PT-BR**
 | Catálogo (produto > módulo > aula > material) | `src/lib/catalogo/` (consultas, regras, ordem, publicação) |
 | Matrículas (serviço `matricular` = ponto de entrada do futuro webhook, idempotente) | `src/lib/matriculas/` (`servico.ts`, `consultas.ts`, `regras.ts`, `csv.ts`) — RN-116/117, `docs/back.md` |
 | Progresso, fileiras, curso e player do aluno (batida = 1 UPSERT com bitmap por segundo; beacon `POST /api/progresso`; Top 10 por agregado diário + `"use cache"`) | `src/lib/progresso/` (`registrar.ts`, `batida.ts`, `beacon.ts`, `consultas.ts`, `consultas-curso.ts`, `top10.ts`, `regras.ts`) — ADR-0006, RN-118 a RN-121, API em `docs/back.md` |
+| Painel (Home) do admin: KPIs, acessos 14 dias, mais assistidas, saúde, "acontecendo agora" (uma consulta por bloco; agregados com `"use cache"` de minutos; dias de atividade em `criadores_membros_atividades`) | `src/lib/painel/` (`consultas.ts`, `cache.ts`, `regras.ts`) — ADR-0007, RN-122 |
 | Validadores | `src/lib/validators/<entidade>.ts` |
 | Actions | `src/lib/actions/<entidade>.ts` |
 | Telas | `src/app/(app)/<rota>/page.tsx` + `_components/` |

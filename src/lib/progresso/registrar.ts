@@ -11,7 +11,8 @@ import { esquemaBatida, FOLGA_SEG, PERCENTUAL_CONCLUSAO, prepararBatida, TETO_PR
  *
  * `registrarProgresso` é UMA instrução SQL (uma ida ao banco): lê a duração da aula, faz o
  * UPSERT por (membro, aula) com OR bit a bit nos segundos assistidos, recalcula percentual e
- * conclusão e soma a visualização do dia no agregado do Top 10. Duas batidas simultâneas se
+ * conclusão, soma a visualização do dia no agregado do Top 10 e marca o dia de atividade do membro
+ * (painel, `criadores_membros_atividades`). Duas batidas simultâneas se
  * enfileiram na trava de linha do ON CONFLICT: a segunda mescla sobre a primeira (nada se perde).
  *
  * A batida é IGNORADA (sem erro) quando a aula não tem duração (vídeo não processado) ou quando
@@ -117,6 +118,11 @@ export async function registrarProgresso(e: EntradaProgresso): Promise<Progresso
       insert into produtos_modulos_aulas_visualizacoes as v (criador_id, aula_id, dia, visualizacoes, modified_by)
       select ${e.criadorId}::uuid, ${e.aulaId}::uuid, ${HOJE}, 1, ${e.usuarioId}::uuid from up where up.visualizacao_nova
       on conflict (aula_id, dia) where is_deleted = false do update set visualizacoes = v.visualizacoes + 1, updated_at = now()
+    ),
+    ativ as (
+      insert into criadores_membros_atividades (criador_id, membro_id, dia, modified_by)
+      select ${e.criadorId}::uuid, ${e.membroId}::uuid, ${HOJE}, ${e.usuarioId}::uuid from up where up.visualizacao_nova
+      on conflict (membro_id, dia) where is_deleted = false do nothing
     )
     select * from up
   `);
@@ -157,6 +163,11 @@ export async function concluirManualmente(e: EntradaConclusaoManual): Promise<Pr
     `);
     const l = rows[0];
     if (l?.concluiu_agora) {
+      await tx.execute(sql`
+        insert into criadores_membros_atividades (criador_id, membro_id, dia, modified_by)
+        values (${e.criadorId}::uuid, ${e.membroId}::uuid, ${HOJE}, ${e.usuarioId}::uuid)
+        on conflict (membro_id, dia) where is_deleted = false do nothing
+      `);
       await registrarAuditoria(tx, {
         userId: e.usuarioId,
         criadorId: e.criadorId,

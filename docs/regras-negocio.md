@@ -244,6 +244,14 @@ Cada regra segue este formato:
 - **Comportamento esperado**: só a própria pessoa altera, pela sessão (nenhum id vem da tela); a mudança vai para a trilha com antes e depois. O player lê a reprodução automática a cada abertura.
 - **Impacto se descumprida**: preferência de uma pessoa alterada por outra, autoplay ignorando a escolha.
 
+### RN-122 - Painel (Home) do admin
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Admin / Home
+- **Descricao**: DONO e ADMIN veem o pulso da área (o ALUNO é recusado). Período de 7, 30 (padrão) ou 90 dias no calendário de Brasília (hoje e os dias anteriores), comparado com o período anterior de mesmo tamanho. Só membros com papel ALUNO entram nas métricas de aluno. **Alunos ativos**: alunos com ao menos um dia de atividade de aula no período (assistiu ≥ 1 segundo de qualquer aula, ou concluiu uma aula). **Novos alunos**: vínculos ALUNO criados no período. **Matrículas**: matrículas de alunos criadas ou reativadas no período (início da matrícula), com a **taxa de conclusão** = matrículas valendo agora (ATIVA e não expirada) já concluídas ÷ matrículas valendo agora. **Aulas concluídas**: conclusões de aula (botão ou 90% assistido) no período. **Acessos por dia**: alunos distintos com atividade em cada um dos últimos 14 dias (sempre 14, qualquer período). **Conteúdos mais assistidos**: aulas com mais visualizações no período (1 visualização = 1 membro na aula no dia, a mesma conta do Top 10). **Saúde dos produtos**: produtos PUBLICADOS, conclusão média (média, entre os publicados com matrícula valendo, da taxa de conclusão de cada um) e alunos com ao menos uma matrícula valendo. **Acontecendo agora**: últimos 8 eventos — membro cadastrado, matrícula criada ou reativada, produto publicado, vídeo pronto e aula concluída por aluno.
+- **Comportamento esperado**: variação com seta e texto; período anterior zerado mostra "novo" (nunca % infinito); os dois zerados, "Sem movimento". "Acontecendo agora" mostra só nome, título e número da aula — nunca e-mail, token ou IP. Receita e avaliação média só quando existirem (vendas, passo 7+): nada inventado. Os agregados podem ficar até ~1 min atrasados (cache); "Acontecendo agora" é ao vivo.
+- **Impacto se descumprida**: decisão tomada com número errado, dado de um criador no painel de outro, e-mail de aluno exposto na tela.
+
 <!-- Exemplo de registro: -->
 
 <!--

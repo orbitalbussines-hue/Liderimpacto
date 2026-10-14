@@ -71,6 +71,8 @@ export const produtos_modulos_aulas_progressos = pgTable(
     uniqueIndex("uq_produtos_modulos_aulas_progressos_vivo").on(t.membro_id, t.aula_id).where(sql`is_deleted = false`),
     // "Continuar assistindo": do membro, mais recentes primeiro.
     index("ix_produtos_modulos_aulas_progressos_recentes").on(t.membro_id, t.updated_at.desc()).where(sql`is_deleted = false`),
+    // Painel (passo 6): "Aulas concluídas" no período e "Acontecendo agora", por criador.
+    index("ix_produtos_modulos_aulas_progressos_concluidas").on(t.criador_id, t.concluida_em.desc()).where(sql`concluida and is_deleted = false`),
     check("ck_produtos_modulos_aulas_progressos_bitmap", sql.raw(`length(segundos_bitmap) <= ${DURACAO_MAXIMA_PROGRESSO_SEG}`)),
     check(
       "ck_produtos_modulos_aulas_progressos_numeros",
@@ -111,6 +113,35 @@ export const produtos_modulos_aulas_visualizacoes = pgTable(
     // Top 10: soma dos ultimos 7 dias do criador.
     index("ix_produtos_modulos_aulas_visualizacoes_criador_dia").on(t.criador_id, t.dia).where(sql`is_deleted = false`),
     check("ck_produtos_modulos_aulas_visualizacoes_numero", sql`visualizacoes >= 0`),
+  ],
+);
+
+/**
+ * Dias de atividade de aula de cada membro (painel, passo 6): uma linha por (membro, dia de
+ * Brasília) em que ele assistiu ≥ 1 segundo de qualquer aula ou concluiu uma aula. Base de
+ * "Alunos ativos" e de "Acessos por dia" (alunos DISTINTOS por dia — o agregado do Top 10 conta
+ * pares aula×membro e o progresso só guarda a última batida). Escrita na MESMA instrução do
+ * upsert do progresso (src/lib/progresso/registrar.ts), só na primeira batida do dia de cada aula.
+ */
+export const criadores_membros_atividades = pgTable(
+  "criadores_membros_atividades",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    criador_id: uuid("criador_id").notNull().references(() => criadores.id, restrito),
+    membro_id: uuid("membro_id").notNull(),
+    dia: date("dia", { mode: "string" }).notNull(),
+    ...colunasAuditoria,
+  },
+  (t) => [
+    foreignKey({
+      name: "fk_criadores_membros_atividades_membro",
+      columns: [t.membro_id, t.criador_id],
+      foreignColumns: [criadores_membros.id, criadores_membros.criador_id],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    uniqueIndex("uq_criadores_membros_atividades_dia_vivo").on(t.membro_id, t.dia).where(sql`is_deleted = false`),
+    index("ix_criadores_membros_atividades_criador_dia").on(t.criador_id, t.dia).where(sql`is_deleted = false`),
   ],
 );
 

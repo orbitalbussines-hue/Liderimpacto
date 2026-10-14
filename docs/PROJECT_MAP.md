@@ -6,8 +6,8 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 385 |
-| Tabelas (Drizzle) | 25 |
+| Arquivos TS/TSX | 392 |
+| Tabelas (Drizzle) | 26 |
 | Server Actions (arquivos) | 21 |
 | Rotas de API | 4 |
 | Paginas | 29 |
@@ -29,6 +29,7 @@ app/
     layout.tsx
     page.tsx
   admin/
+    _components/
     [secao]/
     configuracoes/
     conteudos/
@@ -302,6 +303,11 @@ lib/
     regras.test.ts
     regras.ts
     vinculos.ts
+  painel/
+    cache.ts
+    consultas.ts
+    regras.test.ts
+    regras.ts
   perfil/
     consultas.ts
   progresso/
@@ -401,6 +407,9 @@ proxy.ts
 
 ### `produtos_modulos_aulas_visualizacoes` — src/lib/db/schema/progresso.ts
 `id`, `criador_id`, `aula_id`, `dia`, `visualizacoes`
+
+### `criadores_membros_atividades` — src/lib/db/schema/progresso.ts
+`id`, `criador_id`, `membro_id`, `dia`
 
 ### `produtos_modulos_aulas_anotacoes` — src/lib/db/schema/progresso.ts
 `id`, `criador_id`, `membro_id`, `aula_id`, `tempo_seg`, `texto`

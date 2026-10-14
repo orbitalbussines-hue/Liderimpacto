@@ -258,6 +258,33 @@ aulaParaPlayer → {
 | `acaoSalvarPreferencias({ reproducaoAutomatica?, lembretes? })`: as duas | `src/lib/actions/preferencias.ts` | a própria sessão | atualizar (antes e depois) | RN-121 |
 | `acaoLinkDoMaterial({ materialId })`: `{ url }` (5 min) | `src/lib/actions/aulas.ts` | equipe; ALUNO se `podeAssistir` a aula | não (leitura) | RN-114 |
 
+## Painel do admin (passo 6)
+
+ADR-0007, RN-122. Migração `0005_painel_atividades`. Nenhuma variável de ambiente nova.
+
+| Tabela / índice | Para quê |
+|--------|----------|
+| `criadores_membros_atividades` | um dia de atividade de aula por (membro, dia de Brasília), único entre os vivos; índice (criador, dia). Escrito pelo upsert do progresso (`registrar.ts`, CTE `ativ`, só na 1ª batida do dia de cada aula) e pela conclusão pelo botão; carga inicial pelo progresso existente |
+| `ix_produtos_modulos_aulas_progressos_concluidas` | (criador, `concluida_em` desc) onde concluída e viva: "Aulas concluídas" e "Acontecendo agora" |
+
+Período: `?periodo=7|30|90` (`lerPeriodo`, padrão 30) = hoje e os N−1 dias anteriores em Brasília;
+o anterior são os N dias antes dele. Instantes comparados com a meia-noite de Brasília convertida.
+Métricas de aluno contam só vínculos vivos com papel ALUNO.
+
+| Função (`src/lib/painel/`) | Retorno / definição | Cache |
+|--------|----------|----------|
+| `kpisDoPainel(criadorId, dias)` | `{ ativos, ativosAnt, novos, novosAnt, matriculas, matriculasAnt, validas, validasConcluidas, aulas, aulasAnt }`. Ativos = alunos distintos com dia em `criadores_membros_atividades`; novos = `criadores_membros.created_at`; matrículas = `produtos_matriculas.iniciada_em` (criação e reativação gravam o início); válidas = ATIVA e não expirada agora (taxa = `validasConcluidas / validas`, `concluida_em` preenchida); aulas = `concluida_em` do progresso | `kpisCacheados` |
+| `acessosPorDia(criadorId)` | `{ dia: "AAAA-MM-DD", alunos }[]`, sempre 14 (hoje por último), zeros por `generate_series` | `acessosCacheados` |
+| `maisAssistidas(criadorId, dias, limite = 5)` | `{ aulaId, titulo, curso, visualizacoes }[]`: soma de `produtos_modulos_aulas_visualizacoes` no período (aula, módulo e produto vivos) | `maisAssistidasCacheadas` |
+| `saudeDosProdutos(criadorId)` | `{ publicados, taxaMedia: 0..1 \| null, alunosComMatricula }`: média por produto PUBLICADO das taxas de conclusão das matrículas válidas | `saudeCacheada` |
+| `acontecendoAgora(criadorId, limite = 8)` | `EventoPainel[]` (`matricula`, `reativacao`, `membro`, `publicacao`, `video`, `conclusao`), mais recentes primeiro. Trilha: `produtos_matriculas` criar/atualizar com `iniciada_em`, `criadores_membros` criar, `produtos` publicar → PUBLICADO, `produtos_modulos_aulas_videos` → PRONTO; progresso: `concluida_em` de ALUNO. Só ids da trilha + nome/título por JOIN; `detalhes` (pode ter e-mail) nunca é lido. Número "3.2" = posição entre módulos publicados e aulas vivas | nenhum |
+
+Regras puras em `regras.ts` (testadas): `variacao` (base zero = "novo", os dois zero = "sem-dados"),
+`textoDaVariacao` (seta + sinal + versão por extenso), `tempoRelativo` ("há 5 min", "21/09 · 14:44"
+em Brasília), `fraseDoEvento`. Cache (`cache.ts`): `"use cache"` + `cacheLife("minutes")` +
+`cacheTag("painel:<criador>")`, chamado só DEPOIS de `membroDaPagina(EQUIPE)` em cada bloco.
+Tela: `src/app/admin/page.tsx` + `_components/` (um `<Suspense>` com esqueleto por bloco).
+
 ## Variáveis de ambiente (passo 3)
 
 | Variável | Dev (docker-compose) | Produção | Para quê |
