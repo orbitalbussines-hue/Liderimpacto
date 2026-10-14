@@ -30,7 +30,8 @@ function imagensDoStorage(): { remotePatterns: PadraoRemoto[]; dangerouslyAllowL
 }
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // APRESENTACAO=1 esconde o indicador "N" do next dev (demo ao cliente); erros continuam aparecendo.
+  ...(process.env.APRESENTACAO === "1" ? { devIndicators: false as const } : {}),
   cacheComponents: true,
   partialPrefetching: true,
   // forbidden() nas guardas de pagina (403 com a recusa na trilha): src/lib/auth/guarda.ts.
