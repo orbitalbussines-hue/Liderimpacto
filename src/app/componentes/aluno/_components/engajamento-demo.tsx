@@ -72,7 +72,7 @@ export function EngajamentoDemo() {
             ))}
           </div>
           <div className="flex flex-col gap-4">
-            <CartaoEncontroAoVivo dia="30" mes="SET" titulo="Mentoria em grupo" quando="Terça · 20h · Zoom" />
+            <CartaoEncontroAoVivo dia="30" mes="set" titulo="Mentoria em grupo" quando="Terça-feira, 30 de setembro · 20:00" href="#" hrefAgenda="#" hrefTodos="#" />
             <CartaoFixados links={FIXADOS} />
             <CartaoMembrosAtivos membros={MEMBROS_ATIVOS} />
           </div>

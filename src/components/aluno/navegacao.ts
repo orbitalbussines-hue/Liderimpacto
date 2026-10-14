@@ -1,10 +1,12 @@
 import {
   Award,
+  CalendarDays,
   CirclePlay,
   ClipboardList,
   House,
   MessageCircle,
   Route,
+  Trophy,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -28,8 +30,20 @@ export const ITENS_MENU: readonly ItemNavegacao[] = [
   TRILHAS,
   { href: "/avaliacoes", rotulo: "Avaliações", icone: ClipboardList },
   COMUNIDADE,
+  // No celular não cabe na tab bar: o acesso é pelo cartão "Próximo encontro ao vivo" da comunidade e pelos avisos do sino.
+  { href: "/eventos", rotulo: "Eventos", icone: CalendarDays },
   { href: "/certificados", rotulo: "Certificados", icone: Award },
 ];
+
+/** Conquistas (pontos, ranking, desafios): só com a gamificação ligada; no celular, pelo Perfil. */
+export const ITEM_CONQUISTAS: ItemNavegacao = { href: "/conquistas", rotulo: "Conquistas", icone: Trophy };
+
+/** Itens do menu do desktop para a área: Conquistas entra antes de Certificados quando ligada. */
+export function itensDoMenu({ conquistas }: { conquistas: boolean }): readonly ItemNavegacao[] {
+  if (!conquistas) return ITENS_MENU;
+  const i = ITENS_MENU.findIndex((x) => x.href === "/certificados");
+  return [...ITENS_MENU.slice(0, i), ITEM_CONQUISTAS, ...ITENS_MENU.slice(i)];
+}
 
 /** Tab bar inferior (celular): 5 abas, "Continuar" vira "Aulas". */
 export const ITENS_TAB_BAR: readonly ItemNavegacao[] = [

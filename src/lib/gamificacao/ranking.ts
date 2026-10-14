@@ -109,3 +109,14 @@ export async function extratoDoMembro(criadorId: string, membroId: string, limit
   `);
   return rows.map((r) => ({ id: r.id, motivo: r.motivo, pontos: r.pontos, referencia: r.referencia, ocorridoEm: new Date(r.ocorrido_em), justificativa: r.justificativa }));
 }
+
+/** Saldo TOTAL (soma do razão) de cada membro pedido — o nível nas listas do ranking por período. */
+export async function saldosDosMembros(criadorId: string, membroIds: readonly string[]): Promise<Map<string, number>> {
+  if (membroIds.length === 0) return new Map();
+  const { rows } = await db.execute<{ membro_id: string; total: number }>(sql`
+    select membro_id, sum(pontos)::int as total from criadores_membros_pontos
+    where criador_id = ${criadorId}::uuid and membro_id in (${sql.join(membroIds.map((id) => sql`${id}::uuid`), sql`, `)})
+    group by membro_id
+  `);
+  return new Map(rows.map((r) => [r.membro_id, r.total]));
+}

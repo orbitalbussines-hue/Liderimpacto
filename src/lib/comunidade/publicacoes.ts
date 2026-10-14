@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/schema";
 import { FINALIDADES_ARQUIVO_COMUNIDADE } from "@/lib/db/schema/_enums";
 import { MSG_COLISAO, marcaDeExclusao, travaDeColisao, vivos } from "@/lib/db/soft-delete";
+import { registrarConquista } from "@/lib/gamificacao/pontos";
 import { notificarCanal, notificarCurtidaNoPost } from "@/lib/notificacoes/gerar";
 import { acessoDaAula } from "@/lib/video/acesso-aula";
 import { canalVisivel } from "./canais";
@@ -140,6 +141,8 @@ export async function publicar(p: Participante, d: NovaPublicacao, agora = new D
     return { id: post.id, versao: post.updated_at.toISOString(), aviso: canal.quemPosta === "EQUIPE" };
   });
   if (r.aviso) await notificarCanal(p.criadorId, r.id, "AVISO", { usuarioId: p.usuarioId, membroId: p.membroId, nome: primeiroNome(p.nome) }, agora);
+  // 1ª publicação do dia pontua (ADR-0012; equipe não pontua; nunca lança).
+  await registrarConquista({ criadorId: p.criadorId, membroId: p.membroId, conquista: { motivo: "PUBLICACAO_COMUNIDADE" }, ocorridoEm: agora }, agora);
   return { id: r.id, versao: r.versao };
 }
 

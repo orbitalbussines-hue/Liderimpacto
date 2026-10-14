@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { verificarEmissao } from "@/lib/certificados/emissao";
 import { db } from "@/lib/db";
+import { registrarConquista } from "@/lib/gamificacao/pontos";
 import type { ConclusaoAula } from "@/lib/db/schema/_enums";
 import { DURACAO_MAXIMA_PROGRESSO_SEG } from "@/lib/db/schema/progresso";
 import { esquemaBatida, FOLGA_SEG, PERCENTUAL_CONCLUSAO, prepararBatida, TETO_PRIMEIRA_BATIDA_SEG, VELOCIDADE_MAXIMA, type Intervalo } from "./regras";
@@ -135,7 +136,7 @@ export async function registrarProgresso(e: EntradaProgresso): Promise<Progresso
   `);
   const linha = rows[0];
   if (!linha) return null;
-  if (linha.concluiu_agora) await concluirMatriculaSeCompleta(e.criadorId, e.membroId, e.aulaId);
+  if (linha.concluiu_agora) await depoisDeConcluir(e.criadorId, e.membroId, e.aulaId);
   return paraProgresso(linha);
 }
 
@@ -188,8 +189,17 @@ export async function concluirManualmente(e: EntradaConclusaoManual): Promise<Pr
     return l;
   });
   if (!linha) return null;
-  if (linha.concluiu_agora) await concluirMatriculaSeCompleta(e.criadorId, e.membroId, e.aulaId);
+  if (linha.concluiu_agora) await depoisDeConcluir(e.criadorId, e.membroId, e.aulaId);
   return paraProgresso(linha);
+}
+
+/**
+ * Depois do commit de uma conclusão NOVA (nunca no heartbeat comum): pontos da aula (ADR-0012;
+ * `registrarConquista` nunca lança) e, se o curso fechou, a matrícula.
+ */
+async function depoisDeConcluir(criadorId: string, membroId: string, aulaId: string): Promise<void> {
+  await registrarConquista({ criadorId, membroId, conquista: { motivo: "AULA_CONCLUIDA", aulaId } });
+  await concluirMatriculaSeCompleta(criadorId, membroId, aulaId);
 }
 
 /**
@@ -210,5 +220,8 @@ async function concluirMatriculaSeCompleta(criadorId: string, membroId: string, 
     returning pm.produto_id
   `);
   // Passo 7: matrícula concluída é uma das condições do certificado (RN-128).
-  for (const r of rows) await verificarEmissao(criadorId, membroId, r.produto_id);
+  for (const r of rows) {
+    await registrarConquista({ criadorId, membroId, conquista: { motivo: "CURSO_CONCLUIDO", produtoId: r.produto_id } });
+    await verificarEmissao(criadorId, membroId, r.produto_id);
+  }
 }

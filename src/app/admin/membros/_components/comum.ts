@@ -8,7 +8,7 @@ export const ABAS_MEMBROS: AbaTabela[] = [
   { rotulo: "Membros", href: "/admin/membros" },
   { rotulo: "Grupos de acesso", href: "/admin/membros/grupos" },
   { rotulo: "Vouchers", emBreve: true },
-  { rotulo: "Gamificação", emBreve: true },
+  { rotulo: "Gamificação", href: "/admin/membros/gamificacao" },
   { rotulo: "Tags", emBreve: true },
 ];
 

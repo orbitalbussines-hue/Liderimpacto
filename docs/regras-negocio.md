@@ -427,8 +427,8 @@ Cada regra segue este formato:
 ### RN-144 - Gamificação: configuração e níveis — PADRÃO aguardando o cliente
 - **Definida por**: Bah! Tech (padrão provisório)
 - **Data**: 2026-10-14
-- **Modulo**: Admin > Gamificação (DONO e ADMIN)
-- **Descricao**: Por área, **desligada por padrão**. Pontos por ação (0 a 10.000; 0 = não pontua): **aula concluída 10**, **curso concluído 100**, **avaliação aprovada 30** (a primeira aprovação de cada avaliação), **primeira publicação do dia na comunidade 2**, **desafio concluído = bônus do desafio**. Níveis (1 a 10, nome de 2 a 30 caracteres, o primeiro em 0, mínimos crescentes): **Iniciante 0, Aprendiz 100, Praticante 300, Líder 700, Referência 1500**. Só alunos pontuam (a equipe não). **Ligar a gamificação calcula os pontos de tudo o que o aluno já fez** (retroativo, pela data em que aconteceu). Mudar o valor de uma ação vale dali em diante (o que já foi lançado fica).
+- **Modulo**: Admin > Configurações > Gamificação (só DONO)
+- **Descricao**: Por área, **desligada por padrão**. Ligar ou desligar pede confirmação (modal de 3 s). Pontos por ação (0 a 10.000; 0 = não pontua): **aula concluída 10**, **curso concluído 100**, **avaliação aprovada 30** (a primeira aprovação de cada avaliação), **primeira publicação do dia na comunidade 2**, **desafio concluído = bônus do desafio**. Níveis (1 a 10, nome de 2 a 30 caracteres, o primeiro em 0, mínimos crescentes): **Iniciante 0, Aprendiz 100, Praticante 300, Líder 700, Referência 1500**. Só alunos pontuam (a equipe não). **Ligar a gamificação calcula os pontos de tudo o que o aluno já fez** (retroativo, pela data em que aconteceu). Mudar o valor de uma ação vale dali em diante (o que já foi lançado fica).
 - **Comportamento esperado**: desligada, nenhum ponto novo é lançado e o ranking some da área do aluno; trava de colisão e trilha na configuração.
 - **Impacto se descumprida**: pontos que mudam sozinhos ou que dependem de quando a área ligou a gamificação.
 
@@ -455,6 +455,14 @@ Cada regra segue este formato:
 - **Descricao**: Desafio = título, descrição, **início e fim**, meta (**concluir N aulas**, **concluir um curso**, **ser aprovado numa avaliação** ou **N publicações na comunidade**), bônus em pontos (0 a 10.000), recompensa opcional em texto (ex.: "Mentoria individual de 30 min"), situação **Rascunho → Publicado → Encerrado** (encerrar antes do fim para tudo) e público (todos ou grupos, como os eventos). O aluno do público clica **Participar** até o fim. O progresso conta só o que ele fez **entre o início e o fim** (mesmo antes de clicar em Participar); publicação removida ou oculta não conta. Ao alcançar a meta o desafio fica **concluído** e o bônus entra uma única vez; a equipe marca quando **entregou a recompensa**.
 - **Comportamento esperado**: progresso sempre recalculado dos dados (nunca um contador que diverge); desafio encerrado não conclui ninguém.
 - **Impacto se descumprida**: bônus em dobro, recompensa prometida e não registrada, ou desafio que conta atividade fora do prazo.
+
+### RN-160 - Eventos ao vivo: ciclo na tela da equipe — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Eventos (DONO e ADMIN) e área do aluno (`/eventos`)
+- **Descricao**: Todo evento nasce **rascunho** (o link pode ficar para depois). **Publicar** exige o link e que o encontro ainda não tenha terminado, e passa por confirmação de 3 s (avisa o público). Rascunho se **exclui** (exclusão lógica); publicado não se exclui: se **cancela** antes do fim, também com confirmação de 3 s (avisa quem confirmou), e cancelado fica só para consulta. Evento publicado continua editável (inclusive a gravação depois do fim); mudar o público de um evento publicado e não terminado avisa só quem **passou** a vê-lo. O aluno baixa um arquivo de agenda (`.ics`) com data, hora e o endereço da página do encontro, nunca o link da sala. No celular, o caminho até os encontros é o cartão "Próximo encontro ao vivo" no topo da Comunidade e os avisos do sino (a barra inferior tem 5 abas fixas).
+- **Comportamento esperado**: ninguém recebe aviso de um rascunho; nenhum aviso repetido para a mesma pessoa; toda mudança na trilha de auditoria.
+- **Impacto se descumprida**: aluno avisado de encontro que não existe, ou encontro sumindo da lista de quem já tinha confirmado.
 
 <!-- Exemplo de registro: -->
 

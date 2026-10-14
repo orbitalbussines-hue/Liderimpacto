@@ -45,6 +45,8 @@ export interface PaginaTabelaProps {
   filtrosAtivos?: readonly { rotulo: string; hrefRemover: string }[];
   /** Busca de verdade (form GET). Sem isto o campo é só visual (molde vazio). */
   formBusca?: BuscaTabela;
+  /** Lista sem busca (ex.: ranking): a barra mostra só os controles. */
+  semBusca?: boolean;
   /** Controles interativos ao lado dos filtros (menus de filtro). */
   controles?: ReactNode;
   /** Botões do cabeçalho prontos (client). Substitui acaoPrincipal/acaoSecundaria. */
@@ -130,6 +132,7 @@ export function PaginaTabela({
   filtros = [],
   filtrosAtivos = [],
   formBusca,
+  semBusca = false,
   controles,
   acoes,
   chaves,
@@ -198,7 +201,7 @@ export function PaginaTabela({
       )}
 
       <div className="flex flex-wrap items-center gap-2 px-5 py-3.5">
-        {formBusca ? (
+        {semBusca ? null : formBusca ? (
           <form role="search" method="get" className="flex min-w-[200px] flex-1">
             {Object.entries(formBusca.manter ?? {}).map(([nome, valor]) => (
               <input key={nome} type="hidden" name={nome} value={valor} />

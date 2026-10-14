@@ -11,6 +11,7 @@ import { PostAberto } from "@/components/comunidade/post-aberto";
 import { SeletorCanal } from "@/components/comunidade/seletor-canal";
 import { CartaoFixados } from "@/components/engajamento/cartao-fixados";
 import { CartaoMembrosAtivos } from "@/components/engajamento/cartao-membros-ativos";
+import { EncontroDaComunidade } from "@/components/engajamento/encontro-da-comunidade";
 import { ListaCanais } from "@/components/engajamento/lista-canais";
 import { Esqueleto } from "@/components/ui/esqueleto";
 import { membroDaPagina } from "@/lib/auth/guarda";
@@ -111,13 +112,21 @@ async function Comunidade({ searchParams }: { searchParams: Busca }) {
           <h1 className="m-0 font-sans text-[22px] font-extrabold tracking-normal">Comunidade</h1>
           <SeletorCanal canais={navCanais} ativoHref={navCanais.find((c) => c.id === ativoId)?.href ?? hrefCanal(null)} />
         </div>
+        {/* Abaixo de xl o lateral cai para depois do feed: o encontro sobe para o topo (no celular é o caminho até /eventos). */}
+        {lateral.proximoEncontro && !postId && <EncontroDaComunidade evento={lateral.proximoEncontro} idTitulo="titulo-encontro-topo" className="xl:hidden" />}
         {centro}
       </div>
-      {(lateral.fixados.length > 0 || lateral.membrosAtivos.length > 0) && (
+      {(lateral.proximoEncontro || lateral.fixados.length > 0 || lateral.membrosAtivos.length > 0) && (
         <aside aria-label="Destaques da comunidade" className="flex flex-col gap-4 desk:col-start-2 xl:sticky xl:top-24 xl:col-start-auto">
+          {lateral.proximoEncontro && <EncontroDaComunidade evento={lateral.proximoEncontro} comAgenda className="hidden xl:flex" />}
           {lateral.fixados.length > 0 && <CartaoFixados variante="lista" links={lateral.fixados.map((f) => ({ rotulo: f.titulo, href: hrefDoPost(f.id), detalhe: `# ${f.canalNome}` }))} />}
           {lateral.membrosAtivos.length > 0 && (
-            <CartaoMembrosAtivos membros={lateral.membrosAtivos.map((m) => ({ nome: m.nome, src: m.imagem, detalhe: contagem(m.interacoes, "interação", "interações") }))} />
+            <CartaoMembrosAtivos
+              membros={lateral.membrosAtivos.map((m) =>
+                // Com a gamificação ligada, o aluno mostra os pontos; equipe e quem saiu do ranking, as interações.
+                m.pontos !== null ? { nome: m.nome, src: m.imagem, pontos: m.pontos } : { nome: m.nome, src: m.imagem, detalhe: contagem(m.interacoes, "interação", "interações") },
+              )}
+            />
           )}
         </aside>
       )}

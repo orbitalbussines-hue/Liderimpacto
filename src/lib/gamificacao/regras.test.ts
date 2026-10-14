@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { esquemaNiveis, lerPeriodoRanking, NIVEIS_PADRAO, nivelDoMembro } from "./regras";
+import { esquemaNiveis, lerPeriodoRanking, NIVEIS_PADRAO, nivelDoMembro, pontosPtBr, textoDaMeta } from "./regras";
 
 describe("nivelDoMembro (padrão: Iniciante 0, Aprendiz 100, Praticante 300, Líder 700, Referência 1500)", () => {
   it("acha o nível, o próximo e quanto falta", () => {
@@ -33,4 +33,12 @@ describe("esquemaNiveis", () => {
 it("período do ranking: semana por padrão", () => {
   expect(lerPeriodoRanking("mes")).toBe("mes");
   expect(lerPeriodoRanking("ano")).toBe("semana");
+});
+
+it("texto da meta no singular e no plural", () => {
+  expect(textoDaMeta("AULAS_CONCLUIDAS", 1)).toBe("1 aula concluída");
+  expect(textoDaMeta("AULAS_CONCLUIDAS", 5)).toBe("5 aulas concluídas");
+  expect(textoDaMeta("PUBLICACOES_COMUNIDADE", 3)).toBe("3 publicações na comunidade");
+  expect(textoDaMeta("CURSO_CONCLUIDO", 1)).toBe("Concluir o curso");
+  expect(pontosPtBr(1250)).toBe("1.250");
 });

@@ -71,4 +71,22 @@ describe("estrutura", () => {
     const hrefs = cfg.cards.map((c) => c.href);
     for (const t of ["geral", "dominios", "equipe", "logs"]) expect(hrefs).toContain(`/admin/configuracoes/${t}`);
   });
+  it("Eventos tem tela própria (sem molde de tabela nem selo) e ADMIN entra", () => {
+    const e = secaoPorSlug("eventos")!;
+    expect(e.molde).toEqual({ tipo: "proprio" });
+    expect(e.selo).toBeUndefined();
+    expect(secaoAcessivel("eventos", "ADMIN")?.href).toBe("/admin/eventos");
+  });
+});
+
+describe("gamificação", () => {
+  it("Desafios tem tela própria; o hub e as Configurações levam à configuração", () => {
+    expect(secaoPorSlug("desafios")!.molde).toEqual({ tipo: "proprio" });
+    expect(secaoAcessivel("desafios", "ADMIN")?.href).toBe("/admin/desafios");
+    for (const slug of ["area-de-membros", "configuracoes"]) {
+      const m = secaoPorSlug(slug)!.molde;
+      if (m.tipo !== "cards") throw new Error("molde errado");
+      expect(m.cards.find((c) => c.titulo === "Gamificação")?.href).toBe("/admin/configuracoes/gamificacao");
+    }
+  });
 });

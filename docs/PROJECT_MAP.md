@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 597 |
+| Arquivos TS/TSX | 657 |
 | Tabelas (Drizzle) | 54 |
-| Server Actions (arquivos) | 30 |
-| Rotas de API | 7 |
-| Paginas | 58 |
-| Componentes | 145 |
+| Server Actions (arquivos) | 32 |
+| Rotas de API | 8 |
+| Paginas | 71 |
+| Componentes | 149 |
 
 ## Arvore (profundidade 3)
 
@@ -26,8 +26,10 @@ app/
     avaliacoes/
     certificados/
     comunidade/
+    conquistas/
     continuar/
     cursos/
+    eventos/
     notificacoes/
     perfil/
     previa-vitrine/
@@ -45,7 +47,9 @@ app/
     configuracoes/
     construtor/
     conteudos/
+    desafios/
     estudio-de-video/
+    eventos/
     matriculas/
     membros/
     trilhas/
@@ -171,6 +175,7 @@ components/
     progresso-curso.tsx
     tipos.ts
   engajamento/
+    bloco-data.tsx
     cartao-certificado.test.tsx
     cartao-certificado.tsx
     cartao-encontro-ao-vivo.tsx
@@ -181,12 +186,15 @@ components/
     cartao-trilha.tsx
     compositor-post.test.tsx
     compositor-post.tsx
+    encontro-da-comunidade.tsx
     etapas-trilha.test.tsx
     etapas-trilha.tsx
     linha-avaliacao.tsx
     linha-cartao.tsx
     linha-preferencia.tsx
     lista-canais.tsx
+  gamificacao/
+    periodo-ranking.tsx
   marca/
     estilo-marca.test.tsx
     estilo-marca.tsx
@@ -255,6 +263,7 @@ components/
     icone-quadrado.tsx
     interruptor.test.tsx
     interruptor.tsx
+    segmentos-link.tsx
     selecao.tsx
     selo.tsx
     use-selecao-unica.ts
@@ -286,7 +295,9 @@ lib/
     comunidade.ts
     configuracoes.ts
     criadores.ts
+    eventos.ts
     favoritos.ts
+    gamificacao.ts
     grupos.ts
     matriculas-importacao.ts
     matriculas.ts
@@ -400,12 +411,22 @@ lib/
   email/
     enviar.ts
   eventos/
+    admin.ts
+    agenda-ics.test.ts
+    agenda-ics.ts
     consultas.ts
+    fila.ts
+    lembrete.ts
     presenca.ts
     regras.test.ts
     regras.ts
+    rota-agenda.ts
     sql.ts
+    tela.test.ts
+    tela.ts
   gamificacao/
+    admin.ts
+    conquistas.ts
     desafios.ts
     padroes.ts
     pontos.ts
@@ -468,6 +489,9 @@ lib/
     comunidade.ts
     criadores.test.ts
     criadores.ts
+    eventos.test.ts
+    eventos.ts
+    gamificacao.ts
     matriculas.ts
     membros.ts
     perfil.test.ts
@@ -687,6 +711,7 @@ proxy.ts
 | `/api/video/[id]/hls/[...caminho]` | GET |
 | `/api/video/[id]/situacao` | GET |
 | `/certificado/[codigo]/pdf` | GET |
+| `/eventos/[id]/agenda.ics` | GET |
 
 ## Server Actions
 
@@ -702,7 +727,9 @@ proxy.ts
 - `src/lib/actions/comunidade.ts`: `acaoPublicar()`, `acaoEditarPublicacao()`, `acaoRemoverPublicacao()`, `acaoVotarEnquete()`, `acaoCurtir()`, `acaoComentar()`, `acaoEditarComentario()`, `acaoRemoverComentario()`, `acaoDenunciar()`, `acaoIniciarEnvioAnexo()`, `acaoConfirmarEnvioAnexo()`, `acaoLinkDoAnexo()`, `acaoMaisPublicacoes()`
 - `src/lib/actions/configuracoes.ts`: `acaoRenomearArea()`
 - `src/lib/actions/criadores.ts`: `acaoCriarCriador()`, `acaoAlterarSituacaoCriador()`
+- `src/lib/actions/eventos.ts`: `acaoCriarEvento()`, `acaoSalvarEvento()`, `acaoPublicarEvento()`, `acaoCancelarEvento()`, `acaoExcluirEvento()`, `acaoConfirmarPresenca()`, `acaoCancelarPresenca()`
 - `src/lib/actions/favoritos.ts`: `acaoFavoritar()`, `acaoDesfavoritar()`
+- `src/lib/actions/gamificacao.ts`: `acaoSalvarConfigGamificacao()`, `acaoSalvarDesafio()`, `acaoPublicarDesafio()`, `acaoEncerrarDesafio()`, `acaoExcluirDesafio()`, `acaoMarcarRecompensaEntregue()`, `acaoAjustarPontos()`, `acaoParticiparDoDesafio()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
 - `src/lib/actions/matriculas-importacao.ts`: `acaoImportarMatriculas()`
 - `src/lib/actions/matriculas.ts`: `acaoMatricular()`, `acaoCancelarMatricula()`, `acaoAlterarExpiracao()`, `acaoReativarMatricula()`, `acaoBuscarMembros()`
@@ -730,8 +757,11 @@ proxy.ts
 - `src/app/(aluno)/avaliacoes/page.tsx`
 - `src/app/(aluno)/certificados/page.tsx`
 - `src/app/(aluno)/comunidade/page.tsx`
+- `src/app/(aluno)/conquistas/page.tsx`
 - `src/app/(aluno)/continuar/page.tsx`
 - `src/app/(aluno)/cursos/[slug]/page.tsx`
+- `src/app/(aluno)/eventos/[id]/page.tsx`
+- `src/app/(aluno)/eventos/page.tsx`
 - `src/app/(aluno)/notificacoes/page.tsx`
 - `src/app/(aluno)/page.tsx`
 - `src/app/(aluno)/perfil/page.tsx`
@@ -752,6 +782,7 @@ proxy.ts
 - `src/app/admin/configuracoes/dominios/page.tsx`
 - `src/app/admin/configuracoes/equipe/convidar/page.tsx`
 - `src/app/admin/configuracoes/equipe/page.tsx`
+- `src/app/admin/configuracoes/gamificacao/page.tsx`
 - `src/app/admin/configuracoes/geral/page.tsx`
 - `src/app/admin/configuracoes/logs/page.tsx`
 - `src/app/admin/construtor/page.tsx`
@@ -759,10 +790,19 @@ proxy.ts
 - `src/app/admin/conteudos/[id]/page.tsx`
 - `src/app/admin/conteudos/novo/page.tsx`
 - `src/app/admin/conteudos/page.tsx`
+- `src/app/admin/desafios/[id]/page.tsx`
+- `src/app/admin/desafios/novo/page.tsx`
+- `src/app/admin/desafios/page.tsx`
+- `src/app/admin/desafios/ranking/page.tsx`
+- `src/app/admin/desafios/recompensas/page.tsx`
 - `src/app/admin/estudio-de-video/page.tsx`
+- `src/app/admin/eventos/[id]/page.tsx`
+- `src/app/admin/eventos/novo/page.tsx`
+- `src/app/admin/eventos/page.tsx`
 - `src/app/admin/matriculas/importar/page.tsx`
 - `src/app/admin/matriculas/page.tsx`
 - `src/app/admin/membros/cadastrar/page.tsx`
+- `src/app/admin/membros/gamificacao/page.tsx`
 - `src/app/admin/membros/grupos/page.tsx`
 - `src/app/admin/membros/importar/page.tsx`
 - `src/app/admin/membros/page.tsx`

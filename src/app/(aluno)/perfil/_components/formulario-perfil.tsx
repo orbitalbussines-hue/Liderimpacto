@@ -16,7 +16,9 @@ import { mascararWhatsapp, perfilSchema } from "@/lib/validators/perfil";
 
 export interface FormularioPerfilProps {
   dados: { nome: string; email: string; whatsapp: string | null; empresaCargo: string | null; versao: string };
-  preferencias: { reproducaoAutomatica: boolean; lembretes: boolean };
+  preferencias: { reproducaoAutomatica: boolean; lembretes: boolean; aparecerNoRanking: boolean };
+  /** Gamificação ligada nesta área: mostra "Aparecer no ranking" (a preferência vale em todas). */
+  mostrarRanking?: boolean;
 }
 
 type Campos = "nome" | "whatsapp" | "empresaCargo";
@@ -27,7 +29,7 @@ const ID_FORM = "form-perfil";
  * (com a versão que a tela abriu: trava de colisão) e preferências. Tema troca na hora (cookie).
  * O alvo é sempre a sessão: nenhum id viaja no corpo.
  */
-export function FormularioPerfil({ dados, preferencias }: FormularioPerfilProps) {
+export function FormularioPerfil({ dados, preferencias, mostrarRanking = false }: FormularioPerfilProps) {
   const router = useRouter();
   const [nome, setNome] = useState(dados.nome);
   const [whatsapp, setWhatsapp] = useState(mascararWhatsapp(dados.whatsapp ?? ""));
@@ -36,12 +38,13 @@ export function FormularioPerfil({ dados, preferencias }: FormularioPerfilProps)
   const [salvos, setSalvos] = useState({ nome: dados.nome, whatsapp: mascararWhatsapp(dados.whatsapp ?? ""), empresaCargo: dados.empresaCargo ?? "", ...preferencias });
   const [lembretes, setLembretes] = useState(preferencias.lembretes);
   const [autoplay, setAutoplay] = useState(preferencias.reproducaoAutomatica);
+  const [ranking, setRanking] = useState(preferencias.aparecerNoRanking);
   const [erros, setErros] = useState<Partial<Record<Campos, string>>>({});
   const [aviso, setAviso] = useState<{ tom: "ok" | "erro"; texto: string } | null>(null);
   const [salvando, iniciar] = useTransition();
 
   const dadosMudaram = nome !== salvos.nome || whatsapp !== salvos.whatsapp || empresaCargo !== salvos.empresaCargo;
-  const prefsMudaram = lembretes !== salvos.lembretes || autoplay !== salvos.reproducaoAutomatica;
+  const prefsMudaram = lembretes !== salvos.lembretes || autoplay !== salvos.reproducaoAutomatica || ranking !== salvos.aparecerNoRanking;
 
   function salvar(e: FormEvent) {
     e.preventDefault();
@@ -67,9 +70,9 @@ export function FormularioPerfil({ dados, preferencias }: FormularioPerfilProps)
         setSalvos((s) => ({ ...s, nome, whatsapp, empresaCargo }));
       }
       if (prefsMudaram) {
-        const r = await acaoSalvarPreferencias({ lembretes, reproducaoAutomatica: autoplay });
+        const r = await acaoSalvarPreferencias({ lembretes, reproducaoAutomatica: autoplay, aparecerNoRanking: ranking });
         if (!r.ok) return setAviso({ tom: "erro", texto: r.erro });
-        setSalvos((s) => ({ ...s, lembretes: r.dados.lembretes, reproducaoAutomatica: r.dados.reproducaoAutomatica }));
+        setSalvos((s) => ({ ...s, lembretes: r.dados.lembretes, reproducaoAutomatica: r.dados.reproducaoAutomatica, aparecerNoRanking: r.dados.aparecerNoRanking }));
       }
       setAviso({ tom: "ok", texto: "Alterações salvas." });
       router.refresh(); // nome novo no cabeçalho e no cartão
@@ -123,6 +126,13 @@ export function FormularioPerfil({ dados, preferencias }: FormularioPerfilProps)
             descricao="Avançar para a próxima aula"
             controle={<Interruptor ligado={autoplay} onAlternar={setAutoplay} aria-label="Reprodução automática" />}
           />
+          {mostrarRanking && (
+            <LinhaPreferencia
+              titulo="Aparecer no ranking"
+              descricao="Desligado, seu nome some do ranking; seus pontos continuam contando"
+              controle={<Interruptor ligado={ranking} onAlternar={setRanking} aria-label="Aparecer no ranking" />}
+            />
+          )}
         </Cartao>
       </form>
       {aviso && <Aviso tom={aviso.tom}>{aviso.texto}</Aviso>}

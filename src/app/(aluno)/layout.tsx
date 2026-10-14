@@ -5,6 +5,7 @@ import { iniciais } from "@/components/ui/avatar";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { EQUIPE, TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
 import { hostAtual } from "@/lib/criador/atual";
+import { configDaGamificacao } from "@/lib/gamificacao/pontos";
 import { contarNaoLidas } from "@/lib/notificacoes/consultas";
 
 /**
@@ -14,13 +15,14 @@ import { contarNaoLidas } from "@/lib/notificacoes/consultas";
 async function ShellComSessao({ children }: { children: ReactNode }) {
   if ((await hostAtual()).tipo === "plataforma") redirect("/plataforma");
   const { usuario, criador, membro } = await membroDaPagina(TODOS_OS_MEMBROS);
-  const naoLidas = membro.id ? await contarNaoLidas(criador.id, membro.id) : 0;
+  const [naoLidas, gamificacao] = await Promise.all([membro.id ? contarNaoLidas(criador.id, membro.id) : 0, configDaGamificacao(criador.id)]);
   return (
     <ShellAluno
       usuario={{ nome: usuario.nome, iniciais: iniciais(usuario.nome) }}
       notificacoes={naoLidas}
       corMarca={criador.cor_marca ?? undefined}
       painelAdmin={EQUIPE.includes(membro.papel)}
+      gamificacao={gamificacao.ligada}
     >
       {children}
     </ShellAluno>

@@ -216,7 +216,7 @@ Imagens saem como `imagemChave`; `comImagens(criadorId, itens)` assina e devolve
 | `minhaLista(q)`; `estaNaLista(q, { produtoId } ou { aulaId })` | `(ItemCartao & { favoritadoEm: Date })[]`; `boolean` |
 | `mentorias(q, limite = 10)` | `(ItemCartao & { matriculado: boolean })[]` |
 | `progressoDosCursos(q, produtoIds)`; `progressoDoCurso(q, produtoId)` | `Map<produtoId, { concluidas, total, percentual }>`; o objeto |
-| `numerosDoPerfil(q)` | `{ aulasConcluidas, segundosAssistidos, cursosConcluidos, certificados /* passo 7: emitidos */, pontos: 0 }` |
+| `numerosDoPerfil(q)` | `{ aulasConcluidas, segundosAssistidos, cursosConcluidos, certificados /* passo 7: emitidos */, pontos /* soma do razão da gamificação */ }` |
 | `preferenciasDoAluno(usuarioId)` | `{ reproducaoAutomatica, lembretes }` |
 | `cursoDoAluno(q, slug)` | `null` (404) ou o objeto abaixo |
 | `aulaParaPlayer(q, aulaId)` | `null` (404) ou o objeto abaixo |
@@ -527,6 +527,8 @@ npm run worker:certificados   # outro terminal/container; reenfileira as versõe
 
 `emitir`/`gerarNovaVersao` enfileiram `{ versaoId }` DEPOIS do commit (`enfileirado: false` = fila fora
 do ar: a versão fica PENDENTE até o worker subir). Sem worker rodando, os PDFs ficam "Gerando…".
+O mesmo processo consome a fila `eventos` (lembrete 1 h antes; ver "Eventos ao vivo") e, ao subir,
+reenfileira os lembretes dos eventos publicados que ainda não começaram.
 
 ## Comunidade e notificações (passo 8)
 
@@ -580,7 +582,7 @@ INTERVALO_POLLING_MS = 60_000, RETENCAO_DIAS = 90, TETO_CONTADOR = 99
 | `postDaComunidade(q, postId)` | `null` ou `{ post: PostDoFeed, comentarios: ComentarioDaArvore[] }` |
 | `comentariosDaAula(q, aulaId)` — aba "Comentários" do player | `null` (quem pede não pode assistir) ou `ComentarioDaArvore[]` |
 | `ComentarioDaArvore` | `{ id, autor, texto, criadoEm, editadoEm, oculto: { motivo } \| null, curtidas, curtiu, podeEditar, podeRemover, podeModerar, versao, respostas: ComentarioDaArvore[] /* 1 nível */ }` (ordem de criação; até 500) |
-| `lateralDaComunidade(q)` | `{ proximoEncontro: null /* não há eventos ainda */, fixados: { id, canalId, canalNome, titulo }[] /* 5 */, membrosAtivos: (AutorPublico & { pontos: 0, interacoes })[] /* 5, posts + comentários em 30 dias */ }` |
+| `lateralDaComunidade(q)` | `{ proximoEncontro: null /* não há eventos ainda */, fixados: { id, canalId, canalNome, titulo }[] /* 5 */, membrosAtivos: (AutorPublico & { pontos: number | null /* saldo; nulo = desligada, equipe ou fora do ranking */, interacoes })[] /* 5, posts + comentários em 30 dias */ }` |
 | `aulasParaRelacionar(q, limite = 30)` — "em <aula>" do compositor | `{ id, titulo, produtoTitulo }[]`. ALUNO: aulas com progresso dele (inclusive concluídas), mais recentes primeiro, só as que ainda pode assistir agora (regra de `motivoDoBloqueio`); equipe: aulas visíveis mais recentes do criador. `acaoPublicar` recusa (`"Aula não encontrada."`) aula que o autor não pode assistir |
 | `situacaoNaComunidade(q)` | `{ podeParticipar /* tem vínculo */, equipe, silenciadoAte: Date \| null }` — compositor |
 | `canaisParaEditar(criadorId)` (equipe) | `{ id, nome, descricao, ordem, acesso, grupo: { id, nome } \| null, produto: { id, titulo } \| null, quemPosta, padrao, publicacoes, versao }[]` |
@@ -680,14 +682,47 @@ notificarEventoCancelado(criadorId, eventoId, ator)           // inscritos; nunc
 notificarLembreteEvento(criadorId, eventoId, inicioEsperado, agora?): Promise<number> // LANÇA (o job tenta de novo)
 ```
 
-**Lembrete (a implementar pelo agente de Eventos, contrato do ADR-0011 item 6)**: fila nova
-`eventos` (DLQ `eventos-dlq`, chaves `li:eventos:*`) consumida por um 2º `Worker` dentro de
-`npm run worker:certificados`. Payload `{ criadorId, eventoId, inicioEm }` (ISO), `jobId =
-idDoJobLembrete(...)`, `delay = max(0, momentoDoLembrete(inicio) − agora)`, 3 tentativas; enfileirar
-depois do commit ao publicar e ao mudar o horário de evento publicado; o job chama
-`notificarLembreteEvento`. Ao subir, reenfileirar os PUBLICADOS com `inicio_em > now()`.
-Admin (a escrever): CRUD com `exigirMembro(EQUIPE)`, Zod `strictObject` (`linkDeEventoValido` no
-link), trava por `updated_at`, grupos/curso conferidos no criador (a FK composta recusa os de fora).
+### Telas, leituras da equipe e textos
+
+| Rota | Quem | O quê |
+|------|------|-------|
+| `/admin/eventos` (`?aba=proximos\|passados\|rascunhos\|cancelados`, `?q=`) | DONO, ADMIN | lista: evento + quando, público, confirmados, situação, menu ⋮ (editar, confirmados, publicar, cancelar, excluir rascunho) |
+| `/admin/eventos/novo`, `/admin/eventos/[id]` | DONO, ADMIN | formulário (cria em RASCUNHO), painel Situação (publicar/cancelar/excluir pelo `ModalConfirmacaoBlock`), lista "Confirmados" (`#confirmados`); cancelado = só leitura |
+| `/eventos`, `/eventos/[id]` | membro do público | próximo em destaque (contagem, "Ao vivo agora"), demais, anteriores com "Assistir gravação" (`/aula/<id>`); detalhe com presença, agenda e "Entrar no encontro" SÓ quando o servidor manda o link. `ContagemEvento` (client) recarrega a página ao abrir a janela e no fim |
+| `GET /eventos/[id]/agenda.ics` | membro do público | `atenderAgendaIcs(req, id)` (`rota-agenda.ts`): sessão PLENA do host (sem = 401), `avaliarMembro(TODOS_OS_MEMBROS)` (403), `eventoDoMembro` (fora do público, rascunho, outro criador, id ruim = 404). `text/calendar`, `no-store`, `noindex`. O `.ics` (`agenda-ics.ts`, RFC 5545, UID `evento-<id>@<host>`, CANCELLED quando cancelado) leva o endereço da página, NUNCA o link da sala |
+
+```ts
+// admin.ts (equipe; criador do HOST): lerAbaEventos(v), eventosDoAdmin(criadorId, aba, agora, busca?),
+// contagemDosEventos(criadorId, agora), eventoParaEditar(criadorId, id), inscritosDoEvento(criadorId, id),
+// opcoesDoEvento(criadorId) → { cursos, grupos, aulas (com o curso, para o <optgroup>) }
+// tela.ts (puro): textoDaContagem, quandoPorExtenso, diaEMes, horaDoEvento, duracaoTexto, textoConfirmados, aberturaDoLink
+// validators/eventos.ts: camposEventoSchema (inicio = "AAAA-MM-DDTHH:MM" de Brasília → instanteDeBrasilia),
+// camposDoFormulario(FormData), campoDeBrasilia(Date), salvarEventoSchema, eventoComVersaoSchema, presencaSchema
+```
+
+### Actions (`src/lib/actions/eventos.ts`; `executar()` → `Resultado`; criador do HOST; trava por `updated_at`; trilha na transação)
+
+| Action | Papel | Entrada → saída | Regras |
+|--------|-------|-----------------|--------|
+| `acaoCriarEvento` | DONO, ADMIN | campos → `{ id, versao }` | nasce RASCUNHO (link opcional); curso, aula e grupos conferidos no criador |
+| `acaoSalvarEvento` | DONO, ADMIN | `{ eventoId, versao, campos }` → `{ versao, lembreteEnfileirado }` | cancelado não edita; publicado não perde o link; publicado e não terminado: mudou o início = reenfileira o lembrete, e `notificarEventoPublicado` avisa quem PASSOU a ser do público (a chave `evento:<id>` não repete) |
+| `acaoPublicarEvento` | DONO, ADMIN | `{ eventoId, versao }` → `{ versao, lembreteEnfileirado }` | só RASCUNHO, com link, não terminado; depois do commit: aviso ao público + lembrete |
+| `acaoCancelarEvento` | DONO, ADMIN | `{ eventoId, versao }` → `{ versao }` | só PUBLICADO não terminado; depois do commit: aviso aos inscritos (o job do lembrete vira no-op) |
+| `acaoExcluirEvento` | DONO, ADMIN | `{ eventoId, versao }` → `null` | só RASCUNHO; soft delete do evento e dos grupos |
+| `acaoConfirmarPresenca` / `acaoCancelarPresenca` | membro | `{ eventoId }` → `{ confirmou }` / `{ cancelou }` | a PRÓPRIA presença (`presenca.ts`) |
+
+A trilha guarda antes/depois sem o link (só "(definido)").
+
+### Lembrete (fila `eventos`, ADR-0011 item 6)
+
+`src/lib/eventos/fila.ts`: fila `eventos` (DLQ `eventos-dlq`, chaves `li:eventos:*`), payload
+`{ criadorId, eventoId, inicioEm }` (ISO), `opcoesDoJobLembrete` = 3 tentativas com backoff, `jobId =
+idDoJobLembrete(...)` (sem ":"), `delay = max(0, momentoDoLembrete(inicio) − agora)`.
+`enfileirarLembreteComPrazo` (5 s; fila fora do ar = `false`, a action segue) é chamado DEPOIS do commit
+ao publicar e ao mudar o horário de evento publicado. Consumo: 2º `Worker` (concorrência 2) dentro de
+`npm run worker:certificados`, que chama `processarLembrete` (`lembrete.ts` → `notificarLembreteEvento`;
+lança = nova tentativa; falha de vez = cópia na `eventos-dlq`). Ao subir, o worker reenfileira
+`lembretesPendentes()` (todo PUBLICADO com `inicio_em > now()`; o `jobId` não duplica).
 
 ## Gamificação
 
@@ -728,10 +763,31 @@ progressoDoDesafioSql(membroSql) // expressão para a linha `criadores_desafios 
 recalcularPontos(criadorId, agora?): Promise<{ AULA_CONCLUIDA, CURSO_CONCLUIDO, AVALIACAO_APROVADA, PUBLICACAO_COMUNIDADE, DESAFIO_CONCLUIDO, desafiosConcluidos }>
 ```
 
-**Onde ligar `registrarConquista`** (agente de Gamificação, depois do commit): `registrarProgresso` e
-`concluirManualmente` quando `concluiuAgora` (AULA_CONCLUIDA, `ocorridoEm` = agora);
-`concluirMatriculaSeCompleta` (CURSO_CONCLUIDO); `finalizarTentativa` aprovada (AVALIACAO_APROVADA);
-`publicar` da comunidade (PUBLICACAO_COMUNIDADE). Ao LIGAR a gamificação: `recalcularPontos`.
+**Ganchos ligados** (`registrarConquista` depois do commit, nunca lança): `registrarProgresso` e
+`concluirManualmente` só quando `concluiuAgora` (`depoisDeConcluir`: AULA_CONCLUIDA; o heartbeat comum não
+toca a gamificação); `concluirMatriculaSeCompleta` (CURSO_CONCLUIDO, antes do certificado);
+`finalizarTentativa` nova e aprovada (AVALIACAO_APROVADA, `ocorridoEm` = fim da tentativa); `publicar` da
+comunidade (PUBLICACAO_COMUNIDADE). Ao LIGAR a gamificação (`acaoSalvarConfigGamificacao`): `recalcularPontos`.
+
+### Telas e actions da gamificação
+
+| Função / action | Quem | O quê |
+|-----------------|------|-------|
+| `acaoSalvarConfigGamificacao({ ligada, pontos, niveis, versao })` (`src/lib/actions/gamificacao.ts`) | só DONO | cria (versão nula; o índice único recusa a 2ª) ou atualiza com trava; trilha "Gamificação ligada/desligada"; ligar devolve `recalculo` |
+| `acaoSalvarDesafio({ desafioId, versao, campos })` | DONO, ADMIN | cria RASCUNHO ou salva (ENCERRADO não edita); curso/avaliação/grupos vivos DESTE criador; grupos trocados por soft delete |
+| `acaoPublicarDesafio`, `acaoEncerrarDesafio`, `acaoExcluirDesafio({ desafioId, versao })` | DONO, ADMIN | RASCUNHO → PUBLICADO (fim no futuro) → ENCERRADO; excluir só rascunho (soft delete, com os grupos) |
+| `acaoMarcarRecompensaEntregue({ participacaoId, versao })` | DONO, ADMIN | só participação concluída de desafio com recompensa; uma vez (trava), trilha |
+| `acaoAjustarPontos({ membroId, pontos, justificativa })` | DONO, ADMIN | `ajustarPontos` na transação (só ALUNO do criador) |
+| `acaoParticiparDoDesafio({ desafioId })` | membro | a PRÓPRIA sessão; gamificação desligada = recusa |
+| `desafiosDoAdmin`, `desafioParaEditar`, `opcoesDeMeta`, `recompensasDoAdmin`, `alunosComPontos` (`src/lib/gamificacao/admin.ts`) | telas da equipe | lista com participantes/concluídos, editor com participantes e progresso calculado, recompensas (pendentes primeiro), saldo e nível por aluno |
+| `conquistasDoMembro(q, periodo, agora)` (`src/lib/gamificacao/conquistas.ts`) | `/conquistas` | `null` = desligada (404); resumo, desafios (em andamento/disponíveis/concluídos), top 10 + a própria linha fora do top, extrato (10) |
+| `saldosDosMembros(criadorId, ids)` (`ranking.ts`) | listas do ranking | saldo total → nível de cada linha |
+
+Rotas: `/admin/desafios` (abas Desafios, `/ranking`, `/recompensas`), `/admin/desafios/novo`, `/admin/desafios/[id]`,
+`/admin/configuracoes/gamificacao` (só DONO), `/admin/membros/gamificacao`, `/conquistas` (aluno). O layout do aluno lê
+`configDaGamificacao` (link "Conquistas" no menu do desktop; no celular, pelo Perfil). Perfil: `numerosDoPerfil().pontos`
+= soma do razão e "Aparecer no ranking" (só com a gamificação ligada). Comunidade: `membrosAtivos[].pontos` = saldo (nulo
+desligada, para a equipe e para quem saiu do ranking).
 
 ## Telas restantes do admin: estúdio, área de membros e configurações
 

@@ -19,6 +19,7 @@ import {
 } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
 import { avaliacaoPendenteSql } from "@/lib/avaliacoes/sql";
+import { proximoEventoDoMembro, type EventoDoMembro } from "@/lib/eventos/consultas";
 import { preRequisitoCumpridoSql } from "@/lib/progresso/sql";
 import { aulaNaVitrine, matriculaValendoSql, type QuemPede } from "@/lib/progresso/visao";
 import { acessoDaAula } from "@/lib/video/acesso-aula";
@@ -328,16 +329,20 @@ export async function comentariosDaAula(q: QuemPede, aulaId: string, agora = new
 }
 
 export interface LateralDaComunidade {
-  /** Eventos ao vivo ainda não existem no sistema: sempre `null` (a tela esconde o bloco). */
-  proximoEncontro: null;
+  /** Próximo encontro PUBLICADO do público do membro que ainda não terminou (`proximoEventoDoMembro`); nulo = a tela esconde o bloco. */
+  proximoEncontro: EventoDoMembro | null;
   fixados: { id: string; canalId: string; canalNome: string; titulo: string }[];
-  /** Mais publicações + comentários nos últimos 30 dias. `pontos` = 0 até a gamificação. */
-  membrosAtivos: (AutorPublico & { pontos: number; interacoes: number })[];
+  /**
+   * Mais publicações + comentários nos últimos 30 dias. `pontos` = saldo da gamificação; nulo com ela
+   * desligada, para a equipe e para quem saiu do ranking (a tela mostra as interações).
+   */
+  membrosAtivos: (AutorPublico & { pontos: number | null; interacoes: number })[];
 }
 
 export async function lateralDaComunidade(q: QuemPede, agora = new Date()): Promise<LateralDaComunidade> {
   const desde = new Date(agora.getTime() - DIAS_MEMBROS_ATIVOS * 86_400_000);
-  const [fixados, ativos] = await Promise.all([
+  const [proximoEncontro, fixados, ativos] = await Promise.all([
+    proximoEventoDoMembro(q, agora),
     db
       .select({ id: posts.id, canalId: canais.id, canalNome: canais.nome, texto: posts.texto })
       .from(posts)
@@ -345,8 +350,12 @@ export async function lateralDaComunidade(q: QuemPede, agora = new Date()): Prom
       .where(and(eq(posts.criador_id, q.criador.id), vivos(posts), sql`${posts.fixado_em} is not null and ${posts.oculto_em} is null`, canalVisivelSql(q, agora)))
       .orderBy(desc(posts.fixado_em))
       .limit(5),
-    db.execute<{ membro_id: string; nome: string; imagem: string | null; papel: string; interacoes: number }>(sql`
-      select m.id as membro_id, u.nome, u.imagem, m.papel, count(*)::int as interacoes
+    db.execute<{ membro_id: string; nome: string; imagem: string | null; papel: string; interacoes: number; pontos: number | null }>(sql`
+      select m.id as membro_id, u.nome, u.imagem, m.papel, count(*)::int as interacoes,
+        -- Gamificação ligada: saldo (soma do razão) do ALUNO que não saiu do ranking (RN-146); senão nulo.
+        case when m.papel = 'ALUNO' and u.aparecer_no_ranking and exists (
+          select 1 from criadores_gamificacao g where g.criador_id = ${q.criador.id} and g.ligada and g.is_deleted = false)
+        then (select coalesce(sum(pt.pontos), 0)::int from criadores_membros_pontos pt where pt.membro_id = m.id) end as pontos
       from (
         select autor_membro_id as membro from criadores_canais_posts
         where criador_id = ${q.criador.id} and is_deleted = false and oculto_em is null and created_at >= ${desde}
@@ -356,14 +365,14 @@ export async function lateralDaComunidade(q: QuemPede, agora = new Date()): Prom
       ) x
       join criadores_membros m on m.id = x.membro and m.is_deleted = false and m.status = 'ATIVO'
       join usuarios u on u.id = m.usuario_id
-      group by m.id, u.nome, u.imagem, m.papel
+      group by m.id, u.nome, u.imagem, m.papel, u.aparecer_no_ranking
       order by count(*) desc, u.nome
       limit 5`),
   ]);
   return {
-    proximoEncontro: null,
+    proximoEncontro,
     fixados: fixados.map((f) => ({ id: f.id, canalId: f.canalId, canalNome: f.canalNome, titulo: resumo(f.texto) })),
-    membrosAtivos: ativos.rows.map((m) => ({ ...autorDe({ membroId: m.membro_id, nome: m.nome, imagem: m.imagem, papel: m.papel }), pontos: 0, interacoes: m.interacoes })),
+    membrosAtivos: ativos.rows.map((m) => ({ ...autorDe({ membroId: m.membro_id, nome: m.nome, imagem: m.imagem, papel: m.papel }), pontos: m.pontos, interacoes: m.interacoes })),
   };
 }
 

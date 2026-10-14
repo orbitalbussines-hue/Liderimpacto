@@ -5,6 +5,7 @@ import { registrarAuditoria } from "@/lib/audit/registrar";
 import { verificarEmissao } from "@/lib/certificados/emissao";
 import { db } from "@/lib/db";
 import type { FinalizacaoTentativa } from "@/lib/db/schema/_enums";
+import { registrarConquista } from "@/lib/gamificacao/pontos";
 import { criadores_membros, produtos_avaliacoes as av, produtos_avaliacoes_concessoes, produtos_avaliacoes_questoes as qst, produtos_avaliacoes_tentativas as tent } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
 import { aprovou, corrigir, montarOrdem, prazoEstourado, TEXTO_MOTIVO_AVALIACAO } from "./regras";
@@ -136,7 +137,7 @@ export async function finalizarTentativa(quem: QuemFaz, tentativaId: string, por
       .where(and(eq(tent.id, tentativaId), eq(tent.criador_id, quem.criadorId), eq(tent.membro_id, quem.membroId), vivos(tent)))
       .for("update");
     if (!t) throw new ErroDeNegocio(MSG_TENTATIVA_NAO_ENCONTRADA);
-    if (t.finalizada_em) return { tentativaId: t.id, nota: t.nota!, aprovada: t.aprovada!, finalizadaPor: t.finalizada_por!, novo: false, produtoId: "" };
+    if (t.finalizada_em) return { tentativaId: t.id, nota: t.nota!, aprovada: t.aprovada!, finalizadaPor: t.finalizada_por!, novo: false, produtoId: "", avaliacaoId: t.avaliacao_id, fim: t.finalizada_em };
     const [a] = await tx.select({ titulo: av.titulo, notaMinima: av.nota_minima, produtoId: av.produto_id }).from(av).where(eq(av.id, t.avaliacao_id));
     const ids = t.ordem.map((o) => o.q);
     const questoes = ids.length
@@ -160,9 +161,13 @@ export async function finalizarTentativa(quem: QuemFaz, tentativaId: string, por
       detalhes: `Tentativa ${t.numero} de "${a.titulo}" finalizada (${finalizadaPor === "TEMPO" ? "tempo esgotado" : "pelo aluno"}): nota ${nota} — ${aprovada ? "aprovada" : "reprovada"}`,
       dadosNovos: { nota, aprovada, finalizada_por: finalizadaPor, acertos: correcao.filter((c) => c.correta).length, questoes: correcao.length },
     });
-    return { tentativaId: t.id, nota, aprovada, finalizadaPor, novo: true, produtoId: a.produtoId };
+    return { tentativaId: t.id, nota, aprovada, finalizadaPor, novo: true, produtoId: a.produtoId, avaliacaoId: t.avaliacao_id, fim };
   });
-  if (r.novo && r.aprovada) await verificarEmissao(quem.criadorId, quem.membroId, r.produtoId);
+  if (r.novo && r.aprovada) {
+    // Pontos da 1ª aprovação (razão idempotente por avaliação; nunca lança) — ADR-0012.
+    await registrarConquista({ criadorId: quem.criadorId, membroId: quem.membroId, conquista: { motivo: "AVALIACAO_APROVADA", avaliacaoId: r.avaliacaoId }, ocorridoEm: r.fim });
+    await verificarEmissao(quem.criadorId, quem.membroId, r.produtoId);
+  }
   return { tentativaId: r.tentativaId, nota: r.nota, aprovada: r.aprovada, finalizadaPor: r.finalizadaPor };
 }
 

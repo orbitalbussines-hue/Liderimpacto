@@ -106,7 +106,7 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
           { icone: MessageSquare, titulo: "Comunidade", descricao: "Canais, denúncias e silenciados", href: "/admin/comunidade?aba=canais" },
           { icone: Award, titulo: "Modelo de certificado", descricao: "Título, texto e assinatura do PDF de conclusão", href: "/admin/certificados/modelo" },
           { icone: Upload, titulo: "Importação", descricao: "Membros em massa por planilha CSV", href: "/admin/membros/importar" },
-          { icone: Trophy, titulo: "Gamificação", descricao: "Pontos, níveis e ranking por área" },
+          { icone: Trophy, titulo: "Gamificação", descricao: "Pontos, níveis e ranking por área", href: "/admin/configuracoes/gamificacao" },
         ],
       }),
     ],
@@ -140,14 +140,7 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
         )
       ),
       item("trilhas", "Trilhas", Route, 2, { tipo: "proprio" }),
-      item(
-        "desafios", "Desafios", Rocket, 2,
-        tabela(
-          "Desafios", ["Desafios", "Ranking", "Recompensas"],
-          [{ titulo: "Desafio" }, { titulo: "Período", largura: 140 }, { titulo: "Participantes", largura: 120 }, { titulo: "Status", largura: 120 }, ACOES_COL],
-          { acaoPrincipal: novo("Novo desafio") }
-        )
-      ),
+      item("desafios", "Desafios", Rocket, 2, { tipo: "proprio" }),
       item("construtor", "Construtor da vitrine", LayoutTemplate, 2, { tipo: "proprio" }, { selo: "Novo" }),
       item(
         "comunidade", "Comunidade", MessageSquare, 2,
@@ -231,15 +224,8 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
           { acaoPrincipal: novo("Nova campanha") }
         )
       ),
-      item(
-        "eventos", "Eventos", Calendar, 3,
-        tabela(
-          "Eventos", ["Eventos", "Acessos", "Termos de uso", "Registro de auditoria"],
-          [{ titulo: "Usuário" }, { titulo: "Tipo", largura: 130 }, { titulo: "Entidade", largura: 160 }, { titulo: "Data", largura: 120 }, ACOES_COL],
-          { acaoPrincipal: novo("Novo evento") }
-        ),
-        { selo: "Novo" }
-      ),
+      // Eventos ao vivo (ADR-0011): tela própria em /admin/eventos.
+      item("eventos", "Eventos", Calendar, 2, { tipo: "proprio" }),
     ],
   },
   {
@@ -318,6 +304,7 @@ export const RODAPE_NAVEGACAO: ItemNavegacao[] = [
         { icone: ShieldCheck, titulo: "Equipe e acesso", descricao: "Donos e administradores da área", href: "/admin/configuracoes/equipe" },
         { icone: FileText, titulo: "Logs", descricao: "Trilha de auditoria e registros excluídos", href: "/admin/configuracoes/logs" },
         { icone: Upload, titulo: "Importação", descricao: "Upload em massa de membros e matrículas", href: "/admin/membros/importar" },
+        { icone: Trophy, titulo: "Gamificação", descricao: "Ligar, pontos por ação e níveis", href: "/admin/configuracoes/gamificacao" },
         { icone: Mail, titulo: "Disparos de e-mails", descricao: "Logs, entregas e templates" },
         { icone: Link2, titulo: "Integrações e webhooks", descricao: "Conectores e automações externas" },
       ],

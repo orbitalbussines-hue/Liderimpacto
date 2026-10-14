@@ -70,3 +70,23 @@ export function momentoDoDesafio(d: { inicioEm: Date; fimEm: Date; situacao: str
 export const PERIODOS_RANKING = ["semana", "mes", "total"] as const;
 export type PeriodoRanking = (typeof PERIODOS_RANKING)[number];
 export const lerPeriodoRanking = (v: unknown): PeriodoRanking => (PERIODOS_RANKING as readonly unknown[]).includes(v) ? (v as PeriodoRanking) : "semana";
+
+/** "3 aulas concluídas", "Concluir o curso", "Aprovação na avaliação", "1 publicação" (lista e cartão). */
+export function textoDaMeta(metaTipo: string, meta: number): string {
+  const n = (um: string, varios: string) => `${meta} ${meta === 1 ? um : varios}`;
+  switch (metaTipo) {
+    case "AULAS_CONCLUIDAS":
+      return n("aula concluída", "aulas concluídas");
+    case "CURSO_CONCLUIDO":
+      return "Concluir o curso";
+    case "AVALIACAO_APROVADA":
+      return "Aprovação na avaliação";
+    default:
+      return n("publicação na comunidade", "publicações na comunidade");
+  }
+}
+
+export const ROTULO_PERIODO_RANKING: Record<PeriodoRanking, string> = { semana: "Semana", mes: "Mês", total: "Total" };
+
+/** "1.250" (pontos, pt-BR). */
+export const pontosPtBr = (n: number) => n.toLocaleString("pt-BR");

@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ITENS_MENU, itemAtivo } from "./navegacao";
+import { itemAtivo, itensDoMenu } from "./navegacao";
 
 /** Menu em pílulas do header (desktop): ocupa só a largura dos itens; estreito, rola na horizontal (o fade cobre o respiro final). */
-export function MenuAluno() {
-  const ativo = itemAtivo(usePathname(), ITENS_MENU);
+export function MenuAluno({ conquistas = false }: { conquistas?: boolean }) {
+  const itens = itensDoMenu({ conquistas });
+  const ativo = itemAtivo(usePathname(), itens);
   return (
     <nav
       aria-label="Principal"
       className="scrollbar-oculta hidden min-w-0 flex-initial overflow-x-auto pr-7 [mask-image:linear-gradient(90deg,black_calc(100%-28px),transparent)] desk:flex"
     >
-      {ITENS_MENU.map(({ href, rotulo }) => (
+      {itens.map(({ href, rotulo }) => (
         <Link
           key={href}
           href={href}

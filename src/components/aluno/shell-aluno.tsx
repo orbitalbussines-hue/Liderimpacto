@@ -23,6 +23,8 @@ export interface ShellAlunoProps {
   corMarca?: string;
   /** Equipe (DONO/ADMIN/suporte): mostra o atalho "Painel admin" no header do desktop. */
   painelAdmin?: boolean;
+  /** Gamificação ligada na área: "Conquistas" no menu do desktop. */
+  gamificacao?: boolean;
   children: ReactNode;
 }
 
@@ -30,7 +32,7 @@ export interface ShellAlunoProps {
  * Casca da área do aluno: header sticky (logo, menu, busca, sino, avatar), conteúdo e,
  * no celular, a tab bar. `data-area="aluno"` é o escopo da cor da marca.
  */
-export function ShellAluno({ usuario, notificacoes, corMarca, painelAdmin = false, children }: ShellAlunoProps) {
+export function ShellAluno({ usuario, notificacoes, corMarca, painelAdmin = false, gamificacao = false, children }: ShellAlunoProps) {
   return (
     <div data-area="aluno" className="flex min-h-dvh flex-col bg-bg text-text">
       <EstiloMarca cor={corMarca} />
@@ -39,7 +41,7 @@ export function ShellAluno({ usuario, notificacoes, corMarca, painelAdmin = fals
           {/* Abaixo de 380px o logo encolhe para o avatar caber em celular de 320px. */}
           <Logo variante="cabecalho" className="text-base min-[380px]:text-xl" />
         </Link>
-        <MenuAluno />
+        <MenuAluno conquistas={gamificacao} />
         <div className="flex-1" />
         {painelAdmin && (
           // No celular o header nao tem folga (320px): la o atalho fica em /perfil.

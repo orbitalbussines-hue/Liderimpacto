@@ -270,7 +270,7 @@ export async function progressoDoCurso(q: QuemPede, produtoId: string): Promise<
   return (await progressoDosCursos(q, [produtoId])).get(produtoId) ?? { concluidas: 0, total: 0, percentual: 0 };
 }
 
-/** Números do perfil. Pontos chegam no passo 11 (zero até lá). */
+/** Números do perfil (pontos = saldo da gamificação). */
 export async function numerosDoPerfil(q: QuemPede) {
   if (!q.membro.id) return { aulasConcluidas: 0, segundosAssistidos: 0, cursosConcluidos: 0, certificados: 0, pontos: 0 };
   const [p] = await db
@@ -290,7 +290,11 @@ export async function numerosDoPerfil(q: QuemPede) {
     .select({ n: sql<number>`count(*)::int` })
     .from(produtos_certificados)
     .where(and(eq(produtos_certificados.membro_id, q.membro.id), eq(produtos_certificados.criador_id, q.criador.id), vivos(produtos_certificados), eq(produtos_certificados.situacao, "EMITIDO")));
-  return { aulasConcluidas: p?.aulasConcluidas ?? 0, segundosAssistidos: p?.segundosAssistidos ?? 0, cursosConcluidos: c?.n ?? 0, certificados: cert?.n ?? 0, pontos: 0 };
+  // Gamificação (ADR-0012): saldo = soma do razão (append-only, sem soft delete). A tela só mostra com ela ligada.
+  const { rows: [pts] } = await db.execute<{ n: number }>(
+    sql`select coalesce(sum(pontos), 0)::int as n from criadores_membros_pontos where membro_id = ${q.membro.id}::uuid and criador_id = ${q.criador.id}::uuid`,
+  );
+  return { aulasConcluidas: p?.aulasConcluidas ?? 0, segundosAssistidos: p?.segundosAssistidos ?? 0, cursosConcluidos: c?.n ?? 0, certificados: cert?.n ?? 0, pontos: pts?.n ?? 0 };
 }
 
 /** Preferências da pessoa (Perfil e player). */

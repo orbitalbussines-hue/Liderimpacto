@@ -10,6 +10,10 @@
  * reenfileira as versões PENDENTES (fila fora do ar quando foram pedidas). Cada job: gera o PDF,
  * sobe no storage e marca a versão PRONTA (src/lib/certificados/worker.ts). Falha de vez: FALHOU
  * + cópia na DLQ.
+ *
+ * É também o "worker de jobs leves": um 2º `Worker` consome a fila `eventos` (lembrete 1 h antes,
+ * ADR-0011 item 6), com concorrência e DLQ próprias (`eventos-dlq`) — um PDF atrasado não segura o
+ * lembrete. Ao subir, reenfileira o lembrete de todo evento PUBLICADO que ainda não começou.
  */
 import { type Job, Queue, Worker } from "bullmq";
 import {
@@ -23,6 +27,15 @@ import {
   OPCOES_JOB_CERTIFICADO,
 } from "../src/lib/certificados/fila";
 import { marcarFalhaDaVersao, processarVersao, versoesPendentes } from "../src/lib/certificados/worker";
+import {
+  CONCORRENCIA_WORKER_EVENTOS,
+  criarFilaEventos,
+  enfileirarLembrete,
+  type JobLembrete,
+  NOME_FILA_EVENTOS,
+  NOME_FILA_EVENTOS_DLQ,
+} from "../src/lib/eventos/fila";
+import { lembretesPendentes, processarLembrete } from "../src/lib/eventos/lembrete";
 import { conexaoRedis, ehFalhaDefinitiva, prefixoFila } from "../src/lib/video/fila";
 
 async function processar(job: Job<JobCertificado>): Promise<string> {
@@ -31,6 +44,12 @@ async function processar(job: Job<JobCertificado>): Promise<string> {
   const r = await processarVersao(versaoId);
   console.log(`[certificados] ${versaoId}: ${r} em ${Date.now() - inicio} ms (tentativa ${job.attemptsMade + 1}/${job.opts.attempts ?? OPCOES_JOB_CERTIFICADO.attempts})`);
   return r;
+}
+
+async function processarEvento(job: Job<JobLembrete>): Promise<number> {
+  const n = await processarLembrete(job.data);
+  console.log(`[eventos] lembrete ${job.id}: ${n} aviso(s)`);
+  return n;
 }
 
 async function principal() {
@@ -49,20 +68,35 @@ async function principal() {
   });
   worker.on("error", (e) => console.error("[certificados] erro do worker:", e.message));
 
+  const dlqEventos = new Queue(NOME_FILA_EVENTOS_DLQ, { connection: conexao, prefix });
+  const workerEventos = new Worker<JobLembrete>(NOME_FILA_EVENTOS, processarEvento, { connection: conexao, prefix, concurrency: CONCORRENCIA_WORKER_EVENTOS });
+  workerEventos.on("failed", (job, erro) => {
+    if (!job) return;
+    console.error(`[eventos] lembrete ${job.id}: falhou (${job.attemptsMade}/${job.opts.attempts}): ${erro.message}`);
+    if (ehFalhaDefinitiva(job.attemptsMade, job.opts.attempts)) void dlqEventos.add("falhou", { ...job.data, erro: erro.message, falhouEm: new Date().toISOString() });
+  });
+  workerEventos.on("error", (e) => console.error("[eventos] erro do worker:", e.message));
+
   const fila = criarFilaCertificados(conexao);
   const pendentes = await versoesPendentes();
   for (const versaoId of pendentes) await enfileirarCertificado(fila, { versaoId });
   await fila.close();
 
+  const filaEv = criarFilaEventos(conexao);
+  const lembretes = await lembretesPendentes();
+  for (const l of lembretes) await enfileirarLembrete(filaEv, l);
+  await filaEv.close();
+
   const desligar = async () => {
     console.log("[certificados] desligando: termina os jobs atuais e para.");
-    await worker.close();
-    await dlq.close();
+    await Promise.all([worker.close(), workerEventos.close()]);
+    await Promise.all([dlq.close(), dlqEventos.close()]);
     process.exit(0);
   };
   process.on("SIGTERM", desligar);
   process.on("SIGINT", desligar);
   console.log(`[certificados] worker ouvindo ${prefix}:${NOME_FILA_CERTIFICADOS} (concorrência ${CONCORRENCIA_WORKER_CERTIFICADOS}); ${pendentes.length} pendente(s) reenfileirada(s).`);
+  console.log(`[eventos] worker ouvindo ${prefix}:${NOME_FILA_EVENTOS} (concorrência ${CONCORRENCIA_WORKER_EVENTOS}); ${lembretes.length} lembrete(s) (re)enfileirado(s).`);
 }
 
 principal().catch((e: unknown) => {

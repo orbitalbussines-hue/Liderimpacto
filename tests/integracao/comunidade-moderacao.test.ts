@@ -8,6 +8,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { cabecalhosLogados, novoCriador } from "./_apoio";
 import { ok } from "./_catalogo";
 import { participante } from "./_comunidade";
+import { ligarGamificacao } from "./_engajamento";
 import { membroCom, quem } from "./_progresso";
 
 const req = vi.hoisted(() => ({ h: new Headers() }));
@@ -143,7 +144,7 @@ describe("moderação", () => {
     await expect(com.comentar(x.pAluno, { postId: alvo }, "c20", null)).rejects.toThrow("muitas vezes em pouco tempo");
   });
 
-  it("lateral: membros ativos por publicações + comentários em 30 dias (pontos 0)", async () => {
+  it("lateral: membros ativos por publicações + comentários em 30 dias; pontos só com a gamificação ligada", async () => {
     const x = await cenario();
     const p = await pub.publicar(x.pAluno, post(x.geral.id));
     await com.comentar(x.pAluno, { postId: p.id }, "a", null);
@@ -152,8 +153,17 @@ describe("moderação", () => {
     await db.update(s.criadores_canais_posts).set({ created_at: new Date(Date.now() - 31 * 86_400_000) }).where(eq(s.criadores_canais_posts.id, velho.id));
     const { membrosAtivos } = await con.lateralDaComunidade(quem(x.cr.id, x.leitor));
     expect(membrosAtivos.map((m) => [m.membroId, m.interacoes, m.pontos])).toEqual([
-      [x.aluno.membro.id, 2, 0],
-      [x.leitor.membro.id, 1, 0],
+      [x.aluno.membro.id, 2, null],
+      [x.leitor.membro.id, 1, null],
+    ]);
+    // Ligada (com o recálculo): saldo do aluno; quem saiu do ranking volta a nulo (a tela mostra as interações).
+    await ligarGamificacao(x.cr.id, x.aluno.usuario.id);
+    await (await import("@/lib/gamificacao/recalcular")).recalcularPontos(x.cr.id);
+    await db.update(s.usuarios).set({ aparecer_no_ranking: false }).where(eq(s.usuarios.id, x.leitor.usuario.id));
+    const ligada = (await con.lateralDaComunidade(quem(x.cr.id, x.leitor))).membrosAtivos;
+    expect(ligada.map((m) => [m.membroId, m.pontos])).toEqual([
+      [x.aluno.membro.id, 2],
+      [x.leitor.membro.id, null],
     ]);
   });
 });
