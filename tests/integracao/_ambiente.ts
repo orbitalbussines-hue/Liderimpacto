@@ -17,3 +17,9 @@ process.env.BETTER_AUTH_URL = "http://localhost:3011";
 process.env.PLATAFORMA_DOMINIO = "localhost";
 // Sem SMTP no teste: nenhum e-mail sai.
 delete process.env.SMTP_HOST;
+// Video: segredos SO de teste e fila com prefixo proprio (um worker de dev no mesmo Redis nunca
+// pega o job do teste).
+process.env.VIDEO_CHAVE_MESTRA = Buffer.alloc(32, 7).toString("base64");
+process.env.VIDEO_SEGREDO_TOKEN = "segredo-de-token-de-video-somente-de-teste";
+process.env.VIDEO_FILA_PREFIXO = "li-teste";
+delete process.env.VIDEO_LIMITE_SESSOES;

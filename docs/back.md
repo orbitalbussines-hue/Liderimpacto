@@ -58,6 +58,59 @@ copie o template.
 Escrita compartilhada (vinculo, grupos, ultimo DONO com trava de linha) em `src/lib/membros/vinculos.ts`;
 regra pura em `src/lib/membros/regras.ts`; leitura das telas em `src/lib/membros/consultas.ts`.
 
+## Catálogo e arquivos (passo 3)
+
+| Action | Arquivo | Quem | Audita | Regra |
+|--------|---------|------|--------|-------|
+| `acaoCriarProduto`, `acaoSalvarProduto`, `acaoAlterarSituacaoProduto`, `acaoDefinirCapaProduto`, `acaoRemoverProduto` | `src/lib/actions/produtos.ts` | DONO, ADMIN | criar / atualizar (campo a campo) / `publicar` / excluir | RN-109, RN-110 |
+| `acaoCriarModulo`, `acaoEditarModulo`, `acaoRemoverModulo`, `acaoReordenarModulos`, `acaoCriarAula`, `acaoRemoverAula`, `acaoReordenarAulas` | `src/lib/actions/produtos-estrutura.ts` | DONO, ADMIN | criar / atualizar / excluir / `reordenar` (ordem antes → depois) | RN-111 |
+| `acaoSalvarAula`, `acaoDefinirThumbAula`, `acaoAdicionarMaterial`, `acaoRenomearMaterial`, `acaoRemoverMaterial` | `src/lib/actions/aulas.ts` | DONO, ADMIN | criar / atualizar / excluir | RN-111, RN-112 |
+| `acaoLinkDoMaterial` | `src/lib/actions/aulas.ts` | DONO, ADMIN | — (leitura: URL de 5 min) | RN-112 |
+| `acaoIniciarEnvio`, `acaoConfirmarEnvio` | `src/lib/actions/arquivos.ts` | DONO, ADMIN | criar / atualizar (ou excluir, se o HEAD não bate) | RN-112 |
+
+Tabelas (`src/lib/db/schema/produtos.ts` e `arquivos.ts`): `produtos` → `produtos_modulos` →
+`produtos_modulos_aulas` → `produtos_modulos_aulas_materiais`, e `arquivos`. Todas com `criador_id`
+e FK composta para o pai do mesmo criador; ordem única por pai entre os vivos. O vínculo aula ×
+vídeo NÃO está aqui: o pipeline de vídeo (passo 3b) cria a tabela dele e a coluna na aula.
+
+Leituras das telas em `src/lib/catalogo/consultas.ts`; regra pura (publicação, rótulos) em
+`src/lib/catalogo/regras.ts`; invariante "publicado continua publicável" em
+`src/lib/catalogo/publicacao.ts`; ordem 1..n em duas fases em `src/lib/catalogo/ordem.ts`
+(trava o pai antes; ordem das travas produto → módulo → aula). Decisões no ADR-0004.
+
+### Armazenamento (`src/lib/armazenamento/`)
+
+- `regras.ts` (puro, tela e servidor): `ALLOWLIST`, `validarEnvio(finalidade, {nome, mime, tamanho})`,
+  `chaveDoCriador(criadorId, ...segmentos)`, `chavePertenceAoCriador(chave, criadorId)`,
+  `chaveDeArquivo(...)`, `mimeDaExtensao`, `atributoAccept`, `formatarTamanho`.
+- `cliente.ts` (server-only): `urlDeEnvio` (PUT com tipo e tamanho na assinatura),
+  `iniciarEnvioMultipart` / `assinarPartesMultipart` / `concluirEnvioMultipart` /
+  `abortarEnvioMultipart`, `urlDeLeitura` (5 min), `urlDeImagem` (janela de 1 h, para o
+  `next/image`), `urlDeImagemOuNula`, `cabecalhoDoObjeto` (HEAD), `apagarObjeto`, `prepararBucket`.
+  Toda função recebe `{ bucket, criadorId, chave }` e recusa chave fora de `criadores/<criadorId>/`.
+- `arquivos.ts` (server-only, dentro da transação de quem chama): `arquivoParaUsar` (deste
+  criador, DISPONIVEL, finalidade certa, sem outro uso), `descartarArquivo` (soft delete + trilha,
+  devolve a chave) e `apagarObjetosDescartados` (depois do commit, best-effort).
+- Buckets criados por `npm run armazenamento:preparar` (idempotente, aplica o CORS).
+
+## Variáveis de ambiente (passo 3)
+
+| Variável | Dev (docker-compose) | Produção | Para quê |
+|----------|----------------------|----------|----------|
+| `S3_ENDPOINT` | `http://localhost:8342` | endpoint S3 do R2 (`https://<conta>.r2.cloudflarestorage.com`) ou do SeaweedFS da VPS | API S3; o NAVEGADOR também acessa (envio direto) |
+| `S3_REGIAO` | `us-east-1` | `auto` (R2) | região da assinatura |
+| `S3_CHAVE` / `S3_SEGREDO` | credencial de DEV de `config/seaweedfs/s3.json` | token S3 do R2 com acesso só aos 3 buckets (segredo do provedor, nunca no repo) | credencial do app |
+| `S3_FORCAR_CAMINHO` | `true` | `true` (R2 aceita) | `endpoint/bucket/chave` em vez de subdomínio por bucket |
+| `S3_BUCKET_ARQUIVOS` | `lider-arquivos` | idem | capas, thumbs, materiais |
+| `S3_BUCKET_VIDEOS_ORIGINAIS` | `lider-videos-originais` | idem | vídeo original enviado (passo 3b) |
+| `S3_BUCKET_HLS` | `lider-hls` | idem | saída HLS do FFmpeg (passo 3b) |
+| `S3_CORS_ORIGENS` | (opcional) | (opcional) | origens do CORS em `armazenamento:preparar`; sem ela: `BETTER_AUTH_URL` e `*.` do mesmo host |
+| `REDIS_URL` | `redis://localhost:6382` | Redis da VPS backend | fila BullMQ do vídeo (passo 3b) |
+| `REDIS_PORT` / `S3_PORT` | `6382` / `8342` | — | portas do host no `docker-compose` |
+
+`next.config.ts` lê `S3_ENDPOINT` e `S3_BUCKET_ARQUIVOS` no build/arranque para o
+`images.remotePatterns`: mudou o storage, reinicie o `next dev` / refaça o build.
+
 ## Regras
 
 1. Acesso ao banco SO pelo `db` de `src/lib/db/index.ts`. Componente nunca importa `db`.
@@ -101,3 +154,77 @@ pg_dump "$DATABASE_URL" --no-owner --no-acl --clean --if-exists \
 
 Backup fica FORA do servidor do banco e o restore e testado em HML. O pipeline de
 deploy ja faz o dump e a copia off-server antes do PRD.
+
+## Video (pipeline HLS self-host)
+
+Decisao em ADR-0005; especificacao em `docs/ARQUITETURA_VPS.md`; numeros em `docs/video-benchmark.md`;
+regras RN-113 a RN-115.
+
+```
+admin (navegador) --multipart pre-assinado (16 MB/parte)--> bucket videosOriginais
+  acaoIniciarEnvioVideo -> acaoAssinarPartesVideo (lotes) -> PUT das partes -> acaoConcluirEnvioVideo
+  (HEAD confere o tamanho -> PROCESSANDO -> commit -> fila { videoId })
+worker (npm run worker:video, outro processo) -> baixa o original -> FFmpeg HLS AES-128 + thumb
+  -> sobe em hls/criadores/<criador>/videos/<id>/ -> evento video.pronto (duracao vai para a aula)
+player -> acaoIniciarReproducao (sessao de reproducao + token 10 min) -> /api/video/<id>/hls/... e /chave
+  renovacao a cada 4 min (acaoRenovarReproducao)
+```
+
+| Tabela | O que guarda |
+|--------|--------------|
+| `produtos_modulos_aulas_videos` | Um video vivo por aula: situacao (ENVIANDO/PROCESSANDO/PRONTO/FALHOU), original, multipart, prefixo HLS, chave cifrada, duracao, resolucoes, thumb, erro legivel |
+| `produtos_modulos_aulas_videos_processamentos` | Cada tentativa do worker: situacao, tempos, CPU, cauda do log |
+| `produtos_modulos_aulas_videos_sessoes` | Sessoes de reproducao (limite de telas, RN-115) |
+
+| Action (`src/lib/actions/videos.ts`) | Quem | O que faz |
+|--------|------|-----------|
+| `acaoIniciarEnvioVideo` | DONO, ADMIN | Allowlist (MP4/MOV/MKV/WebM ate 10 GB), registro ENVIANDO, multipart aberto; `substituir: true` troca o video (antigo: soft delete + objetos apagados depois do commit) |
+| `acaoAssinarPartesVideo` | DONO, ADMIN | URLs das partes (ate 50 por pedido, 1 h) |
+| `acaoConcluirEnvioVideo` | DONO, ADMIN | Fecha o multipart, HEAD, PROCESSANDO, enfileira depois do commit (`enfileirado: false` = fila fora do ar) |
+| `acaoCancelarEnvioVideo` | DONO, ADMIN | Aborta o multipart e exclui o registro |
+| `acaoReprocessarVideo` | DONO, ADMIN | PROCESSANDO + fila (mesmo jobId: nunca duplica) |
+| `acaoIniciarReproducao`, `acaoRenovarReproducao` | quem passa em `podeAssistir` | Abre/renova a sessao de reproducao e devolve o token |
+
+| Rota | Conferencia | Resposta |
+|------|-------------|----------|
+| `GET /api/video/[id]/hls/[...caminho]` | playlist: token + sessao + video do host + `podeAssistir` + sessao de reproducao; segmento: token valido + host | playlist reescrita (`no-store`); segmento: 302 para URL assinada de 60 s |
+| `GET /api/video/[id]/chave` | igual a playlist; recusa na trilha | 16 bytes, `no-store` |
+| `GET /api/video/[id]/situacao` | sessao + DONO/ADMIN do host | JSON do estado (polling do editor) |
+
+| Arquivo | O que faz |
+|---------|-----------|
+| `src/lib/video/provedor.ts` / `provedor-proprio.ts` | Interface `ProvedorVideo` e a implementacao self-host (envio, fila, token, eventos, situacao) |
+| `src/lib/video/registro.ts` | Leitura do video e eventos do worker (idempotentes: so valem em PROCESSANDO) |
+| `src/lib/video/entrega.ts` | Playlist, chave e segmento protegidos (os route handlers so repassam) |
+| `src/lib/video/acesso.ts` | `podeAssistir` (RN-114): hoje equipe; passo 4 acrescenta matricula + liberacao |
+| `src/lib/video/sessoes.ts` / `reproducao.ts` | Limite de telas (puro) e sessoes de reproducao no banco |
+| `src/lib/video/regras.ts` | Allowlist, partes do multipart, caminhos HLS aceitos (tela e servidor) |
+| `src/lib/video/worker.ts` | Um job: baixa, processa, sobe, evento; erro legivel para a tela |
+| `src/lib/video/ffmpeg.ts`, `processar.ts`, `segmento.ts` | Argumentos do FFmpeg, execucao (`spawn` sem shell, prioridade baixa, prazo), conferencia da cifra |
+| `src/lib/video/chaves.ts`, `token.ts`, `playlist.ts` | Chave cifrada (AES-256-GCM, `v1:`), token HMAC, reescrita da playlist |
+| `src/lib/video/fila.ts` | Fila BullMQ (payload `{ videoId }`, jobId = videoId, 3 tentativas, backoff, DLQ, prefixo) |
+| `src/components/video/player-hls.tsx` | Player minimo (hls.js + `xhrSetup` com o token atual; HLS nativo sem MediaSource; marca d'agua) |
+| `scripts/worker-video.ts` | Processo do worker (nunca dentro do Next), concorrencia 1 |
+
+Variaveis de ambiente (documentar tambem no `.env.example`):
+
+| Variavel | Quem usa | Formato |
+|----------|----------|---------|
+| `VIDEO_CHAVE_MESTRA` | app e worker | 32 bytes em base64 (`openssl rand -base64 32`). Sem ela o worker nao sobe. Trocar = rotacao (`v2:`), nunca sobrescrever |
+| `VIDEO_SEGREDO_TOKEN` | app (e a borda que validar o token) | >= 32 caracteres aleatorios (`openssl rand -base64 32`) |
+| `REDIS_URL` | app (enfileira) e worker (consome) | `redis://host:porta` |
+| `VIDEO_FILA_PREFIXO` | app e worker | Prefixo das chaves da fila no Redis (padrao `li`; o teste usa `li-teste`) |
+| `VIDEO_LIMITE_SESSOES` | app | Telas simultaneas por pessoa, 1 a 10 (padrao 2) |
+
+Comandos:
+
+```bash
+npm run worker:video                                              # worker (outro terminal/container)
+npx tsx scripts/video-gerar-teste.ts <pasta-fora-do-repo>          # videos sinteticos de teste
+npx tsx scripts/video-benchmark.ts <pasta-fora-do-repo> [rotulo]   # mede e confere a saida
+# Ponta a ponta REAL (FFmpeg + SeaweedFS + Redis + worker em processo separado), fora do npm test:
+VIDEO_TESTE_REAL=1 npx vitest run --config config/vitest.config.mts --project integracao tests/integracao/video-pipeline.test.ts
+VIDEO_TESTE_REAL=1 npx vitest run --config config/vitest.config.mts tests/video   # so o FFmpeg em disco local
+```
+
+`tests/integracao/video.test.ts` roda no `npm test` (precisa do storage no ar; sem ele, pula com aviso).

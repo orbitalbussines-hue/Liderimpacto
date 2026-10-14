@@ -24,3 +24,5 @@ numerado e imutavel — se a decisao muda, cria-se um novo ADR que supersede o a
 | [0001](0001-stack-base.md) | Stack base: Next.js + Drizzle + PostgreSQL | Aceito |
 | [0002](0002-plataforma-multi-criador.md) | Plataforma com vários criadores, Drizzle e cor em cascata | Aceito |
 | [0003](0003-autenticacao-plataforma.md) | Autenticação: Better Auth, cookie por host, 2FA só do SUPER_ADMIN | Aceito |
+| [0004](0004-armazenamento-e-catalogo.md) | Armazenamento S3 com envio direto e catálogo isolado por criador | Aceito |
+| [0005](0005-video-self-host-entrega-pelo-app.md) | Vídeo self-host (HLS AES-128) com entrega protegida pelo app | Aceito |

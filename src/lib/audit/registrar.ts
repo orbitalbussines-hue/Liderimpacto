@@ -5,13 +5,16 @@ export type AcaoAuditada =
   | "criar"
   | "atualizar"
   | "excluir"
+  | "publicar"
+  | "reordenar"
   | "login"
   | "login_recusado"
   | "conta_bloqueada"
   | "logout"
   | "acesso_negado"
   | "senha"
-  | "segundo_fator";
+  | "segundo_fator"
+  | "reproduzir";
 
 interface RegistroDeAuditoria {
   /** `null` = evento ANONIMO (e-mail inexistente, teto de IP estourado): nao ha conta. */

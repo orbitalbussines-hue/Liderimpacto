@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 237 |
-| Tabelas (Drizzle) | 12 |
-| Server Actions (arquivos) | 9 |
-| Rotas de API | 0 |
-| Paginas | 20 |
-| Componentes | 86 |
+| Arquivos TS/TSX | 311 |
+| Tabelas (Drizzle) | 20 |
+| Server Actions (arquivos) | 14 |
+| Rotas de API | 3 |
+| Paginas | 24 |
+| Componentes | 94 |
 
 ## Arvore (profundidade 3)
 
@@ -28,9 +28,12 @@ app/
   admin/
     [secao]/
     configuracoes/
+    conteudos/
     membros/
     layout.tsx
     page.tsx
+  api/
+    video/
   componentes/
     _components/
     admin/
@@ -61,22 +64,29 @@ app/
   layout.tsx
 components/
   admin/
+    campo-imagem.tsx
     cartao-kpi.tsx
     celula-tabela.tsx
     dialogo-admin.tsx
     link-de-acesso.tsx
+    lista-ordenavel.test.tsx
+    lista-ordenavel.tsx
     menu-admin.tsx
     navegacao.test.ts
     navegacao.ts
     pagina-cards.tsx
     pagina-tabela.test.tsx
     pagina-tabela.tsx
+    previa-cor-marca.tsx
+    previa-marca.tsx
     saudacao.test.ts
     saudacao.ts
+    seletor-cor-marca.tsx
     seletor-periodo.tsx
     shell-admin.tsx
     sidebar-admin.tsx
     tabela-tipos.ts
+    use-envio-arquivo.ts
   aluno/
     cena-autenticacao.tsx
     layout-autenticacao.tsx
@@ -152,8 +162,11 @@ components/
     icone-quadrado.tsx
     interruptor.test.tsx
     interruptor.tsx
+    selecao.tsx
     selo.tsx
     use-selecao-unica.ts
+  video/
+    player-hls.tsx
   vitrine/
     cartao-fileira.test.tsx
     cartao-fileira.tsx
@@ -166,14 +179,24 @@ components/
 lib/
   actions/
     aparencia.ts
+    arquivos.ts
+    aulas.ts
     auth.ts
     criadores.ts
     grupos.ts
     membros-gestao.ts
     membros.ts
+    produtos-estrutura.ts
+    produtos.ts
     seguranca.ts
     tema.ts
     usuarios-senha.ts
+    videos.ts
+  armazenamento/
+    arquivos.ts
+    cliente.ts
+    regras.test.ts
+    regras.ts
   audit/
     registrar.ts
   auth/
@@ -205,6 +228,12 @@ lib/
     sessao.ts
     teto.ts
     totp-replay.ts
+  catalogo/
+    consultas.ts
+    ordem.ts
+    publicacao.ts
+    regras.test.ts
+    regras.ts
   criador/
     area.ts
     atual.ts
@@ -232,11 +261,36 @@ lib/
     regras.ts
     vinculos.ts
   validators/
+    catalogo.test.ts
+    catalogo.ts
     criadores.test.ts
     criadores.ts
     membros.ts
     senha.test.ts
     senha.ts
+  video/
+    acesso.ts
+    chaves.test.ts
+    chaves.ts
+    entrega.ts
+    ffmpeg.test.ts
+    ffmpeg.ts
+    fila.ts
+    playlist.test.ts
+    playlist.ts
+    processar.ts
+    provedor-proprio.test.ts
+    provedor-proprio.ts
+    provedor.ts
+    registro.ts
+    regras.test.ts
+    regras.ts
+    reproducao.ts
+    segmento.ts
+    sessoes.ts
+    token.test.ts
+    token.ts
+    worker.ts
   acao.ts
   tema-constantes.ts
   tema.ts
@@ -245,6 +299,9 @@ proxy.ts
 ```
 
 ## Tabelas (Drizzle)
+
+### `arquivos` — src/lib/db/schema/arquivos.ts
+`id`, `criador_id`, `chave`, `finalidade`, `nome_original`, `mime`, `tamanho_bytes`, `status`
 
 ### `auditoria` — src/lib/db/schema/auditoria.ts
 `id`, `user_id`, `criador_id`, `acao`, `tabela`, `registro_id`, `detalhes`, `dados_anteriores`, `dados_novos`, `created_at`
@@ -260,6 +317,18 @@ proxy.ts
 
 ### `criadores_membros` — src/lib/db/schema/criadores.ts
 `id`, `criador_id`, `usuario_id`, `papel`, `status`, `ultimo_acesso_em`
+
+### `produtos` — src/lib/db/schema/produtos.ts
+`id`, `criador_id`, `codigo`, `titulo`, `slug`, `descricao`, `tipo`, `capa_3x4_arquivo_id`, `capa_16x9_arquivo_id`, `status`, `professor_membro_id`, `cor_marca`
+
+### `produtos_modulos` — src/lib/db/schema/produtos.ts
+`id`, `criador_id`, `produto_id`, `ordem`, `titulo`, `status`
+
+### `produtos_modulos_aulas` — src/lib/db/schema/produtos.ts
+`id`, `criador_id`, `modulo_id`, `ordem`, `titulo`, `descricao`, `duracao_seg`, `thumb_arquivo_id`, `capitulos`, `libera_em`, `pre_requisito_aula_id`
+
+### `produtos_modulos_aulas_materiais` — src/lib/db/schema/produtos.ts
+`id`, `criador_id`, `aula_id`, `nome`, `tipo`, `arquivo_id`, `url`
 
 ### `usuarios_contas` — src/lib/db/schema/usuarios-auth.ts
 `id`, `usuario_id`, `conta_id`, `provedor_id`, `senha_hash`, `access_token`, `refresh_token`, `id_token`, `access_token_expira_em`, `refresh_token_expira_em`, `escopo`
@@ -282,17 +351,39 @@ proxy.ts
 ### `usuarios` — src/lib/db/schema/usuarios.ts
 `id`, `nome`, `email`, `email_verificado`, `imagem`, `papel_plataforma`, `ativo`, `tema`, `whatsapp`, `empresa_cargo`, `ultimo_acesso_em`, `falhas_login`, `bloqueado_ate`, `two_factor_enabled`
 
+### `produtos_modulos_aulas_videos` — src/lib/db/schema/videos.ts
+`id`, `criador_id`, `aula_id`, `situacao`, `nome_original`, `mime`, `tamanho_bytes`, `chave_origem`, `upload_id`, `prefixo_hls`, `chave_cifrada`, `duracao_seg`, `resolucoes`, `thumb_chave`, `erro`, `tentativas`, `processado_em`
+
+### `produtos_modulos_aulas_videos_processamentos` — src/lib/db/schema/videos.ts
+`id`, `criador_id`, `video_id`, `tentativa`, `situacao`, `iniciado_em`, `terminado_em`, `cpu_seg`, `log`
+
+### `produtos_modulos_aulas_videos_sessoes` — src/lib/db/schema/videos.ts
+`id`, `criador_id`, `video_id`, `usuario_id`, `sessao_login_id`, `ip`, `user_agent`, `ultimo_sinal_em`, `encerrada_em`, `motivo_encerramento`
+
+## Rotas de API
+
+| Rota | Metodos |
+|------|---------|
+| `/api/video/[id]/chave` | GET |
+| `/api/video/[id]/hls/[...caminho]` | GET |
+| `/api/video/[id]/situacao` | GET |
+
 ## Server Actions
 
 - `src/lib/actions/aparencia.ts`: `acaoSalvarCorDaMarca()`
+- `src/lib/actions/arquivos.ts`: `acaoIniciarEnvio()`, `acaoConfirmarEnvio()`
+- `src/lib/actions/aulas.ts`: `acaoSalvarAula()`, `acaoDefinirThumbAula()`, `acaoAdicionarMaterial()`, `acaoRenomearMaterial()`, `acaoRemoverMaterial()`, `acaoLinkDoMaterial()`
 - `src/lib/actions/auth.ts`: `entrar()`, `verificarCodigo()`, `sair()`, `pedirLinkDeSenha()`, `definirNovaSenha()`
 - `src/lib/actions/criadores.ts`: `acaoCriarCriador()`, `acaoAlterarSituacaoCriador()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
 - `src/lib/actions/membros-gestao.ts`: `acaoMudarPapel()`, `acaoAlterarSituacaoMembro()`, `acaoRemoverMembro()`, `acaoDefinirGruposDoMembro()`
 - `src/lib/actions/membros.ts`: `acaoCadastrarMembro()`, `acaoImportarMembros()`
+- `src/lib/actions/produtos-estrutura.ts`: `acaoCriarModulo()`, `acaoEditarModulo()`, `acaoRemoverModulo()`, `acaoReordenarModulos()`, `acaoCriarAula()`, `acaoRemoverAula()`, `acaoReordenarAulas()`
+- `src/lib/actions/produtos.ts`: `acaoCriarProduto()`, `acaoSalvarProduto()`, `acaoAlterarSituacaoProduto()`, `acaoDefinirCapaProduto()`, `acaoRemoverProduto()`
 - `src/lib/actions/seguranca.ts`: `acaoIniciarTotp()`, `acaoConfirmarTotp()`, `acaoNovosCodigos()`, `acaoTrocarSenha()`, `acaoEncerrarOutrasSessoes()`
 - `src/lib/actions/tema.ts`: `alterarTema()`
 - `src/lib/actions/usuarios-senha.ts`: `acaoGerarLinkDeSenha()`
+- `src/lib/actions/videos.ts`: `acaoIniciarEnvioVideo()`, `acaoAssinarPartesVideo()`, `acaoConcluirEnvioVideo()`, `acaoCancelarEnvioVideo()`, `acaoReprocessarVideo()`, `acaoIniciarReproducao()`, `acaoRenovarReproducao()`
 
 ## Paginas
 
@@ -301,6 +392,10 @@ proxy.ts
 - `src/app/(aluno)/perfil/page.tsx`
 - `src/app/admin/[secao]/page.tsx`
 - `src/app/admin/configuracoes/aparencia/page.tsx`
+- `src/app/admin/conteudos/[id]/aulas/[aulaId]/page.tsx`
+- `src/app/admin/conteudos/[id]/page.tsx`
+- `src/app/admin/conteudos/novo/page.tsx`
+- `src/app/admin/conteudos/page.tsx`
 - `src/app/admin/membros/cadastrar/page.tsx`
 - `src/app/admin/membros/grupos/page.tsx`
 - `src/app/admin/membros/importar/page.tsx`

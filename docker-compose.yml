@@ -1,5 +1,5 @@
-# PostgreSQL local identico ao de producao. Nunca SQLite, nem em teste.
-# Porta do host em DB_PORT (.env): cada projeto da maquina usa uma diferente.
+# Infra local identica a de producao. Nunca SQLite, nem em teste.
+# Portas do host por env (.env): cada projeto da maquina usa uma diferente.
 services:
   db:
     image: postgres:16
@@ -17,5 +17,41 @@ services:
       interval: 5s
       retries: 10
 
+  # Fila (BullMQ) do pipeline de video. AOF ligado: job critico nao vive so em memoria.
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6382}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  # Object storage S3 de DEV (docs/ARQUITETURA_VPS.md: SeaweedFS, nunca MinIO). Em producao o
+  # mesmo codigo fala com R2 (ou SeaweedFS na VPS) so trocando as variaveis S3_*.
+  # Credencial de DEV em config/seaweedfs/s3.json (valores obvios, nunca reais).
+  storage:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    command: >
+      server -dir=/data -volume.max=0 -master.volumeSizeLimitMB=1024
+      -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - "${S3_PORT:-8342}:8333"
+    volumes:
+      - seaweeddata:/data
+      - ./config/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz || exit 1"]
+      interval: 5s
+      retries: 20
+      start_period: 10s
+
 volumes:
   pgdata:
+  redisdata:
+  seaweeddata:

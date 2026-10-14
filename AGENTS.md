@@ -99,6 +99,9 @@ Código, comentário, documentação, UI, mensagem de erro e commit em **PT-BR**
 | Sessão | `src/lib/auth/sessao.ts` (`obterSessao`, `obterSessaoDeSeguranca`) — Better Auth, ADR-0003 |
 | Permissão | `src/lib/auth/autorizacao.ts` (actions: `exigirSessao`, `exigirMembro`, `exigirSuperAdmin`), `guarda.ts` (páginas), matriz em `docs/rbac.md` |
 | Resultado de action | `src/lib/acao.ts` (`executar`, `ErroDeNegocio`, `Resultado`) |
+| Arquivos no storage S3 (envio direto, chave por criador) | `src/lib/armazenamento/` (`regras.ts` puro, `cliente.ts`, `arquivos.ts`) — ADR-0004 |
+| Vídeo da aula (envio multipart, worker FFmpeg, HLS AES-128, token, chave) | `src/lib/video/` (`provedor-proprio.ts`, `entrega.ts`, `acesso.ts` = `podeAssistir`), worker `npm run worker:video` — ADR-0005. O Next NUNCA roda FFmpeg nem serve bytes de vídeo |
+| Catálogo (produto > módulo > aula > material) | `src/lib/catalogo/` (consultas, regras, ordem, publicação) |
 | Validadores | `src/lib/validators/<entidade>.ts` |
 | Actions | `src/lib/actions/<entidade>.ts` |
 | Telas | `src/app/(app)/<rota>/page.tsx` + `_components/` |

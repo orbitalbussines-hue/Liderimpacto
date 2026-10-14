@@ -10,11 +10,12 @@ import { CampoCodigo } from "@/components/ui/campo-codigo";
 import { CampoSenha } from "@/components/ui/campo-senha";
 import { FiltroAtivo } from "@/components/ui/filtro-ativo";
 import { Interruptor } from "@/components/ui/interruptor";
+import { Selecao } from "@/components/ui/selecao";
 import { Amostra, Secao } from "./secao";
 
 export function CatalogoFormularios() {
   return (
-    <Secao id="campos" titulo="Campos" arquivo="ui/campo.tsx · campo-senha.tsx · campo-codigo.tsx · aviso.tsx · area-texto.tsx · caixa-selecao.tsx · campo-moldura.tsx">
+    <Secao id="campos" titulo="Campos" arquivo="ui/campo.tsx · campo-senha.tsx · campo-codigo.tsx · aviso.tsx · area-texto.tsx · caixa-selecao.tsx · campo-moldura.tsx · selecao.tsx">
       <div className="grid gap-6 desk:grid-cols-2">
         <Amostra rotulo="Login (48px, fundo surface)" className="flex-col items-stretch">
           <Campo rotulo="E-mail" type="email" tamanho="48" fundo="surface" defaultValue="valmer@lideredeimpacto.com.br" />
@@ -38,6 +39,17 @@ export function CatalogoFormularios() {
             rotulo="Descrição"
             estiloRotulo="discreto"
             defaultValue="Formação para líderes que influenciam, desenvolvem pessoas e geram resultados reais."
+          />
+          <Selecao
+            rotulo="Pré-requisito"
+            estiloRotulo="discreto"
+            vazio="Nenhum"
+            defaultValue="b"
+            opcoes={[
+              { valor: "a", rotulo: "Boas-vindas", grupo: "Módulo 1" },
+              { valor: "b", rotulo: "O papel do líder", grupo: "Módulo 1" },
+              { valor: "c", rotulo: "Feedback que transforma", grupo: "Módulo 2" },
+            ]}
           />
         </Amostra>
         <Amostra rotulo="Interruptor (44×26)" className="flex-col items-stretch gap-0">

@@ -140,6 +140,62 @@ Cada regra segue este formato:
 - **Comportamento esperado**: criar grava o criador e o vínculo DONO numa transação e mostra o link de primeiro acesso do DONO no host da área nova (conta já existente: sem link, mensagem neutra). Suspender passa pelo modal block; a área responde 404 e as sessões de lá caem na próxima requisição. Endereço já usado é recusado.
 - **Impacto se descumprida**: área criada sem dono, subdomínio sequestrado, área suspensa ainda aberta.
 
+### RN-109 - Catálogo de produtos
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Conteúdos
+- **Descricao**: DONO e ADMIN criam e editam produtos (Curso, Mentoria, Evento) da própria área: título, endereço (slug), descrição, tipo, professor (alguém DONO/ADMIN ativo da área), cor própria do curso (opcional, ADR-0002) e capas 3:4 e 16:9. Cada produto ganha um código sequencial por área ("Cód. N"), nunca reaproveitado. A estrutura é Produto > Módulo > Aula > Material.
+- **Comportamento esperado**: produto nasce em RASCUNHO. Endereço único por área entre os vivos (só `a-z`, `0-9` e hífen). Toda edição usa a trava de colisão e grava a trilha campo a campo (antes → depois). Remover produto só em RASCUNHO, com modal block, e leva junto (exclusão lógica) módulos, aulas e materiais; os arquivos dele são descartados.
+- **Impacto se descumprida**: curso de uma área aparecendo em outra, edição sobrescrita, aluno perdendo curso publicado por engano.
+
+### RN-110 - Publicar produto
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Conteúdos
+- **Descricao**: Situações: RASCUNHO (só a equipe vê), PUBLICADO (vitrine) e NÃO LISTADO (acessível a quem tem matrícula, fora da vitrine). Sair de RASCUNHO exige título, ao menos 1 módulo PUBLICADO com 1 aula e capa 16:9.
+- **Comportamento esperado**: a recusa diz o que falta ("Para publicar, falta: capa 16:9."). Produto fora de RASCUNHO não perde o mínimo: remover a capa 16:9, a última aula ou ocultar o último módulo com aula é recusado ("volte o produto para rascunho antes"). Mudança de situação passa pelo modal block e vai para a trilha (`publicar`, antes → depois).
+- **Impacto se descumprida**: aluno abrindo curso vazio ou sem capa na vitrine.
+
+### RN-111 - Módulos, aulas e ordem
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Conteúdos › Estrutura
+- **Descricao**: Módulo tem título e situação (PUBLICADO/RASCUNHO; rascunho não aparece ao aluno). Aula tem título, descrição, liberação programada (opcional, horário de Brasília), pré-requisito (outra aula do MESMO produto, sem ciclo), capítulos (tempo mm:ss + título) e thumb. Módulos e aulas são reordenados arrastando (mouse, toque ou teclado) ou com subir/descer.
+- **Comportamento esperado**: a ordem é sempre 1..n, sem buraco nem repetição (criar entra no fim; remover fecha o buraco). Reordenar envia a versão de TODOS os irmãos: se alguém mexeu antes, é recusado. Remover módulo com aula é recusado; remover aula que é pré-requisito de outra é recusado. Capítulos são gravados em ordem crescente, sem tempo repetido e, com a duração do vídeo conhecida, antes do fim. Remover (módulo, aula, material) passa pelo modal block.
+- **Impacto se descumprida**: curso com ordem embaralhada, aula travada por pré-requisito que não existe, marcador fora do vídeo.
+
+### RN-112 - Arquivos (capas, thumbs e materiais)
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Conteúdos / Armazenamento
+- **Descricao**: Imagens (capa, thumb): JPG, PNG ou WebP até 10 MB (SVG recusado). Materiais: PDF, DOC ou DOCX até 50 MB, ou link `https://`. O navegador envia direto ao armazenamento (o servidor só assina o envio e confere o resultado). Material tem nome (renomeável) e é arquivo OU link, nunca os dois.
+- **Comportamento esperado**: MIME e extensão precisam bater com a lista; o envio só vale depois da confirmação (o servidor confere tamanho e tipo no armazenamento); se não bater, o envio é descartado. Arquivo de uma área nunca é aceito em outra. Cada arquivo é usado em um lugar só; trocar ou remover descarta o registro (exclusão lógica, na trilha) e apaga o objeto do armazenamento.
+- **Impacto se descumprida**: arquivo malicioso servido aos alunos, anexos de uma área vazando para outra, armazenamento cheio de lixo.
+
+### RN-113 - Vídeo da aula (envio, troca e processamento)
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Conteúdos › Aula › Vídeo
+- **Descricao**: Cada aula tem no máximo UM vídeo. Aceitos MP4, MOV, MKV ou WebM até 10 GB (MIME e extensão batendo). O navegador envia direto ao armazenamento em partes de 16 MB, com progresso; parte que falha é tentada de novo e o envio pode ser continuado de onde parou ou cancelado. Ao concluir, o servidor confere o tamanho no armazenamento e põe o vídeo na fila: o worker gera o streaming protegido (720p + 480p, nunca aumenta a resolução do original), a thumb e a duração, e a duração vai para a aula.
+- **Comportamento esperado**: situação ENVIANDO → PROCESSANDO → PRONTO, ou FALHOU com mensagem legível depois de 3 tentativas. DONO e ADMIN podem reprocessar. Trocar o vídeo passa pelo modal block: o vídeo atual é excluído (lógico, na trilha) e os arquivos dele saem do armazenamento assim que o envio novo começa. O original nunca é servido a ninguém.
+- **Impacto se descumprida**: aula com dois vídeos, upload de arquivo que não é vídeo, armazenamento cheio de lixo, vídeo em claro.
+
+### RN-114 - Quem assiste o vídeo
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Vídeo / Player
+- **Descricao**: Regra única em `podeAssistir` (src/lib/video/acesso.ts). Nesta fase só a equipe do criador (DONO, ADMIN; SUPER_ADMIN como suporte) assiste, para conferir o vídeo no admin. O passo 4 libera o ALUNO com matrícula ativa e a aula liberada (programação e pré-requisito).
+- **Comportamento esperado**: o token de reprodução vale 10 min, é amarrado a vídeo + criador + pessoa + sessão de reprodução e o player renova a cada 4 min. A chave do vídeo só sai com sessão de login válida, `podeAssistir` e sessão de reprodução viva. Vídeo de uma área nunca abre em outra (404).
+- **Impacto se descumprida**: aula paga assistida sem matrícula, link de vídeo compartilhado funcionando para quem não é aluno.
+
+### RN-115 - Limite de telas simultâneas
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Vídeo / Player
+- **Descricao**: Cada pessoa assiste em no máximo 2 telas ao mesmo tempo (configurável por `VIDEO_LIMITE_SESSOES`, 1 a 10). Reabrir o vídeo no mesmo navegador não conta como tela nova. Tela sem sinal por 6 min deixa de contar.
+- **Comportamento esperado**: abrir uma tela além do limite encerra a mais antiga: ela perde a chave e a renovação e mostra "A reprodução foi aberta em outra tela". Cada abertura vai para a trilha (com quantas telas foram encerradas).
+- **Impacto se descumprida**: uma conta compartilhada entre muitas pessoas assistindo ao mesmo tempo.
+
 <!-- Exemplo de registro: -->
 
 <!--

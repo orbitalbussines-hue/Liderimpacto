@@ -43,10 +43,12 @@ ver `src/app/globals.css`); hex solto em componente é proibido.
 | `EstadoVazio` | `ui/estado-vazio.tsx` | derivado (não desenhado) | `titulo`, `descricao`, `icone`, `acao`, `comMoldura` |
 | `Esqueleto` | `ui/esqueleto.tsx` | derivado | só `className` (formato); agrupe com `aria-busy` + texto sr-only |
 | `EstadoErro` | `ui/estado-erro.tsx` | derivado | `titulo`, `mensagem`, `onTentarNovamente` |
+| `Selecao` | `ui/selecao.tsx` | professor, pré-requisito (derivado) | `<select>` nativo com o visual do Campo: `rotulo`, `opcoes {valor, rotulo, grupo?}` (grupo vira `<optgroup>`), `vazio` (opção ""), `tamanho` (42), `erro`, `ajuda` + props de `<select>` |
 | `EspacoImagem` | `ui/espaco-imagem.tsx` | toda capa/foto (`image-slot`) | `src`, `alt`, `dica`, `proporcao` 16/9, 3/4, 16/10, 1.414 (sem: preenche o pai), `sizes`, `prioritaria` |
 | `AlternarTema` | `ui/alternar-tema.tsx` | header, perfil | `variante` icone/texto; action `alterarTema` em `src/lib/actions/tema.ts` |
 | `Logo` | `marca/logo.tsx` | header, login, sidebar | `variante` cabecalho/bloco/fixo, `tamanho` 13/10 (provisório em texto, sem monograma; trocar só este arquivo) |
 | `EstiloMarca` | `marca/estilo-marca.tsx` | área do aluno | `cor` (hex); ver "Cor da marca" |
+| `PlayerHls` | `video/player-hls.tsx` | prévia do vídeo no editor da aula (o player completo é o passo 5) | `acesso` {urlMaster, token}, `renovar()` (novo token a cada 4 min), `titulo`, `poster`, `marcaDagua` (posição muda a cada 20 s), `autoPlay`. hls.js com `xhrSetup` pondo o token atual em toda requisição; sem MediaSource toca HLS nativo. Client |
 
 ## Cor da marca
 
@@ -104,6 +106,10 @@ Montados só com as primitivas acima. Client: `MenuAluno`, `TabBarAluno`, `Filei
 | `LinkDeAcesso`, `dataHora` | `admin/link-de-acesso.tsx` | link de primeiro acesso/redefinição | client; campo só leitura + Copiar + validade. Só no estado da tela (nunca URL/log) |
 | `PaginaCards` | `admin/pagina-cards.tsx` | Área de membros, Configurações, Vendas | `titulo, subtitulo, acao?, cards[{icone, titulo, descricao, href?}]` |
 | `CartaoKpi`, `SeletorPeriodo` | `admin/cartao-kpi.tsx`, `admin/seletor-periodo.tsx` | Home | `rotulo, valor, variacao?, tom?`; períodos 7/30/90 dias |
+| `ListaOrdenavel`, `useOrdemPersistida` | `admin/lista-ordenavel.tsx` | estrutura do produto (módulos, aulas) | client; dnd-kit com alça (mouse, toque e teclado: Espaço pega, setas movem, Espaço solta, Esc cancela; anúncios PT-BR) + botões subir/descer. `itens {id, versao}`, `rotulo(item)`, `onReordenar(novos)`, `renderItem(item, {alca, subirDescer, arrastando})`. O hook move na hora, grava com a versão de todos e volta se der colisão |
+| `CampoImagem` | `admin/campo-imagem.tsx` | capas 3:4/16:9, thumb da aula | client; prévia `EspacoImagem`, enviar/trocar (direto ao storage, com progresso), remover pelo modal block. `rotulo, proporcao, src, alt, onDefinir(arquivoId \| null), descricaoRemover, ajuda?` |
+| `useEnvioDeArquivo` | `admin/use-envio-arquivo.ts` | imagens e materiais | hook client: allowlist na tela → URL assinada → PUT com progresso → confirmação; devolve o `arquivoId` (ou `erro`) |
+| `SeletorCorMarca`, `PreviaCorMarca`, `PreviaMarca` | `admin/seletor-cor-marca.tsx`, `admin/previa-cor-marca.tsx`, `admin/previa-marca.tsx` | Aparência e cor própria do curso | seletor nativo + Hex + 4 cores prontas + aviso de ajuste (`cor`, `onMudar`, `onValidade`); prévia nos dois temas com os componentes reais (`cor`, `disposicao` lado/pilha) |
 
 ### Tela nova do admin em 3 passos
 
@@ -121,6 +127,13 @@ Montados só com as primitivas acima. Client: `MenuAluno`, `TabBarAluno`, `Filei
    `acaoPrincipal/acaoSecundaria` com `href` viram link (ou `acoes` para botões client);
    `paginacao.href(n)` liga ‹ ›; `chaves` (ids) mantém o estado do menu da linha; célula
    `{ tipo: "no", conteudo }` para o menu de ações e selos combinados.
+
+### Editor (tela própria, sem desenho no protótipo)
+
+Duas colunas como a página do curso: `grid items-start gap-5 desk:grid-cols-[minmax(0,1fr)_340px]`,
+`Cartao padding={24}` no principal (dados, estrutura) e `Cartao padding={20}` no `aside` (situação,
+imagens). Topo com link de volta + `CabecalhoPagina variante="admin"` (`eyebrow` com código/tipo,
+`meta` com `Selo`). Referência: `/admin/conteudos/[id]` e `/admin/conteudos/[id]/aulas/[aulaId]`.
 
 ### Tela nova do aluno
 

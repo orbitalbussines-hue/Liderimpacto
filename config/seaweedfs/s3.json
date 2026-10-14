@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "dev-lider-impacto",
+      "credentials": [
+        {
+          "accessKey": "dev-chave-lider-impacto",
+          "secretKey": "dev-segredo-lider-impacto-so-local"
+        }
+      ],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}
