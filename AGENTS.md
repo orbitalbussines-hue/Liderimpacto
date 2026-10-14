@@ -100,9 +100,10 @@ Código, comentário, documentação, UI, mensagem de erro e commit em **PT-BR**
 | Permissão | `src/lib/auth/autorizacao.ts` (actions: `exigirSessao`, `exigirMembro`, `exigirSuperAdmin`), `guarda.ts` (páginas), matriz em `docs/rbac.md` |
 | Resultado de action | `src/lib/acao.ts` (`executar`, `ErroDeNegocio`, `Resultado`) |
 | Arquivos no storage S3 (envio direto, chave por criador) | `src/lib/armazenamento/` (`regras.ts` puro, `cliente.ts`, `arquivos.ts`) — ADR-0004 |
-| Vídeo da aula (envio multipart, worker FFmpeg, HLS AES-128, token, chave) | `src/lib/video/` (`provedor-proprio.ts`, `entrega.ts`, `acesso.ts` = `podeAssistir`), worker `npm run worker:video` — ADR-0005. O Next NUNCA roda FFmpeg nem serve bytes de vídeo |
+| Vídeo da aula (envio multipart, worker FFmpeg, HLS AES-128, token, chave) | `src/lib/video/` (`provedor-proprio.ts`, `entrega.ts`, `acesso.ts` = `podeAssistir`/`motivoDoBloqueio`, com pré-requisito), worker `npm run worker:video` — ADR-0005. O Next NUNCA roda FFmpeg nem serve bytes de vídeo |
 | Catálogo (produto > módulo > aula > material) | `src/lib/catalogo/` (consultas, regras, ordem, publicação) |
 | Matrículas (serviço `matricular` = ponto de entrada do futuro webhook, idempotente) | `src/lib/matriculas/` (`servico.ts`, `consultas.ts`, `regras.ts`, `csv.ts`) — RN-116/117, `docs/back.md` |
+| Progresso, fileiras, curso e player do aluno (batida = 1 UPSERT com bitmap por segundo; beacon `POST /api/progresso`; Top 10 por agregado diário + `"use cache"`) | `src/lib/progresso/` (`registrar.ts`, `batida.ts`, `beacon.ts`, `consultas.ts`, `consultas-curso.ts`, `top10.ts`, `regras.ts`) — ADR-0006, RN-118 a RN-121, API em `docs/back.md` |
 | Validadores | `src/lib/validators/<entidade>.ts` |
 | Actions | `src/lib/actions/<entidade>.ts` |
 | Telas | `src/app/(app)/<rota>/page.tsx` + `_components/` |

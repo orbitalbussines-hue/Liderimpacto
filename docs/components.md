@@ -48,7 +48,8 @@ ver `src/app/globals.css`); hex solto em componente é proibido.
 | `AlternarTema` | `ui/alternar-tema.tsx` | header, perfil | `variante` icone/texto; action `alterarTema` em `src/lib/actions/tema.ts` |
 | `Logo` | `marca/logo.tsx` | header, login, sidebar | `variante` cabecalho/bloco/fixo, `tamanho` 13/10 (provisório em texto, sem monograma; trocar só este arquivo) |
 | `EstiloMarca` | `marca/estilo-marca.tsx` | área do aluno | `cor` (hex); ver "Cor da marca" |
-| `PlayerHls` | `video/player-hls.tsx` | prévia do vídeo no editor da aula (o player completo é o passo 5) | `acesso` {urlMaster, token}, `renovar()` (novo token a cada 4 min), `titulo`, `poster`, `marcaDagua` (posição muda a cada 20 s), `autoPlay`. hls.js com `xhrSetup` pondo o token atual em toda requisição; sem MediaSource toca HLS nativo. Client |
+| `PlayerHls` | `video/player-hls.tsx` | prévia do vídeo no editor da aula (controles nativos) | `acesso` {urlMaster, token}, `renovar()`, `titulo`, `poster`, `marcaDagua`, `autoPlay`. Usa o hook `useHls` (`video/use-hls.ts`: níveis de qualidade, token renovado a cada 4 min, HLS nativo no Safari) e `MarcaDagua` (`video/marca-dagua.tsx`, reaparece se removida). Client |
+| `PlayerAula` | `player/player-aula.tsx` (+ `controles-player`, `barra-tempo`, `menu-player`, `fim-da-aula`, `use-progresso`, `acumulador`, `atalhos`) | 5 Player | `aulaId`, `titulo`, `duracaoSeg`, `poster`, `marcaDagua`, `retomarEm`, `capitulos`, `velocidade`, `autoplay`, `contagemSeg`, `anterior`/`proxima`, `autoIniciar`, `onTempo`, `onGravado`; `ref` = `{ tempoAtual(), irPara(seg) }`. Marcadores de capítulo, velocidade, qualidade, PiP, tela cheia, atalhos (espaço/K, J/L, setas, F, M, 0–9), progresso a cada 10 s + beacon em pause/seek/aba oculta/saída (`acumuladorDeIntervalos` puro), conclusão ≥ 90 %, próxima aula com contagem. Sessão de reprodução só abre no primeiro play. Client |
 
 ## Cor da marca
 
@@ -87,7 +88,7 @@ Montados só com as primitivas acima. Client: `MenuAluno`, `TabBarAluno`, `Filei
 | `Fileira`, `CartaoFileira`, `varianteDoTipo` | `vitrine/*` | 2 Fileiras | `Fileira {titulo, tag?, variante?, itens}` (0 itens = não renderiza); variantes `padrao`, `progresso`, `top10`, `novo` |
 | `CartaoCurso` | `curso/cartao-curso.tsx` | 3 Continuar | `titulo`, `capaUrl?`, `progresso`, `aulasConcluidas`, `totalAulas`, `href` |
 | `ProgressoCurso`, `AcordeaoModulos`, `ItemAula`, `CartaoInclui`, `CartaoProfessor` | `curso/*` | 4 Curso | `AcordeaoModulos {modulos}` (módulo em andamento abre; aula atual com aria-current) |
-| `ListaAulas`, `FaixaCapitulos`, `AnexoMaterial` | `curso/*` | 5 Player (playlist e anexos; o vídeo vem no passo 5) | `ListaAulas {tituloCurso, aulasConcluidas, totalAulas, grupos}` |
+| `ListaAulas`, `FaixaCapitulos`, `AnexoMaterial` | `curso/*` | 5 Player (playlist e anexos) | `ListaAulas {tituloCurso, aulasConcluidas, totalAulas, grupos}` (aula com `bloqueio` vira linha com cadeado, sem link; `atual` destacada); `FaixaCapitulos {capitulos, onSelecionar?}` (capítulo pula o vídeo); `AnexoMaterial {tipo, nome, href?, onAbrir?}` (modo botão pede o link curto) |
 | `LinhaCartao`, `LinhaAvaliacao` | `engajamento/*` | 6 Avaliações | `LinhaCartao {icone?, titulo, meta?, status?, acao?}` serve para qualquer lista de cartões em linha |
 | `CartaoTrilha`, `EtapasTrilha` | `engajamento/*` | 7 Trilhas | `totalEtapas`, `etapasConcluidas` (CTA deriva do progresso) |
 | `CompositorPost`, `CartaoPost`, `ListaCanais`, `CartaoEncontroAoVivo`, `CartaoMembrosAtivos`, `CartaoFixados` | `engajamento/*` | 8 Comunidade | só visual (Fase 2) |

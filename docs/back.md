@@ -98,7 +98,7 @@ Leituras das telas em `src/lib/catalogo/consultas.ts`; regra pura (publicação,
 Tabela `produtos_matriculas` (`src/lib/db/schema/matriculas.ts`): `criador_id` + FKs compostas
 (membro, criador) e (produto, criador); origem `MANUAL|IMPORTACAO|COMPRA`, status
 `ATIVA|PENDENTE|CANCELADA` (Expirada = ATIVA com `expira_em` passado, sem job), `iniciada_em`,
-`concluida_em` (passo 5), `expira_em`, `referencia_externa` (unica por criador quando presente),
+`concluida_em` (passo 5: preenchida ao concluir todas as aulas publicadas), `expira_em`, `referencia_externa` (unica por criador quando presente),
 `motivo_cancelamento` (CHECK: obrigatorio quando CANCELADA). Uma linha viva por (membro, produto).
 Regras RN-116 e RN-117. Nenhuma variavel de ambiente nova.
 
@@ -142,6 +142,121 @@ Outras funcoes do servico: `cancelarMatricula`, `alterarExpiracao` (trava pela v
 | `acaoCancelarMatricula`, `acaoAlterarExpiracao`, `acaoReativarMatricula` | `src/lib/actions/matriculas.ts` | DONO, ADMIN | atualizar (antes → depois, motivo) | RN-116 |
 | `acaoBuscarMembros` | `src/lib/actions/matriculas.ts` | DONO, ADMIN | — (leitura) | RN-116 |
 | `acaoImportarMatriculas` | `src/lib/actions/matriculas-importacao.ts` | DONO, ADMIN | conta/vinculo/grupo/matricula + resumo da importacao | RN-117 |
+
+## Experiência do aluno (passo 5)
+
+ADR-0006, RN-118 a RN-121. Migração `0004_experiencia_aluno`. Nenhuma variável de ambiente nova.
+
+| Tabela | Para quê |
+|--------|----------|
+| `produtos_modulos_aulas_progressos` | progresso por (membro, aula), único entre os vivos: `segundos_bitmap` (1 bit/s), `segundos_assistidos`, `max_posicao_seg`, `ultima_posicao_seg`, `percentual`, `concluida`/`concluida_em`/`concluida_por` (`ASSISTIU` ou `MANUAL`), `ultima_visualizacao_dia`, `visualizacao_nova`; `updated_at` = última batida aceita. Índices: único (membro, aula) e (membro, updated_at desc) |
+| `produtos_modulos_aulas_visualizacoes` | agregado do Top 10: visualizações por (aula, dia de Brasília); índice (criador, dia) |
+| `produtos_modulos_aulas_anotacoes` | anotação (membro, aula, `tempo_seg`, `texto` 1–2000) com trava |
+| `criadores_membros_favoritos` | "Minha lista": `produto_id` OU `aula_id` (CHECK), um vivo por alvo |
+| `usuarios.reproducao_automatica`, `usuarios.lembretes` | preferências da pessoa (padrão `true`) |
+| `produtos.publicado_em` | 1ª saída de rascunho (NOVIDADES); preenchida por `acaoAlterarSituacaoProduto` |
+
+Todas com `criador_id` + FKs compostas (membro, criador) e (aula ou produto, criador).
+
+### Escrita (`src/lib/progresso/`)
+
+```ts
+// registrar.ts — quem chama JÁ conferiu sessão e acessoDaAula
+registrarProgresso(e: {
+  criadorId: string; membroId: string; usuarioId: string; aulaId: string;
+  intervalos: readonly [number, number][]; // o que TOCOU desde a última batida (s do vídeo)
+  posicao: number; duracaoSeg: number;
+}): Promise<ProgressoGravado | null>          // null = ignorada (teto, aula sem duração)
+concluirManualmente(e: { criadorId; membroId; usuarioId; aulaId }): Promise<ProgressoGravado | null>
+type ProgressoGravado = { percentual: number; concluida: boolean; concluidaPor: "ASSISTIU" | "MANUAL" | null;
+  concluiuAgora: boolean; ultimaPosicaoSeg: number; segundosAssistidos: number };
+
+// batida.ts — porta única da action e do beacon
+receberBatida(quem: { criadorId; membroId: string | null; usuarioId; papel; sessaoId }, entrada: unknown)
+  : Promise<{ situacao: "registrada"; progresso: ProgressoGravado } | { situacao: "ignorada" }
+           | { situacao: "recusada"; motivo: "sem-acesso" | "nao-encontrada" }>  // corpo inválido: lança ZodError
+
+// regras.ts (puro): esquemaBatida, mesclarIntervalos, prepararBatida, retomarEm(ultima, duracao),
+// podeConcluirManual({ id }) (hoje sempre true; o passo 9 lê o construtor aqui), constantes.
+```
+
+### `POST /api/progresso` (beacon)
+
+- **Quando o cliente chama**: `navigator.sendBeacon("/api/progresso", JSON.stringify(corpo))` em
+  `pause`, `seeked`, `ended`, `visibilitychange` (hidden) e `pagehide`/`beforeunload`. O heartbeat
+  de 10 s durante a reprodução usa a action `acaoRegistrarProgresso` (mesmo corpo), não o beacon.
+- **Corpo** (JSON até 4 KB; `text/plain` ou `application/json`; campo a mais = 400):
+  `{ aulaId: uuid, intervalos: [[ini, fim], ...], posicao: number, duracaoSeg: number }`.
+  `intervalos`: até 20 trechos que REALMENTE tocaram desde a batida anterior, cada um com
+  `0 <= ini < fim <= duracaoSeg + 1` e `fim - ini <= 30` (o cliente fecha o trecho a cada batida e
+  a cada seek; parado = `[]`). `posicao` = `currentTime`. Depois de enviar, o cliente zera os trechos.
+- **Respostas** (sem corpo, `no-store`): `204` registrada OU ignorada (1 batida/3 s por sessão e
+  aula; teto 2x o tempo real + 15 s; aula sem vídeo processado), `400` JSON ou corpo inválido,
+  `401` sem sessão plena DESTE host, `403` Origin de outro site ou sem acesso à aula
+  (matrícula, liberação, pré-requisito), `404` aula não existe neste criador, `413` corpo > 4 KB.
+- Recusa não vai para a trilha (o player repete a cada 10 s).
+
+### Leituras para as telas (`src/lib/progresso/consultas.ts`)
+
+Todas recebem `q: QuemPede` = o retorno de `membroDaPagina(TODOS_OS_MEMBROS)` (passe inteiro) e
+`agora = new Date()` opcional. Filtram criador do host + vivos + matrícula valendo (ALUNO).
+Imagens saem como `imagemChave`; `comImagens(criadorId, itens)` assina e devolve `imagemUrl`
+(formato do `ItemFileira`). `ItemCartao = { id, tipo: "AULA" | "PRODUTO", titulo, subtitulo
+("Módulo X · Aula Y" ou o tipo do curso), imagemChave, href ("/aula/<id>" ou "/cursos/<slug>") }`.
+
+| Função | Retorno |
+|--------|---------|
+| `continuarAssistindo(q, limite = 10)` | `(ItemCartao & { progresso: 0–100; produtoTitulo })[]`, 1–94%, recentes primeiro |
+| `top10(criadorId, limite = 10)` (`top10.ts`, `"use cache"` 1 h); `top10Agora(criadorId, limite, agora)` sem cache | `(ItemCartao & { posicao: 1..N; visualizacoes })[]`; imagem = capa 3:4 (pôster) |
+| `novidades(q, limite = 10)` | `(ItemCartao & { publicadoEm: Date })[]` |
+| `minhaLista(q)`; `estaNaLista(q, { produtoId } ou { aulaId })` | `(ItemCartao & { favoritadoEm: Date })[]`; `boolean` |
+| `mentorias(q, limite = 10)` | `(ItemCartao & { matriculado: boolean })[]` |
+| `progressoDosCursos(q, produtoIds)`; `progressoDoCurso(q, produtoId)` | `Map<produtoId, { concluidas, total, percentual }>`; o objeto |
+| `numerosDoPerfil(q)` | `{ aulasConcluidas, segundosAssistidos, cursosConcluidos, certificados: 0, pontos: 0 }` |
+| `preferenciasDoAluno(usuarioId)` | `{ reproducaoAutomatica, lembretes }` |
+| `cursoDoAluno(q, slug)` | `null` (404) ou o objeto abaixo |
+| `aulaParaPlayer(q, aulaId)` | `null` (404) ou o objeto abaixo |
+
+```ts
+cursoDoAluno → {
+  produto: { id, titulo, slug, descricao, tipo, status, corMarca, capa3x4Chave, capa16x9Chave },
+  professor: { nome, imagem } | null, matriculado: boolean, favorito: boolean,
+  modulos: ModuloDoCurso[],   // aluno: só PUBLICADOS; equipe: todos, tudo liberado (prévia)
+  progresso: { concluidas, total, percentual },
+  proxima: { aulaId, numero: "2.3", titulo, href, rotulo: "Continuar · Aula 2.3" | "Começar · Aula 1.1", retomarEm } | null,
+  totais: { aulas, duracaoSeg, materiais },
+}
+ModuloDoCurso = { id, numero: "01", titulo, totalAulas, duracaoSeg, estado: "concluido" | "andamento" | "bloqueado", aulas: AulaDoCurso[] }
+AulaDoCurso = { id, numero: "1.2", titulo, duracaoSeg, thumbChave, href,
+  estado: "bloqueada" | "concluida" | "atual" | "pendente", concluida, percentual,
+  motivoBloqueio: null | "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "PRE_REQUISITO",
+  liberaEm: Date | null, preRequisito: { id, numero, titulo } | null }
+
+aulaParaPlayer → {
+  aula: { id, numero, titulo, descricao, duracaoSeg, capitulos: { inicioSeg, titulo }[], thumbChave },
+  modulo: { id, numero, titulo }, produto: { id, titulo, slug, tipo },
+  pode: boolean, motivoBloqueio,
+  video: { id, situacao: "ENVIANDO" | "PROCESSANDO" | "PRONTO" | "FALHOU" } | null, // PRONTO + pode: acaoIniciarReproducao({ aulaId })
+  materiais: { id, nome, tipo: "PDF" | "DOC" | "LINK", url: string | null, tamanhoBytes }[], // [] sem acesso; arquivo: acaoLinkDoMaterial({ materialId })
+  anotacoes: { id, tempoSeg, texto, versao }[],     // só as do membro
+  progresso: { percentual, concluida, concluidaPor, ultimaPosicaoSeg, segundosAssistidos },
+  retomarEm: number,                                 // 0 se parou a menos de 10 s do fim
+  anterior, proxima: { id, numero, titulo, href } | null, // vizinhas LIBERADAS na ordem do curso
+  playlist: ModuloDoCurso[], progressoDoCurso, favorito: boolean,
+  concluirManual: boolean,                           // mostra o botão "Concluir e avançar"
+  flags: { abas: { descricao, materiais, comentarios: false, anotacoes }, playlist, autoplay /* preferência */,
+           contagemAutoplaySeg: 5, velocidade, marcadores, avisoCertificado: false }, // passo 9 lê do construtor
+}
+```
+
+| Action | Arquivo | Quem | Audita | Regra |
+|--------|---------|------|--------|-------|
+| `acaoRegistrarProgresso(corpo do beacon)`: `{ situacao, progresso? }` | `src/lib/actions/progresso.ts` | quem `podeAssistir` | não (dado quente) | RN-118 |
+| `acaoConcluirAula({ aulaId })`: `ProgressoGravado` | `src/lib/actions/progresso.ts` | quem `podeAssistir` (com vínculo) | atualizar (1ª vez) | RN-118 |
+| `acaoFavoritar`, `acaoDesfavoritar({ produtoId } ou { aulaId })`: `{ favorito }` | `src/lib/actions/favoritos.ts` | membro com vínculo | criar, atualizar, excluir | RN-119 |
+| `acaoCriarAnotacao({ aulaId, tempoSeg, texto })`: `{ id, versao }`; `acaoEditarAnotacao({ anotacaoId, versao, texto, tempoSeg? })`: `{ versao }`; `acaoRemoverAnotacao({ anotacaoId, versao })` | `src/lib/actions/anotacoes.ts` | o próprio membro (criar: quem `podeAssistir`) | criar, atualizar, excluir | RN-120 |
+| `acaoSalvarPreferencias({ reproducaoAutomatica?, lembretes? })`: as duas | `src/lib/actions/preferencias.ts` | a própria sessão | atualizar (antes e depois) | RN-121 |
+| `acaoLinkDoMaterial({ materialId })`: `{ url }` (5 min) | `src/lib/actions/aulas.ts` | equipe; ALUNO se `podeAssistir` a aula | não (leitura) | RN-114 |
 
 ## Variáveis de ambiente (passo 3)
 

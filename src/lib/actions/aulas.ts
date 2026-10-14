@@ -7,11 +7,12 @@ import { apagarObjetosDescartados, arquivoParaUsar, descartarArquivo } from "@/l
 import { urlDeLeitura } from "@/lib/armazenamento/cliente";
 import { ALLOWLIST, extensaoDe } from "@/lib/armazenamento/regras";
 import { registrarAuditoria } from "@/lib/audit/registrar";
-import { exigirMembro } from "@/lib/auth/autorizacao";
-import { EQUIPE } from "@/lib/auth/permissoes";
+import { exigirMembro, MSG_SEM_PERMISSAO } from "@/lib/auth/autorizacao";
+import { EQUIPE, TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
 import { db, type Transacao } from "@/lib/db";
 import { arquivos, produtos_modulos, produtos_modulos_aulas, produtos_modulos_aulas_materiais } from "@/lib/db/schema";
 import { MSG_COLISAO, marcaDeExclusao, travaDeColisao, vivos } from "@/lib/db/soft-delete";
+import { acessoDaAula } from "@/lib/video/acesso-aula";
 import {
   capitulosSchema,
   descricaoSchema,
@@ -242,19 +243,22 @@ export async function acaoRemoverMaterial(entrada: unknown) {
 }
 
 /**
- * Link CURTO (5 min) para a equipe abrir o anexo de um material (sem auditoria: leitura).
- * O acesso do ALUNO aos materiais vem com as matriculas (passo 4), com a mesma funcao.
+ * Link CURTO (5 min) para abrir o anexo de um material (sem auditoria: leitura). Equipe sempre;
+ * ALUNO só se `podeAssistir` a aula do material (matrícula, liberação, pré-requisito: RN-114/118).
  */
 export async function acaoLinkDoMaterial(entrada: unknown) {
   return executar(async () => {
-    const { criador } = await exigirMembro(EQUIPE);
+    const { criador, membro } = await exigirMembro(TODOS_OS_MEMBROS);
     const { materialId } = z.strictObject({ materialId: idSchema }).parse(entrada);
     const [m] = await db
-      .select({ nome: produtos_modulos_aulas_materiais.nome, chave: arquivos.chave })
+      .select({ nome: produtos_modulos_aulas_materiais.nome, chave: arquivos.chave, aulaId: produtos_modulos_aulas_materiais.aula_id })
       .from(produtos_modulos_aulas_materiais)
       .innerJoin(arquivos, eq(arquivos.id, produtos_modulos_aulas_materiais.arquivo_id))
       .where(and(eq(produtos_modulos_aulas_materiais.id, materialId), eq(produtos_modulos_aulas_materiais.criador_id, criador.id), vivos(produtos_modulos_aulas_materiais), vivos(arquivos)));
     if (!m) throw new ErroDeNegocio("Material sem arquivo nesta área.");
+    if (membro.papel === "ALUNO" && !(await acessoDaAula(criador.id, m.aulaId, { papel: membro.papel, membroId: membro.id }))?.pode) {
+      throw new ErroDeNegocio(MSG_SEM_PERMISSAO);
+    }
     const nomeDownload = `${m.nome}.${extensaoDe(m.chave)}`;
     return { url: await urlDeLeitura({ bucket: "arquivos", criadorId: criador.id, chave: m.chave, nomeDownload }) };
   });

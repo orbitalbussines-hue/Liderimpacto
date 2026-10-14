@@ -8,6 +8,8 @@ export interface AulaResumo {
   duracao: string;
   estado: EstadoAula;
   href: string;
+  /** Aula travada: motivo curto ("Libera em 20/10", "Conclua a aula 1.2", "Matricule-se"). A linha deixa de ser link. */
+  bloqueio?: string;
 }
 
 export type EstadoModulo = "concluido" | "andamento" | "bloqueado";

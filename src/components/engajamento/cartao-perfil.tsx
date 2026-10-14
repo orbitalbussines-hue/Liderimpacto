@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Cartao } from "@/components/ui/cartao";
 import { Estatistica } from "@/components/ui/estatistica";
 
@@ -16,7 +15,7 @@ export interface CartaoPerfilProps {
   /** "mai/2026". */
   membroDesde: string;
   estatisticas: EstatisticaPerfil[];
-  /** Substitui o botão "Alterar foto" (visual) quando houver a ação real. */
+  /** Botão "Alterar foto" (ou outra ação) abaixo dos números; sem ele, nada aparece. */
   acaoFoto?: ReactNode;
 }
 
@@ -33,11 +32,7 @@ export function CartaoPerfil({ nome, avatarUrl, membroDesde, estatisticas, acaoF
           <Estatistica key={e.rotulo} variante="compacta" {...e} />
         ))}
       </div>
-      {acaoFoto ?? (
-        <Button variant="contorno" larguraTotal>
-          Alterar foto
-        </Button>
-      )}
+      {acaoFoto}
     </Cartao>
   );
 }

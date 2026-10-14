@@ -73,3 +73,7 @@ export type OrigemMatricula = (typeof ORIGENS_MATRICULA)[number];
 
 export const STATUS_MATRICULA = ["ATIVA", "PENDENTE", "CANCELADA"] as const;
 export type StatusMatricula = (typeof STATUS_MATRICULA)[number];
+
+/** Como a aula foi concluida (passo 5): ASSISTIU = cruzou 90% assistido de verdade; MANUAL = botao "Concluir e avancar". */
+export const CONCLUSOES_AULA = ["ASSISTIU", "MANUAL"] as const;
+export type ConclusaoAula = (typeof CONCLUSOES_AULA)[number];

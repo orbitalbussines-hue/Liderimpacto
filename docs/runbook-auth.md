@@ -75,6 +75,25 @@ todos os SUPER_ADMIN recadastrarem o TOTP (a semente antiga só abre pela chave 
   `proxy_set_header X-Real-IP $remote_addr;` (o IP dos tetos sai daqui, `src/lib/auth/ip.ts`).
 - `BETTER_AUTH_URL=https://liderdeimpacto.com.br`, `PLATAFORMA_DOMINIO=liderdeimpacto.com.br`.
 
+## 8. Dados e sessão de demonstração (SÓ DESENVOLVIMENTO)
+
+Para conferir as telas logadas sem digitar senha. Os dois scripts recusam rodar com
+`NODE_ENV=production` ou com `DATABASE_URL` fora do localhost.
+
+```bash
+npm run seed:demo                      # criador `demo` (demo.localhost:3011), DONO e ALUNO sem senha, 3 produtos, progresso, favoritos, Top 10
+npm run sessao:demo                    # imprime o cookie `li.session_token=...` do aluno e do dono
+npm run sessao:demo -- cookies.json    # idem, gravando { host, aluno, dono } (fora do repo)
+```
+
+- `seed:demo` é idempotente (procura cada peça pela chave natural). Capas geradas com FFmpeg e
+  enviadas ao storage local pela URL assinada.
+- `sessao:demo` passa pelo mesmo funil das entradas reais (`ajustesSeAutorizada`: conta ativa,
+  área do host, vínculo ativo, teto de 12 h) e grava na trilha "Sessão de DESENVOLVIMENTO ...".
+  Ociosa por 1 h, expira: rode de novo. Outro host: `DEMO_HOST=<slug>.localhost:3011`.
+- Usar: cookie no navegador (DevTools > Application > Cookies, host `demo.localhost:3011`) ou
+  `curl -H "Host: demo.localhost:3011" -H "Cookie: <nome=valor>" http://127.0.0.1:3011/`.
+
 ## Pendências da régua (abertas nesta fase)
 
 - 2FA obrigatório para todos e passkey (hoje só SUPER_ADMIN, só TOTP) — desvio autorizado.

@@ -9,4 +9,6 @@ export * from "./arquivos";
 export * from "./produtos";
 export * from "./videos";
 export * from "./matriculas";
+export * from "./progresso";
+export * from "./favoritos";
 export * from "./auditoria";

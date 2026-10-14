@@ -22,6 +22,8 @@
     "verificar": "npm run lint && npm run typecheck && npm run compliance && npm run test:compliance && npm test && npm run docs:check",
     "prepare": "node scripts/ativar-hooks.mjs",
     "db:seed": "tsx --conditions=react-server scripts/seed.ts",
+    "seed:demo": "tsx --conditions=react-server scripts/seed-demo.ts",
+    "sessao:demo": "tsx --conditions=react-server scripts/sessao-demo.ts",
     "armazenamento:preparar": "tsx --conditions=react-server scripts/armazenamento-preparar.ts",
     "worker:video": "tsx --conditions=react-server scripts/worker-video.ts"
   },

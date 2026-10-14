@@ -54,3 +54,35 @@ describe("AcordeaoModulos", () => {
     expect(screen.getByText("Concluído")).toBeInTheDocument();
   });
 });
+
+describe("AcordeaoModulos: aulas travadas", () => {
+  const travado: ModuloCurso[] = [
+    {
+      id: "5",
+      numero: "05",
+      titulo: "Legado",
+      totalAulas: 3,
+      duracao: "1h",
+      estado: "bloqueado",
+      aulas: [
+        { id: "x", titulo: "Delegação", duracao: "21 min", estado: "pendente", href: "/aula/x", bloqueio: "Libera em 26/10" },
+        { id: "y", titulo: "Resultados", duracao: "26 min", estado: "pendente", href: "/aula/y", bloqueio: "Conclua a aula 3.5" },
+        { id: "z", titulo: "Encontro", duracao: "1h", estado: "pendente", href: "/aula/z", bloqueio: "Matricule-se" },
+      ],
+    },
+  ];
+
+  it("mostra o motivo de cada bloqueio e a aula travada não é link", () => {
+    render(<AcordeaoModulos modulos={travado} />);
+    fireEvent.click(screen.getByRole("button", { name: /Legado/ }));
+    expect(screen.getByText("Libera em 26/10")).toBeInTheDocument();
+    expect(screen.getByText("Conclua a aula 3.5")).toBeInTheDocument();
+    expect(screen.getByText("Matricule-se")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("módulo de 1 aula no singular", () => {
+    render(<AcordeaoModulos modulos={[{ ...travado[0], totalAulas: 1, aulas: [] }]} />);
+    expect(screen.getByText(/1 aula ·/)).toBeInTheDocument();
+  });
+});

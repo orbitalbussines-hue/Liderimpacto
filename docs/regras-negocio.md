@@ -184,7 +184,7 @@ Cada regra segue este formato:
 - **Definida por**: Paulo (Bah! Tech)
 - **Data**: 2026-10-14
 - **Modulo**: Vídeo / Player
-- **Descricao**: Regra única em `podeAssistir` (src/lib/video/acesso.ts), com os dados de `acessoDaAula` (src/lib/video/acesso-aula.ts). A equipe do criador (DONO, ADMIN; SUPER_ADMIN como suporte) sempre assiste, para conferir o vídeo no admin. O ALUNO assiste com matrícula valendo no produto da aula (RN-116), produto PUBLICADO ou NÃO LISTADO, módulo PUBLICADO e aula liberada (`libera_em` vazia ou já passada). Pré-requisito por aula concluída entra com o progresso (passo 5).
+- **Descricao**: Regra única em `podeAssistir` (src/lib/video/acesso.ts), com os dados de `acessoDaAula` (src/lib/video/acesso-aula.ts). A equipe do criador (DONO, ADMIN; SUPER_ADMIN como suporte) sempre assiste, para conferir o vídeo no admin. O ALUNO assiste com matrícula valendo no produto da aula (RN-116), produto PUBLICADO ou NÃO LISTADO, módulo PUBLICADO, aula liberada (`libera_em` vazia ou já passada) e pré-requisito concluído (RN-118).
 - **Comportamento esperado**: o token de reprodução vale 10 min, é amarrado a vídeo + criador + pessoa + sessão de reprodução e o player renova a cada 4 min. A chave do vídeo só sai com sessão de login válida, `podeAssistir` e sessão de reprodução viva. Vídeo de uma área nunca abre em outra (404).
 - **Impacto se descumprida**: aula paga assistida sem matrícula, link de vídeo compartilhado funcionando para quem não é aluno.
 
@@ -211,6 +211,38 @@ Cada regra segue este formato:
 - **Descricao**: Arquivo `nome,email,produto,expira_em,grupo` com os mesmos limites e leitura do CSV de membros (RN-106): até 1 MB e 1000 linhas, `,` ou `;`. Produto pelo código ("164") ou pelo endereço; `expira_em` (DD/MM/AAAA ou AAAA-MM-DD) e `grupo` opcionais; uma linha por produto (a mesma pessoa pode vir em várias linhas).
 - **Comportamento esperado**: prévia com erro por linha (o servidor lê de novo). Linha inválida não grava: formato, data inexistente ou passada, e-mail + produto repetidos no arquivo, produto que não é DESTA área ("Produto não encontrado"). As válidas entram numa ÚNICA transação. E-mail sem vínculo vira ALUNO (conta nova sem senha com link de primeiro acesso na tela e por e-mail se o SMTP estiver configurado; conta existente reaproveitada com a mensagem neutra da RN-104); o grupo é criado como Turma se não existir e a pessoa entra nele. Resultado com matrículas criadas/reativadas/já existentes, contas novas e links.
 - **Impacto se descumprida**: importação pela metade, matrícula em curso de outra área, contas duplicadas, links vazados.
+
+### RN-118 - Progresso da aula, conclusão e pré-requisito
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Player / Área do aluno
+- **Descricao**: O player informa a cada ~10 s (e ao pausar, pular, terminar, trocar de aba ou sair) os trechos que REALMENTE tocaram. O servidor guarda os segundos assistidos únicos de cada membro em cada aula (rever não soma; arrastar a barra não conta), a última posição (para retomar, inclusive quando a pessoa voltou no vídeo) e o percentual. A aula é concluída ao chegar a 90% assistido ("Assistiu") ou pelo botão "Concluir e avançar" ("Manual", liberado em todos os cursos nesta fase; a regra por curso vem com o construtor do player). Conclusão nunca é desfeita. Aula com pré-requisito só abre para o ALUNO depois que ele concluiu a aula pré-requisito; se o pré-requisito foi removido ou está num módulo oculto, ele deixa de travar. Equipe nunca é travada. Quando todas as aulas publicadas do curso estão concluídas, a matrícula ganha a data de conclusão (base do certificado).
+- **Comportamento esperado**: só registra quem pode assistir a aula (RN-114: matrícula valendo, liberação, pré-requisito). Cada trecho tem no máximo 30 s e cada batida pode declarar no máximo o dobro do tempo real desde a anterior + 15 s; o que passar disso é ignorado sem erro (ninguém conclui "pulando para o fim"). Batidas da mesma aba mais próximas que 3 s são ignoradas. Ao reabrir a aula, o vídeo volta à última posição, ou ao começo se a pessoa tinha parado a menos de 10 s do fim. A conclusão pelo botão vai para a trilha. Na tela do curso e no player, aula travada mostra o motivo: sem matrícula, libera em data X, conclua a aula Y antes.
+- **Impacto se descumprida**: progresso perdido, aula "concluída" sem ser vista, certificado indevido, aula com pré-requisito aberta antes da hora.
+
+### RN-119 - Fileiras da vitrine e Minha lista
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Área do aluno › Início
+- **Descricao**: CONTINUAR = aulas com 1% a 94% assistido, mais recentes primeiro (some a concluída pelo botão e a que deixou de abrir). TOP 10 = aulas mais vistas nos últimos 7 dias (hoje incluso, calendário de Brasília), contando 1 visualização por membro, aula e dia; só catálogo publicado e já liberado; atualiza no máximo a cada hora. NOVIDADES = cursos publicados pela primeira vez nos últimos 30 dias (todos veem) e aulas novas, nos últimos 30 dias, de cursos já publicados antes (só quem está matriculado). MENTORIAS = produtos do tipo Mentoria publicados. MINHA LISTA = cursos e aulas que o membro favoritou.
+- **Comportamento esperado**: fileira vazia não aparece. Curso em rascunho ou não listado não entra em nenhuma fileira pública (não listado abre só pelo link). Favoritar é idempotente; tirar da lista é exclusão lógica e favoritar de novo reativa o mesmo registro; cada mudança vai para a trilha. Curso em rascunho ou de outra área não pode ser favoritado ("não encontrado").
+- **Impacto se descumprida**: vitrine mostrando curso em rascunho, ranking inflado por quem revê a mesma aula, lista com item de outra área.
+
+### RN-120 - Anotações com tempo
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Player › Anotações
+- **Descricao**: O aluno anota um texto (1 a 2000 caracteres) num instante da aula. Só quem pode assistir a aula anota. Cada pessoa vê, edita e remove só as próprias anotações.
+- **Comportamento esperado**: lista em ordem de tempo; editar e remover usam a trava de colisão (duas abas abertas: a segunda recebe "Registro alterado por outro usuário") e vão para a trilha; remover é exclusão lógica.
+- **Impacto se descumprida**: anotação de um aluno visível ou editável por outro, edição perdida.
+
+### RN-121 - Preferências do aluno
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Perfil
+- **Descricao**: "Reprodução automática" (abre a próxima aula após a contagem de 5 s) e "Lembretes", ambas ligadas por padrão, são da PESSOA e valem em todas as áreas em que ela é membro (como o tema).
+- **Comportamento esperado**: só a própria pessoa altera, pela sessão (nenhum id vem da tela); a mudança vai para a trilha com antes e depois. O player lê a reprodução automática a cada abertura.
+- **Impacto se descumprida**: preferência de uma pessoa alterada por outra, autoplay ignorando a escolha.
 
 <!-- Exemplo de registro: -->
 

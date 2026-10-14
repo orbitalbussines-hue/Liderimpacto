@@ -164,7 +164,13 @@ export async function acaoAlterarSituacaoProduto(entrada: unknown) {
       }
       const [linha] = await tx
         .update(produtos)
-        .set({ status: e.status, updated_at: new Date(), modified_by: usuario.id })
+        .set({
+          status: e.status,
+          // NOVIDADES (passo 5): a primeira publicacao fica; voltar a rascunho e republicar nao "renova".
+          ...(e.status !== "RASCUNHO" ? { publicado_em: sql`coalesce(${produtos.publicado_em}, now())` } : {}),
+          updated_at: new Date(),
+          modified_by: usuario.id,
+        })
         .where(travaDeColisao(produtos, e.produtoId, e.versao))
         .returning({ updated_at: produtos.updated_at });
       if (!linha) throw new ErroDeNegocio(MSG_COLISAO);

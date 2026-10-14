@@ -23,7 +23,7 @@ export function ProgressoCurso({ aulasConcluidas, totalAulas, href, textoBotao }
             {aulasConcluidas} de {totalAulas} aulas
           </span>
         </div>
-        <BarraProgresso valor={pct} espessura={6} rotulo="Progresso do curso" />
+        <BarraProgresso valor={pct} espessura={6} rotulo="Progresso do curso" className="flex-none" />
       </div>
       <Link href={href} className={buttonVariants({ size: "42", className: "h-11" })}>
         {textoBotao}

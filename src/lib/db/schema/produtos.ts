@@ -34,6 +34,8 @@ export const produtos = pgTable(
     capa_3x4_arquivo_id: uuid("capa_3x4_arquivo_id"),
     capa_16x9_arquivo_id: uuid("capa_16x9_arquivo_id"),
     status: text("status", { enum: STATUS_PRODUTO }).notNull().default("RASCUNHO"),
+    /** Primeira vez que saiu de RASCUNHO (fileira NOVIDADES); nunca volta a nulo. */
+    publicado_em: instante("publicado_em"),
     /** Professor: membro DONO/ADMIN do MESMO criador (FK composta; papel conferido na action). */
     professor_membro_id: uuid("professor_membro_id"),
     /** Cor propria do curso (ADR-0002, cascata); nulo = cor do criador. */

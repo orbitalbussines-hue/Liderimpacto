@@ -1,13 +1,15 @@
 import type { PapelCriador, StatusModulo, StatusProduto } from "@/lib/db/schema/_enums";
 
 /**
- * Quem pode ASSISTIR o vídeo de uma aula (regra PURA, RN-114). Única porta de entrada para o
- * token, a playlist e a chave: mudar a regra é mudar AQUI. Os dados vêm de `acessoDaAula`
- * (src/lib/video/acesso-aula.ts), sempre do criador do HOST.
+ * Quem pode ASSISTIR uma aula (regra PURA, RN-114 + RN-118). Única porta de entrada para o
+ * token, a playlist, a chave, o progresso, os materiais e o estado das aulas nas telas do aluno:
+ * mudar a regra é mudar AQUI. Os dados vêm de `acessoDaAula` (src/lib/video/acesso-aula.ts) ou
+ * das consultas de src/lib/progresso/, sempre do criador do HOST.
  *
  * - Equipe (DONO, ADMIN; SUPER_ADMIN conta como DONO): sempre (confere o vídeo no admin).
- * - ALUNO: matrícula valendo agora no produto da aula (ATIVA e não expirada) + produto
- *   PUBLICADO ou NÃO LISTADO + módulo PUBLICADO + aula liberada (`liberaEm` nula ou já passada).
+ * - ALUNO: produto PUBLICADO ou NÃO LISTADO + módulo PUBLICADO + matrícula valendo agora no
+ *   produto (ATIVA e não expirada) + aula liberada (`liberaEm` nula ou já passada) + aula
+ *   pré-requisito concluída (quando houver e ainda existir publicada).
  */
 export interface QuemAssiste {
   /** Papel efetivo no criador do host (`papelEfetivo`); nulo = sem vínculo. */
@@ -21,13 +23,25 @@ export interface AulaAssistida {
   liberaEm: Date | null;
   statusProduto: StatusProduto;
   statusModulo: StatusModulo;
+  /** Sem pré-requisito, pré-requisito removido/oculto, ou concluído por quem pede. */
+  preRequisitoCumprido: boolean;
 }
 
-export function podeAssistir(quem: QuemAssiste, aula: AulaAssistida, agora: Date = new Date()): boolean {
-  if (quem.papel === "DONO" || quem.papel === "ADMIN") return true;
-  if (quem.papel !== "ALUNO" || !quem.matriculaAtiva) return false;
-  if (aula.statusProduto === "RASCUNHO" || aula.statusModulo !== "PUBLICADO") return false;
-  if (aula.liberaEm && aula.liberaEm.getTime() > agora.getTime()) return false;
-  // TODO(passo 5): pré-requisito por progresso (`pre_requisito_aula_id` concluída) — ainda não há progresso.
-  return true;
+/**
+ * Por que a aula está fechada para quem pede (na ordem em que a tela explica):
+ * INDISPONIVEL (sem vínculo, produto em rascunho ou módulo oculto) → MATRICULA → LIBERACAO →
+ * PRE_REQUISITO. `null` = pode assistir.
+ */
+export type MotivoBloqueio = "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "PRE_REQUISITO";
+
+export function motivoDoBloqueio(quem: QuemAssiste, aula: AulaAssistida, agora: Date = new Date()): MotivoBloqueio | null {
+  if (quem.papel === "DONO" || quem.papel === "ADMIN") return null;
+  if (quem.papel !== "ALUNO" || aula.statusProduto === "RASCUNHO" || aula.statusModulo !== "PUBLICADO") return "INDISPONIVEL";
+  if (!quem.matriculaAtiva) return "MATRICULA";
+  if (aula.liberaEm && aula.liberaEm.getTime() > agora.getTime()) return "LIBERACAO";
+  if (!aula.preRequisitoCumprido) return "PRE_REQUISITO";
+  return null;
 }
+
+export const podeAssistir = (quem: QuemAssiste, aula: AulaAssistida, agora: Date = new Date()): boolean =>
+  motivoDoBloqueio(quem, aula, agora) === null;

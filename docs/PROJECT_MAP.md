@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 331 |
-| Tabelas (Drizzle) | 21 |
-| Server Actions (arquivos) | 16 |
-| Rotas de API | 3 |
-| Paginas | 27 |
-| Componentes | 97 |
+| Arquivos TS/TSX | 385 |
+| Tabelas (Drizzle) | 25 |
+| Server Actions (arquivos) | 21 |
+| Rotas de API | 4 |
+| Paginas | 29 |
+| Componentes | 108 |
 
 ## Arvore (profundidade 3)
 
@@ -22,7 +22,9 @@ app/
     pecas.tsx
   (aluno)/
     [secao]/
+    aula/
     continuar/
+    cursos/
     perfil/
     layout.tsx
     page.tsx
@@ -35,6 +37,7 @@ app/
     layout.tsx
     page.tsx
   api/
+    progresso/
     video/
   componentes/
     _components/
@@ -92,7 +95,10 @@ components/
     tabela-tipos.ts
     use-envio-arquivo.ts
   aluno/
+    botao-favoritar.test.tsx
+    botao-favoritar.tsx
     cena-autenticacao.tsx
+    formatos.ts
     layout-autenticacao.tsx
     menu-aluno.tsx
     navegacao.test.ts
@@ -133,6 +139,20 @@ components/
     logo.tsx
   matriculas/
     dialogo-matricular.tsx
+  player/
+    acumulador.test.ts
+    acumulador.ts
+    atalhos.test.ts
+    atalhos.ts
+    barra-tempo.tsx
+    controles-player.tsx
+    fim-da-aula.test.tsx
+    fim-da-aula.tsx
+    menu-player.tsx
+    player-aula.tsx
+    use-contagem.ts
+    use-progresso.test.tsx
+    use-progresso.ts
   ui/
     abas.test.tsx
     abas.tsx
@@ -172,11 +192,14 @@ components/
     selo.tsx
     use-selecao-unica.ts
   video/
+    marca-dagua.tsx
     player-hls.tsx
+    use-hls.ts
   vitrine/
     cartao-fileira.test.tsx
     cartao-fileira.tsx
     destaque.tsx
+    esqueleto-fileira.tsx
     fileira.test.tsx
     fileira.tsx
     tipos.ts
@@ -184,18 +207,23 @@ components/
   modal-confirmacao-block.tsx
 lib/
   actions/
+    anotacoes.ts
     aparencia.ts
     arquivos.ts
     aulas.ts
     auth.ts
     criadores.ts
+    favoritos.ts
     grupos.ts
     matriculas-importacao.ts
     matriculas.ts
     membros-gestao.ts
     membros.ts
+    perfil.ts
+    preferencias.ts
     produtos-estrutura.ts
     produtos.ts
+    progresso.ts
     seguranca.ts
     tema.ts
     usuarios-senha.ts
@@ -274,6 +302,19 @@ lib/
     regras.test.ts
     regras.ts
     vinculos.ts
+  perfil/
+    consultas.ts
+  progresso/
+    batida.ts
+    beacon.ts
+    consultas-curso.ts
+    consultas.ts
+    registrar.ts
+    regras.test.ts
+    regras.ts
+    sql.ts
+    top10.ts
+    visao.ts
   validators/
     catalogo.test.ts
     catalogo.ts
@@ -281,6 +322,9 @@ lib/
     criadores.ts
     matriculas.ts
     membros.ts
+    perfil.test.ts
+    perfil.ts
+    progresso.ts
     senha.test.ts
     senha.ts
   video/
@@ -334,11 +378,14 @@ proxy.ts
 ### `criadores_membros` — src/lib/db/schema/criadores.ts
 `id`, `criador_id`, `usuario_id`, `papel`, `status`, `ultimo_acesso_em`
 
+### `criadores_membros_favoritos` — src/lib/db/schema/favoritos.ts
+`id`, `criador_id`, `membro_id`, `produto_id`, `aula_id`
+
 ### `produtos_matriculas` — src/lib/db/schema/matriculas.ts
 `id`, `criador_id`, `membro_id`, `produto_id`, `origem`, `status`, `iniciada_em`, `concluida_em`, `expira_em`, `referencia_externa`, `motivo_cancelamento`
 
 ### `produtos` — src/lib/db/schema/produtos.ts
-`id`, `criador_id`, `codigo`, `titulo`, `slug`, `descricao`, `tipo`, `capa_3x4_arquivo_id`, `capa_16x9_arquivo_id`, `status`, `professor_membro_id`, `cor_marca`
+`id`, `criador_id`, `codigo`, `titulo`, `slug`, `descricao`, `tipo`, `capa_3x4_arquivo_id`, `capa_16x9_arquivo_id`, `status`, `publicado_em`, `professor_membro_id`, `cor_marca`
 
 ### `produtos_modulos` — src/lib/db/schema/produtos.ts
 `id`, `criador_id`, `produto_id`, `ordem`, `titulo`, `status`
@@ -348,6 +395,15 @@ proxy.ts
 
 ### `produtos_modulos_aulas_materiais` — src/lib/db/schema/produtos.ts
 `id`, `criador_id`, `aula_id`, `nome`, `tipo`, `arquivo_id`, `url`
+
+### `produtos_modulos_aulas_progressos` — src/lib/db/schema/progresso.ts
+`id`, `criador_id`, `membro_id`, `aula_id`, `segundos_bitmap`, `segundos_assistidos`, `max_posicao_seg`, `ultima_posicao_seg`, `percentual`, `concluida`, `concluida_em`, `concluida_por`, `ultima_visualizacao_dia`, `visualizacao_nova`
+
+### `produtos_modulos_aulas_visualizacoes` — src/lib/db/schema/progresso.ts
+`id`, `criador_id`, `aula_id`, `dia`, `visualizacoes`
+
+### `produtos_modulos_aulas_anotacoes` — src/lib/db/schema/progresso.ts
+`id`, `criador_id`, `membro_id`, `aula_id`, `tempo_seg`, `texto`
 
 ### `usuarios_contas` — src/lib/db/schema/usuarios-auth.ts
 `id`, `usuario_id`, `conta_id`, `provedor_id`, `senha_hash`, `access_token`, `refresh_token`, `id_token`, `access_token_expira_em`, `refresh_token_expira_em`, `escopo`
@@ -368,7 +424,7 @@ proxy.ts
 `id`, `usuario_id`, `senha_hash`
 
 ### `usuarios` — src/lib/db/schema/usuarios.ts
-`id`, `nome`, `email`, `email_verificado`, `imagem`, `papel_plataforma`, `ativo`, `tema`, `whatsapp`, `empresa_cargo`, `ultimo_acesso_em`, `falhas_login`, `bloqueado_ate`, `two_factor_enabled`
+`id`, `nome`, `email`, `email_verificado`, `imagem`, `papel_plataforma`, `ativo`, `tema`, `reproducao_automatica`, `lembretes`, `whatsapp`, `empresa_cargo`, `ultimo_acesso_em`, `falhas_login`, `bloqueado_ate`, `two_factor_enabled`
 
 ### `produtos_modulos_aulas_videos` — src/lib/db/schema/videos.ts
 `id`, `criador_id`, `aula_id`, `situacao`, `nome_original`, `mime`, `tamanho_bytes`, `chave_origem`, `upload_id`, `prefixo_hls`, `chave_cifrada`, `duracao_seg`, `resolucoes`, `thumb_chave`, `erro`, `tentativas`, `processado_em`
@@ -383,24 +439,30 @@ proxy.ts
 
 | Rota | Metodos |
 |------|---------|
+| `/api/progresso` | POST |
 | `/api/video/[id]/chave` | GET |
 | `/api/video/[id]/hls/[...caminho]` | GET |
 | `/api/video/[id]/situacao` | GET |
 
 ## Server Actions
 
+- `src/lib/actions/anotacoes.ts`: `acaoCriarAnotacao()`, `acaoEditarAnotacao()`, `acaoRemoverAnotacao()`
 - `src/lib/actions/aparencia.ts`: `acaoSalvarCorDaMarca()`
 - `src/lib/actions/arquivos.ts`: `acaoIniciarEnvio()`, `acaoConfirmarEnvio()`
 - `src/lib/actions/aulas.ts`: `acaoSalvarAula()`, `acaoDefinirThumbAula()`, `acaoAdicionarMaterial()`, `acaoRenomearMaterial()`, `acaoRemoverMaterial()`, `acaoLinkDoMaterial()`
 - `src/lib/actions/auth.ts`: `entrar()`, `verificarCodigo()`, `sair()`, `pedirLinkDeSenha()`, `definirNovaSenha()`
 - `src/lib/actions/criadores.ts`: `acaoCriarCriador()`, `acaoAlterarSituacaoCriador()`
+- `src/lib/actions/favoritos.ts`: `acaoFavoritar()`, `acaoDesfavoritar()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
 - `src/lib/actions/matriculas-importacao.ts`: `acaoImportarMatriculas()`
 - `src/lib/actions/matriculas.ts`: `acaoMatricular()`, `acaoCancelarMatricula()`, `acaoAlterarExpiracao()`, `acaoReativarMatricula()`, `acaoBuscarMembros()`
 - `src/lib/actions/membros-gestao.ts`: `acaoMudarPapel()`, `acaoAlterarSituacaoMembro()`, `acaoRemoverMembro()`, `acaoDefinirGruposDoMembro()`
 - `src/lib/actions/membros.ts`: `acaoCadastrarMembro()`, `acaoImportarMembros()`
+- `src/lib/actions/perfil.ts`: `acaoSalvarPerfil()`
+- `src/lib/actions/preferencias.ts`: `acaoSalvarPreferencias()`
 - `src/lib/actions/produtos-estrutura.ts`: `acaoCriarModulo()`, `acaoEditarModulo()`, `acaoRemoverModulo()`, `acaoReordenarModulos()`, `acaoCriarAula()`, `acaoRemoverAula()`, `acaoReordenarAulas()`
 - `src/lib/actions/produtos.ts`: `acaoCriarProduto()`, `acaoSalvarProduto()`, `acaoAlterarSituacaoProduto()`, `acaoDefinirCapaProduto()`, `acaoRemoverProduto()`
+- `src/lib/actions/progresso.ts`: `acaoRegistrarProgresso()`, `acaoConcluirAula()`
 - `src/lib/actions/seguranca.ts`: `acaoIniciarTotp()`, `acaoConfirmarTotp()`, `acaoNovosCodigos()`, `acaoTrocarSenha()`, `acaoEncerrarOutrasSessoes()`
 - `src/lib/actions/tema.ts`: `alterarTema()`
 - `src/lib/actions/usuarios-senha.ts`: `acaoGerarLinkDeSenha()`
@@ -409,7 +471,9 @@ proxy.ts
 ## Paginas
 
 - `src/app/(aluno)/[secao]/page.tsx`
+- `src/app/(aluno)/aula/[id]/page.tsx`
 - `src/app/(aluno)/continuar/page.tsx`
+- `src/app/(aluno)/cursos/[slug]/page.tsx`
 - `src/app/(aluno)/page.tsx`
 - `src/app/(aluno)/perfil/page.tsx`
 - `src/app/admin/[secao]/page.tsx`

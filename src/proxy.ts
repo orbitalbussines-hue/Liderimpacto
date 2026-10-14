@@ -12,8 +12,12 @@ import { alvoDosCabecalhos } from "@/lib/criador/area";
  *  - apex "/" -> /plataforma.
  */
 
-/** Telas publicas: entrada, definir senha, catalogo de componentes (so em dev). */
-const PUBLICAS = /^\/(login|primeiro-acesso|recuperar-senha|componentes)(\/|$)/;
+/**
+ * Sem redirect para /login: telas publicas (entrada, definir senha, catalogo de componentes) e
+ * `/api/*` — rota de API responde o proprio status (401/403/404); um 307 para uma tela HTML nao
+ * serve ao `sendBeacon` do progresso nem ao player.
+ */
+const PUBLICAS = /^\/(login|primeiro-acesso|recuperar-senha|componentes|api)(\/|$)/;
 
 // Nome do cookie do Better Auth com `cookiePrefix: "li"` (com ou sem o prefixo __Secure-).
 const temCookieDeSessao = (req: NextRequest) => req.cookies.getAll().some((c) => /(^|-)li\.session_token$/.test(c.name));

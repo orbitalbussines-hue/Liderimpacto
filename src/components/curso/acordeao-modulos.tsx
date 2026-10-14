@@ -35,10 +35,12 @@ function CabecalhoModulo({ modulo, aberto }: { modulo: ModuloCurso; aberto?: boo
       <span className="min-w-0 flex-1 text-left">
         <span className="block text-[15px] font-bold">{modulo.titulo}</span>
         <span className="block text-xs text-muted">
-          {modulo.totalAulas} aulas · {modulo.duracao}
+          {modulo.totalAulas} {modulo.totalAulas === 1 ? "aula" : "aulas"} · {modulo.duracao}
+          {/* Celular: o estado desce para a linha de baixo e o título fica com a largura toda. */}
+          <span className={cn("font-bold desk:hidden", COR_ESTADO[modulo.estado])}> · {ROTULO[modulo.estado]}</span>
         </span>
       </span>
-      <span className={cn("flex items-center gap-1 text-xs font-bold", COR_ESTADO[modulo.estado])}>
+      <span className={cn("hidden items-center gap-1 text-xs font-bold desk:flex", COR_ESTADO[modulo.estado])}>
         {modulo.estado === "bloqueado" && <Lock aria-hidden className="size-3" />}
         {ROTULO[modulo.estado]}
       </span>

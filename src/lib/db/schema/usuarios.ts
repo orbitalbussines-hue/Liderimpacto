@@ -23,6 +23,9 @@ export const usuarios = pgTable(
     papel_plataforma: text("papel_plataforma", { enum: PAPEIS_PLATAFORMA }).notNull().default("NENHUM"),
     ativo: boolean("ativo").notNull().default(true),
     tema: text("tema", { enum: TEMAS }).notNull().default("dark"),
+    // Preferencias da PESSOA (valem em qualquer criador, como o tema): passo 5.
+    reproducao_automatica: boolean("reproducao_automatica").notNull().default(true),
+    lembretes: boolean("lembretes").notNull().default(true),
     whatsapp: text("whatsapp"),
     empresa_cargo: text("empresa_cargo"),
     ultimo_acesso_em: instante("ultimo_acesso_em"),
