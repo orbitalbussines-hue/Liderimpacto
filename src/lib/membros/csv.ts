@@ -12,8 +12,6 @@ import { linhaCsvSchema, type LinhaCsv } from "@/lib/validators/membros";
 
 export const MAX_BYTES_CSV = 1024 * 1024;
 export const MAX_LINHAS_CSV = 1000;
-const COLUNAS_OBRIGATORIAS = ["nome", "email"] as const;
-const COLUNAS_ACEITAS = ["nome", "email", "grupo"];
 
 export interface LinhaValidaCsv {
   /** Numero da linha no arquivo (1 = cabecalho). */
@@ -61,32 +59,49 @@ const normalizarCabecalho = (v: string) =>
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
+    .trim()
     .replace(/^e-mail$/, "email")
-    .trim();
+    .replace(/[\s-]+/g, "_");
 
-export function lerCsvDeMembros(texto: string): LeituraCsv {
+/** O que muda de um CSV para outro: colunas, validacao da linha e o que conta como repetido. */
+export interface ConfigCsv<T> {
+  obrigatorias: readonly string[];
+  opcionais: readonly string[];
+  /** "membro", "matrícula": entra na mensagem de arquivo sem linhas. */
+  item: string;
+  validar: (valores: Record<string, string>, numero: number) => { ok: true; dados: T } | { ok: false; mensagem: string };
+  /** Chave de repeticao (so a primeira ocorrencia vale) e a mensagem. */
+  chave: (dados: T) => string;
+  repetido: string;
+}
+
+export type LeituraCsvDe<T> = { ok: false; erro: string } | { ok: true; validas: { numero: number; dados: T }[]; erros: ErroCsv[] };
+
+/** Leitor generico (limites, separador, aspas, cabecalho, erro por linha). Funcao PURA. */
+export function lerCsv<T>(texto: string, c: ConfigCsv<T>): LeituraCsvDe<T> {
+  const colunas = [...c.obrigatorias, ...c.opcionais];
+  const descricao = `${colunas.join(",")}${c.opcionais.length ? ` (${c.opcionais.join(" e ")} ${c.opcionais.length > 1 ? "são opcionais" : "é opcional"})` : ""}`;
   if (tamanhoEmBytes(texto) > MAX_BYTES_CSV) return { ok: false, erro: "Arquivo maior que 1 MB." };
-  // ponytail: quebra de linha DENTRO de aspas nao e suportada (nome/e-mail/grupo nao precisam).
-  const brutas = texto.replace(/^﻿/, "").split(/\r\n|\n|\r/);
+  // ponytail: quebra de linha DENTRO de aspas nao e suportada (nenhuma coluna precisa).
+  const brutas = texto.replace(/^\uFEFF/, "").split(/\r\n|\n|\r/);
   const cabecalho = brutas[0] ?? "";
-  if (!cabecalho.trim()) return { ok: false, erro: "Arquivo vazio. A primeira linha deve ser o cabeçalho nome,email,grupo." };
+  if (!cabecalho.trim()) return { ok: false, erro: `Arquivo vazio. A primeira linha deve ser o cabeçalho ${colunas.join(",")}.` };
   const separador = cabecalho.includes(";") && !cabecalho.includes(",") ? ";" : ",";
   const nomes = campos(cabecalho, separador).map(normalizarCabecalho);
-  const desconhecida = nomes.find((n) => !COLUNAS_ACEITAS.includes(n));
-  const faltando = COLUNAS_OBRIGATORIAS.find((c) => !nomes.includes(c));
+  const desconhecida = nomes.find((n) => !colunas.includes(n));
+  const faltando = c.obrigatorias.find((col) => !nomes.includes(col));
   if (desconhecida !== undefined || faltando || new Set(nomes).size !== nomes.length) {
-    return { ok: false, erro: "Cabeçalho inválido. Use exatamente: nome,email,grupo (a coluna grupo é opcional)." };
+    return { ok: false, erro: `Cabeçalho inválido. Use exatamente: ${descricao}.` };
   }
-  const posicao = (c: string) => nomes.indexOf(c);
 
   const dados = brutas
     .map((linha, i) => ({ linha, numero: i + 1 }))
     .slice(1)
     .filter((l) => l.linha.trim() !== "");
-  if (dados.length === 0) return { ok: false, erro: "O arquivo não tem nenhuma linha de membro." };
+  if (dados.length === 0) return { ok: false, erro: `O arquivo não tem nenhuma linha de ${c.item}.` };
   if (dados.length > MAX_LINHAS_CSV) return { ok: false, erro: `Arquivo com ${dados.length} linhas. O limite é ${MAX_LINHAS_CSV} por importação.` };
 
-  const validas: LinhaValidaCsv[] = [];
+  const validas: { numero: number; dados: T }[] = [];
   const erros: ErroCsv[] = [];
   const vistos = new Set<string>();
   for (const { linha, numero } of dados) {
@@ -95,21 +110,34 @@ export function lerCsvDeMembros(texto: string): LeituraCsv {
       erros.push({ numero, mensagem: `Colunas a mais (esperado ${nomes.length}).` });
       continue;
     }
-    const r = linhaCsvSchema.safeParse({
-      nome: valores[posicao("nome")] ?? "",
-      email: valores[posicao("email")] ?? "",
-      grupo: posicao("grupo") >= 0 ? (valores[posicao("grupo")] ?? "") : "",
-    });
-    if (!r.success) {
-      erros.push({ numero, mensagem: r.error.issues[0]?.message ?? "Linha inválida." });
+    const porColuna = Object.fromEntries(colunas.map((col) => [col, nomes.includes(col) ? (valores[nomes.indexOf(col)] ?? "") : ""]));
+    const r = c.validar(porColuna, numero);
+    if (!r.ok) {
+      erros.push({ numero, mensagem: r.mensagem });
       continue;
     }
-    if (vistos.has(r.data.email)) {
-      erros.push({ numero, mensagem: "E-mail repetido no arquivo (vale a primeira ocorrência)." });
+    const chave = c.chave(r.dados);
+    if (vistos.has(chave)) {
+      erros.push({ numero, mensagem: c.repetido });
       continue;
     }
-    vistos.add(r.data.email);
-    validas.push({ numero, dados: r.data });
+    vistos.add(chave);
+    validas.push({ numero, dados: r.dados });
   }
   return { ok: true, validas, erros };
+}
+
+/** CSV de membros (`nome,email,grupo`). */
+export function lerCsvDeMembros(texto: string): LeituraCsv {
+  return lerCsv(texto, {
+    obrigatorias: ["nome", "email"],
+    opcionais: ["grupo"],
+    item: "membro",
+    validar: (v) => {
+      const r = linhaCsvSchema.safeParse({ nome: v.nome, email: v.email, grupo: v.grupo });
+      return r.success ? { ok: true, dados: r.data } : { ok: false, mensagem: r.error.issues[0]?.message ?? "Linha inválida." };
+    },
+    chave: (d) => d.email,
+    repetido: "E-mail repetido no arquivo (vale a primeira ocorrência).",
+  });
 }

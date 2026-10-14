@@ -27,7 +27,7 @@ export function pendenciasParaPublicar(p: EstadoParaPublicar): string[] {
 
 export const mensagemDePendencias = (faltas: readonly string[]) => `Para publicar, falta: ${faltas.join("; ")}.`;
 
-/** "Cód. 164 · 28 aulas · 0 alunos" (alunos = 0 ate as matriculas do passo 4). */
+/** "Cód. 164 · 28 aulas · 12 alunos" (alunos = matriculas valendo agora, `alunosPorProduto`). */
 export function resumoDoProduto(p: { codigo: number; aulas: number; alunos: number }): string {
   const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
   return `Cód. ${p.codigo} · ${plural(p.aulas, "aula", "aulas")} · ${plural(p.alunos, "aluno", "alunos")}`;

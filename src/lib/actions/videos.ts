@@ -6,18 +6,14 @@ import { ErroDeNegocio, executar } from "@/lib/acao";
 import { avaliarMembro, exigirMembro, exigirSessao, MSG_SEM_PERMISSAO } from "@/lib/auth/autorizacao";
 import { agenteDe, ipDoCliente } from "@/lib/auth/ip";
 import { EQUIPE, TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
-import { and, eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { produtos_modulos_aulas } from "@/lib/db/schema";
-import { vivos } from "@/lib/db/soft-delete";
-import { podeAssistir } from "@/lib/video/acesso";
+import { acessoDaAula } from "@/lib/video/acesso-aula";
 import { esquemaPedidoEnvio, provedorVideo } from "@/lib/video/provedor-proprio";
 import { videoVivoDaAula } from "@/lib/video/registro";
 
 /**
  * Vídeo da aula (ADR-0005). Envio: iniciar -> partes (URLs sob demanda) -> concluir (HEAD +
  * fila depois do commit). DONO e ADMIN, criador do HOST. Reprodução: qualquer membro chama, mas
- * só passa quem `podeAssistir` (nesta fase, a equipe).
+ * só passa quem `podeAssistir` (equipe, ou ALUNO matriculado com a aula liberada).
  */
 
 const id = z.uuid("Identificador inválido.");
@@ -68,12 +64,9 @@ async function quemAssiste(aulaId: string) {
   const s = await exigirSessao();
   const m = await avaliarMembro(s, TODOS_OS_MEMBROS);
   if (!m) throw new ErroDeNegocio(MSG_SEM_PERMISSAO);
-  const [aula] = await db
-    .select({ liberaEm: produtos_modulos_aulas.libera_em })
-    .from(produtos_modulos_aulas)
-    .where(and(eq(produtos_modulos_aulas.id, aulaId), eq(produtos_modulos_aulas.criador_id, m.criador.id), vivos(produtos_modulos_aulas)));
-  if (!aula) throw new ErroDeNegocio("Aula não encontrada.");
-  if (!podeAssistir({ papel: m.membro.papel }, aula)) throw new ErroDeNegocio(MSG_SEM_PERMISSAO);
+  const acesso = await acessoDaAula(m.criador.id, aulaId, { papel: m.membro.papel, membroId: m.membro.id });
+  if (!acesso) throw new ErroDeNegocio("Aula não encontrada.");
+  if (!acesso.pode) throw new ErroDeNegocio(MSG_SEM_PERMISSAO);
   return { s, m };
 }
 

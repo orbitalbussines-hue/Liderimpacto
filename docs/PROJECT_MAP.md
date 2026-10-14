@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 311 |
-| Tabelas (Drizzle) | 20 |
-| Server Actions (arquivos) | 14 |
+| Arquivos TS/TSX | 331 |
+| Tabelas (Drizzle) | 21 |
+| Server Actions (arquivos) | 16 |
 | Rotas de API | 3 |
-| Paginas | 24 |
-| Componentes | 94 |
+| Paginas | 27 |
+| Componentes | 97 |
 
 ## Arvore (profundidade 3)
 
@@ -22,6 +22,7 @@ app/
     pecas.tsx
   (aluno)/
     [secao]/
+    continuar/
     perfil/
     layout.tsx
     page.tsx
@@ -29,6 +30,7 @@ app/
     [secao]/
     configuracoes/
     conteudos/
+    matriculas/
     membros/
     layout.tsx
     page.tsx
@@ -69,6 +71,8 @@ components/
     celula-tabela.tsx
     dialogo-admin.tsx
     link-de-acesso.tsx
+    links-primeiro-acesso.tsx
+    lista-erros-csv.tsx
     lista-ordenavel.test.tsx
     lista-ordenavel.tsx
     menu-admin.tsx
@@ -127,6 +131,8 @@ components/
     estilo-marca.test.tsx
     estilo-marca.tsx
     logo.tsx
+  matriculas/
+    dialogo-matricular.tsx
   ui/
     abas.test.tsx
     abas.tsx
@@ -184,6 +190,8 @@ lib/
     auth.ts
     criadores.ts
     grupos.ts
+    matriculas-importacao.ts
+    matriculas.ts
     membros-gestao.ts
     membros.ts
     produtos-estrutura.ts
@@ -252,6 +260,12 @@ lib/
     paleta.test.ts
     paleta.ts
     predefinicoes.ts
+  matriculas/
+    consultas.ts
+    csv.ts
+    regras.test.ts
+    regras.ts
+    servico.ts
   membros/
     consultas.ts
     csv.test.ts
@@ -265,10 +279,12 @@ lib/
     catalogo.ts
     criadores.test.ts
     criadores.ts
+    matriculas.ts
     membros.ts
     senha.test.ts
     senha.ts
   video/
+    acesso-aula.ts
     acesso.ts
     chaves.test.ts
     chaves.ts
@@ -317,6 +333,9 @@ proxy.ts
 
 ### `criadores_membros` — src/lib/db/schema/criadores.ts
 `id`, `criador_id`, `usuario_id`, `papel`, `status`, `ultimo_acesso_em`
+
+### `produtos_matriculas` — src/lib/db/schema/matriculas.ts
+`id`, `criador_id`, `membro_id`, `produto_id`, `origem`, `status`, `iniciada_em`, `concluida_em`, `expira_em`, `referencia_externa`, `motivo_cancelamento`
 
 ### `produtos` — src/lib/db/schema/produtos.ts
 `id`, `criador_id`, `codigo`, `titulo`, `slug`, `descricao`, `tipo`, `capa_3x4_arquivo_id`, `capa_16x9_arquivo_id`, `status`, `professor_membro_id`, `cor_marca`
@@ -376,6 +395,8 @@ proxy.ts
 - `src/lib/actions/auth.ts`: `entrar()`, `verificarCodigo()`, `sair()`, `pedirLinkDeSenha()`, `definirNovaSenha()`
 - `src/lib/actions/criadores.ts`: `acaoCriarCriador()`, `acaoAlterarSituacaoCriador()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
+- `src/lib/actions/matriculas-importacao.ts`: `acaoImportarMatriculas()`
+- `src/lib/actions/matriculas.ts`: `acaoMatricular()`, `acaoCancelarMatricula()`, `acaoAlterarExpiracao()`, `acaoReativarMatricula()`, `acaoBuscarMembros()`
 - `src/lib/actions/membros-gestao.ts`: `acaoMudarPapel()`, `acaoAlterarSituacaoMembro()`, `acaoRemoverMembro()`, `acaoDefinirGruposDoMembro()`
 - `src/lib/actions/membros.ts`: `acaoCadastrarMembro()`, `acaoImportarMembros()`
 - `src/lib/actions/produtos-estrutura.ts`: `acaoCriarModulo()`, `acaoEditarModulo()`, `acaoRemoverModulo()`, `acaoReordenarModulos()`, `acaoCriarAula()`, `acaoRemoverAula()`, `acaoReordenarAulas()`
@@ -388,6 +409,7 @@ proxy.ts
 ## Paginas
 
 - `src/app/(aluno)/[secao]/page.tsx`
+- `src/app/(aluno)/continuar/page.tsx`
 - `src/app/(aluno)/page.tsx`
 - `src/app/(aluno)/perfil/page.tsx`
 - `src/app/admin/[secao]/page.tsx`
@@ -396,6 +418,8 @@ proxy.ts
 - `src/app/admin/conteudos/[id]/page.tsx`
 - `src/app/admin/conteudos/novo/page.tsx`
 - `src/app/admin/conteudos/page.tsx`
+- `src/app/admin/matriculas/importar/page.tsx`
+- `src/app/admin/matriculas/page.tsx`
 - `src/app/admin/membros/cadastrar/page.tsx`
 - `src/app/admin/membros/grupos/page.tsx`
 - `src/app/admin/membros/importar/page.tsx`

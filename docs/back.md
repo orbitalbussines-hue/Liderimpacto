@@ -93,6 +93,56 @@ Leituras das telas em `src/lib/catalogo/consultas.ts`; regra pura (publicação,
   devolve a chave) e `apagarObjetosDescartados` (depois do commit, best-effort).
 - Buckets criados por `npm run armazenamento:preparar` (idempotente, aplica o CORS).
 
+## Matrículas (passo 4)
+
+Tabela `produtos_matriculas` (`src/lib/db/schema/matriculas.ts`): `criador_id` + FKs compostas
+(membro, criador) e (produto, criador); origem `MANUAL|IMPORTACAO|COMPRA`, status
+`ATIVA|PENDENTE|CANCELADA` (Expirada = ATIVA com `expira_em` passado, sem job), `iniciada_em`,
+`concluida_em` (passo 5), `expira_em`, `referencia_externa` (unica por criador quando presente),
+`motivo_cancelamento` (CHECK: obrigatorio quando CANCELADA). Uma linha viva por (membro, produto).
+Regras RN-116 e RN-117. Nenhuma variavel de ambiente nova.
+
+### Ponto de entrada do gateway
+
+O webhook de compra (gateway ainda nao escolhido) NAO existe ainda. Quando existir, ele resolve o
+criador pela conta do gateway, cria/acha a pessoa com `vincularPessoa` (`src/lib/membros/vinculos.ts`)
+e chama, numa transacao, a MESMA funcao que as telas usam:
+
+```ts
+// src/lib/matriculas/servico.ts
+matricular(tx: Transacao, {
+  criadorId: string;            // do host / da conta do gateway, nunca do corpo
+  membroId: string;             // criadores_membros.id DESTE criador
+  produtoId: string;            // produtos.id DESTE criador
+  origem: "MANUAL" | "IMPORTACAO" | "COMPRA";
+  expiraEm?: Date | null;       // nula = sem expiracao; passada = recusa
+  referenciaExterna?: string | null; // "gateway:eventoId" (^[a-z0-9-]{2,30}:\S{1,200}$)
+  autor: string | null;         // usuario da sessao; null = sistema (webhook)
+  versao?: Date;                // trava otimista (so a tela usa)
+  agora?: Date;
+}): Promise<{ matriculaId: string; resultado: "criada" | "reativada" | "ja-existia" }>
+```
+
+- Idempotente: a mesma `referenciaExterna` devolve a mesma matricula ("ja-existia") sem mudar nada;
+  a referencia ja usada em OUTRO par e recusada. Serializa por par com `pg_advisory_xact_lock`.
+- Par com matricula valendo: fica como esta. Cancelada, pendente ou expirada: reativa a MESMA linha.
+- `autor: null`: a linha fica com `modified_by` = a pessoa matriculada e a trilha com `user_id` nulo.
+- Limite conhecido (`ponytail:` no codigo): uma referencia por linha (a mais recente). Renovacao com
+  varios eventos pede uma tabela de eventos do gateway, que entra junto com o webhook.
+
+Outras funcoes do servico: `cancelarMatricula`, `alterarExpiracao` (trava pela versao),
+`matricularGrupo`, `membrosDoGrupo`. Leituras em `src/lib/matriculas/consultas.ts`
+(`matriculaAtiva(criadorId, membroId, produtoId, agora)`, `valeAgora`, lista/contadores da tela,
+`matriculasPorMembro`, `alunosPorProduto`, `cursosDoAluno`); regra pura em `regras.ts`
+(`situacaoDaMatricula`, `fimDoDiaEmBrasilia`); CSV em `csv.ts` (mesmo `lerCsv` dos membros).
+
+| Action | Arquivo | Quem | Audita | Regra |
+|--------|---------|------|--------|-------|
+| `acaoMatricular` (pessoas OU grupo × produtos, expiracao opcional, numa transacao) | `src/lib/actions/matriculas.ts` | DONO, ADMIN | criar / atualizar (reativar) por matricula | RN-116 |
+| `acaoCancelarMatricula`, `acaoAlterarExpiracao`, `acaoReativarMatricula` | `src/lib/actions/matriculas.ts` | DONO, ADMIN | atualizar (antes → depois, motivo) | RN-116 |
+| `acaoBuscarMembros` | `src/lib/actions/matriculas.ts` | DONO, ADMIN | — (leitura) | RN-116 |
+| `acaoImportarMatriculas` | `src/lib/actions/matriculas-importacao.ts` | DONO, ADMIN | conta/vinculo/grupo/matricula + resumo da importacao | RN-117 |
+
 ## Variáveis de ambiente (passo 3)
 
 | Variável | Dev (docker-compose) | Produção | Para quê |
@@ -196,7 +246,7 @@ player -> acaoIniciarReproducao (sessao de reproducao + token 10 min) -> /api/vi
 | `src/lib/video/provedor.ts` / `provedor-proprio.ts` | Interface `ProvedorVideo` e a implementacao self-host (envio, fila, token, eventos, situacao) |
 | `src/lib/video/registro.ts` | Leitura do video e eventos do worker (idempotentes: so valem em PROCESSANDO) |
 | `src/lib/video/entrega.ts` | Playlist, chave e segmento protegidos (os route handlers so repassam) |
-| `src/lib/video/acesso.ts` | `podeAssistir` (RN-114): hoje equipe; passo 4 acrescenta matricula + liberacao |
+| `src/lib/video/acesso.ts` / `acesso-aula.ts` | `podeAssistir` (RN-114, puro) e `acessoDaAula` (aula/modulo/produto + matricula valendo, para o token e a entrega) |
 | `src/lib/video/sessoes.ts` / `reproducao.ts` | Limite de telas (puro) e sessoes de reproducao no banco |
 | `src/lib/video/regras.ts` | Allowlist, partes do multipart, caminhos HLS aceitos (tela e servidor) |
 | `src/lib/video/worker.ts` | Um job: baixa, processa, sobe, evento; erro legivel para a tela |

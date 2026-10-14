@@ -102,6 +102,7 @@ Código, comentário, documentação, UI, mensagem de erro e commit em **PT-BR**
 | Arquivos no storage S3 (envio direto, chave por criador) | `src/lib/armazenamento/` (`regras.ts` puro, `cliente.ts`, `arquivos.ts`) — ADR-0004 |
 | Vídeo da aula (envio multipart, worker FFmpeg, HLS AES-128, token, chave) | `src/lib/video/` (`provedor-proprio.ts`, `entrega.ts`, `acesso.ts` = `podeAssistir`), worker `npm run worker:video` — ADR-0005. O Next NUNCA roda FFmpeg nem serve bytes de vídeo |
 | Catálogo (produto > módulo > aula > material) | `src/lib/catalogo/` (consultas, regras, ordem, publicação) |
+| Matrículas (serviço `matricular` = ponto de entrada do futuro webhook, idempotente) | `src/lib/matriculas/` (`servico.ts`, `consultas.ts`, `regras.ts`, `csv.ts`) — RN-116/117, `docs/back.md` |
 | Validadores | `src/lib/validators/<entidade>.ts` |
 | Actions | `src/lib/actions/<entidade>.ts` |
 | Telas | `src/app/(app)/<rota>/page.tsx` + `_components/` |

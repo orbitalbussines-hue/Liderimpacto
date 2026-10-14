@@ -8,4 +8,5 @@ export * from "./criadores-grupos";
 export * from "./arquivos";
 export * from "./produtos";
 export * from "./videos";
+export * from "./matriculas";
 export * from "./auditoria";

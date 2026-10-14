@@ -120,7 +120,7 @@ Cada regra segue este formato:
 - **Definida por**: Paulo (Bah! Tech)
 - **Data**: 2026-10-13
 - **Modulo**: Admin › Membros › Importar CSV
-- **Descricao**: Arquivo `nome,email,grupo` (separador `,` ou `;`, grupo opcional) de até 1 MB e 1000 linhas; todos entram como ALUNO. Matrícula em curso fica para o passo 4.
+- **Descricao**: Arquivo `nome,email,grupo` (separador `,` ou `;`, grupo opcional) de até 1 MB e 1000 linhas; todos entram como ALUNO. Matrícula em curso: RN-117 (CSV de matrículas).
 - **Comportamento esperado**: prévia com erro por linha antes de gravar; o servidor lê o arquivo de novo. Linha inválida (nome/e-mail fora do formato, e-mail repetido no arquivo, colunas a mais) não grava nada; as válidas entram numa ÚNICA transação (falhou uma, nenhuma entra). Grupo inexistente vira Turma. Quem já é membro é contado e pulado. Os links de primeiro acesso das contas novas aparecem só no resultado (copiar todos ou baixar CSV gerado no navegador).
 - **Impacto se descumprida**: importação pela metade, contas duplicadas, links vazados.
 
@@ -184,7 +184,7 @@ Cada regra segue este formato:
 - **Definida por**: Paulo (Bah! Tech)
 - **Data**: 2026-10-14
 - **Modulo**: Vídeo / Player
-- **Descricao**: Regra única em `podeAssistir` (src/lib/video/acesso.ts). Nesta fase só a equipe do criador (DONO, ADMIN; SUPER_ADMIN como suporte) assiste, para conferir o vídeo no admin. O passo 4 libera o ALUNO com matrícula ativa e a aula liberada (programação e pré-requisito).
+- **Descricao**: Regra única em `podeAssistir` (src/lib/video/acesso.ts), com os dados de `acessoDaAula` (src/lib/video/acesso-aula.ts). A equipe do criador (DONO, ADMIN; SUPER_ADMIN como suporte) sempre assiste, para conferir o vídeo no admin. O ALUNO assiste com matrícula valendo no produto da aula (RN-116), produto PUBLICADO ou NÃO LISTADO, módulo PUBLICADO e aula liberada (`libera_em` vazia ou já passada). Pré-requisito por aula concluída entra com o progresso (passo 5).
 - **Comportamento esperado**: o token de reprodução vale 10 min, é amarrado a vídeo + criador + pessoa + sessão de reprodução e o player renova a cada 4 min. A chave do vídeo só sai com sessão de login válida, `podeAssistir` e sessão de reprodução viva. Vídeo de uma área nunca abre em outra (404).
 - **Impacto se descumprida**: aula paga assistida sem matrícula, link de vídeo compartilhado funcionando para quem não é aluno.
 
@@ -195,6 +195,22 @@ Cada regra segue este formato:
 - **Descricao**: Cada pessoa assiste em no máximo 2 telas ao mesmo tempo (configurável por `VIDEO_LIMITE_SESSOES`, 1 a 10). Reabrir o vídeo no mesmo navegador não conta como tela nova. Tela sem sinal por 6 min deixa de contar.
 - **Comportamento esperado**: abrir uma tela além do limite encerra a mais antiga: ela perde a chave e a renovação e mostra "A reprodução foi aberta em outra tela". Cada abertura vai para a trilha (com quantas telas foram encerradas).
 - **Impacto se descumprida**: uma conta compartilhada entre muitas pessoas assistindo ao mesmo tempo.
+
+### RN-116 - Matrículas
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Matrículas / Vídeo
+- **Descricao**: Matrícula liga um membro da área a um produto da MESMA área, com origem (Manual, Importação, Compra), situação (Ativa, Pendente, Cancelada) e expiração opcional (vale até o fim do dia, horário de Brasília). "Expirada" não é gravada: é Ativa com a data já passada. DONO e ADMIN matriculam pessoas escolhidas ou um grupo inteiro (membros vivos do grupo naquele momento) em um ou mais produtos, alteram a expiração, cancelam (com motivo) e reativam. Agora só manual e CSV; a compra (webhook do gateway) chama a mesma função `matricular` depois.
+- **Comportamento esperado**: UMA matrícula por membro e produto: matricular de novo quem já tem matrícula valendo deixa como está ("já existia"); cancelada, pendente ou expirada é REATIVADA na mesma linha (nunca duplica). A referência externa (`gateway:eventoId`) é única por área: o mesmo evento repetido devolve a mesma matrícula sem mudar nada. Cancelar é situação + motivo (nunca apaga) e passa pelo modal block; o acesso cai na próxima requisição. Matricular passa pelo modal block com o resumo e mostra quantas foram criadas, reativadas e já existiam. Expiração no passado é recusada. Toda escrita usa a trava de colisão e grava a trilha (antes → depois). Pessoa que ainda não é membro: o caminho é o cadastro de membros. Membro, produto ou grupo de outra área: "não encontrado" (e o banco recusa por FK composta). O aluno vê em "Continuar" só os próprios cursos valendo e fora de rascunho.
+- **Impacto se descumprida**: aluno sem matrícula assistindo aula paga, matrícula duplicada por webhook repetido, acesso de uma área liberado em outra.
+
+### RN-117 - Importação de matrículas por CSV
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Matrículas › Importar CSV
+- **Descricao**: Arquivo `nome,email,produto,expira_em,grupo` com os mesmos limites e leitura do CSV de membros (RN-106): até 1 MB e 1000 linhas, `,` ou `;`. Produto pelo código ("164") ou pelo endereço; `expira_em` (DD/MM/AAAA ou AAAA-MM-DD) e `grupo` opcionais; uma linha por produto (a mesma pessoa pode vir em várias linhas).
+- **Comportamento esperado**: prévia com erro por linha (o servidor lê de novo). Linha inválida não grava: formato, data inexistente ou passada, e-mail + produto repetidos no arquivo, produto que não é DESTA área ("Produto não encontrado"). As válidas entram numa ÚNICA transação. E-mail sem vínculo vira ALUNO (conta nova sem senha com link de primeiro acesso na tela e por e-mail se o SMTP estiver configurado; conta existente reaproveitada com a mensagem neutra da RN-104); o grupo é criado como Turma se não existir e a pessoa entra nele. Resultado com matrículas criadas/reativadas/já existentes, contas novas e links.
+- **Impacto se descumprida**: importação pela metade, matrícula em curso de outra área, contas duplicadas, links vazados.
 
 <!-- Exemplo de registro: -->
 

@@ -9,6 +9,7 @@ import { EQUIPE } from "@/lib/auth/permissoes";
 import { listarProdutos } from "@/lib/catalogo/consultas";
 import { ROTULO_STATUS_PRODUTO, ROTULO_TIPO_PRODUTO, resumoDoProduto } from "@/lib/catalogo/regras";
 import { STATUS_PRODUTO, TIPOS_PRODUTO } from "@/lib/db/schema/_enums";
+import { alunosPorProduto } from "@/lib/matriculas/consultas";
 import { AcoesProduto } from "./_components/acoes-produto";
 import { TOM_STATUS_PRODUTO, dataHoraCurta } from "./_components/comum";
 import { FiltrosConteudos } from "./_components/filtros-conteudos";
@@ -40,7 +41,14 @@ async function Conteudos({ searchParams }: { searchParams: Busca }) {
   };
   const pagina = Math.max(1, Math.min(10_000, Number.parseInt(um(sp.pagina) ?? "1", 10) || 1));
   const lista = await listarProdutos(criador.id, { ...filtros, pagina, porPagina: POR_PAGINA });
-  const capas = await Promise.all(lista.linhas.map((p) => urlDeImagemOuNula(criador.id, p.capaChave)));
+  const [capas, alunos] = await Promise.all([
+    Promise.all(lista.linhas.map((p) => urlDeImagemOuNula(criador.id, p.capaChave))),
+    alunosPorProduto(
+      criador.id,
+      lista.linhas.map((p) => p.id),
+      new Date(),
+    ),
+  ]);
 
   const href = (mudar: Partial<Record<"q" | "tipo" | "situacao" | "pagina", string | undefined>>) => {
     const p = new URLSearchParams();
@@ -56,7 +64,7 @@ async function Conteudos({ searchParams }: { searchParams: Busca }) {
 
   const linhas: Linha[] = lista.linhas.map((p, i) => [
     { tipo: "capa", alt: `Capa de ${p.titulo}`, src: capas[i] },
-    { tipo: "texto", texto: p.titulo, sub: resumoDoProduto({ codigo: p.codigo, aulas: p.aulas, alunos: 0 }), caixaAlta: true },
+    { tipo: "texto", texto: p.titulo, sub: resumoDoProduto({ codigo: p.codigo, aulas: p.aulas, alunos: alunos.get(p.id) ?? 0 }), caixaAlta: true },
     { tipo: "texto", texto: ROTULO_TIPO_PRODUTO[p.tipo] },
     { tipo: "selo", texto: ROTULO_STATUS_PRODUTO[p.status], tom: TOM_STATUS_PRODUTO[p.status] },
     { tipo: "data", texto: dataHoraCurta(p.atualizado) },

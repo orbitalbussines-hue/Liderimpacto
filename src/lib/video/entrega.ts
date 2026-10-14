@@ -1,15 +1,11 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
 import { lerObjeto, urlDeLeitura } from "@/lib/armazenamento/cliente";
 import { chaveDoCriador } from "@/lib/armazenamento/regras";
 import { registrarAuditoriaSegura } from "@/lib/audit/registrar";
 import { EQUIPE, papelAceito, papelEfetivo } from "@/lib/auth/permissoes";
 import { sessaoDosCabecalhos } from "@/lib/auth/sessao";
 import { alvoDosCabecalhos } from "@/lib/criador/area";
-import { db } from "@/lib/db";
-import { produtos_modulos_aulas } from "@/lib/db/schema";
-import { vivos } from "@/lib/db/soft-delete";
-import { podeAssistir } from "./acesso";
+import { acessoDaAula } from "./acesso-aula";
 import { decifrarChave } from "./chaves";
 import { reescreverPlaylist } from "./playlist";
 import { rotasVideo } from "./provedor-proprio";
@@ -53,11 +49,8 @@ async function conferirTudo(h: Headers, criadorId: string, dados: DadosToken) {
   if (!s || s.provisoria || s.userId !== dados.usuarioId) return recusa(403, "sessão de login ausente ou de outra pessoa");
   const v = await videoVivo(criadorId, dados.videoId);
   if (!v || v.situacao !== "PRONTO" || !v.prefixo_hls) return recusa(404, "vídeo inexistente ou não pronto");
-  const [aula] = await db
-    .select({ liberaEm: produtos_modulos_aulas.libera_em })
-    .from(produtos_modulos_aulas)
-    .where(and(eq(produtos_modulos_aulas.id, v.aula_id), eq(produtos_modulos_aulas.criador_id, criadorId), vivos(produtos_modulos_aulas)));
-  if (!aula || !podeAssistir({ papel: papelEfetivo(s.acesso) }, aula)) return recusa(403, "sem permissão para assistir");
+  const acesso = await acessoDaAula(criadorId, v.aula_id, { papel: papelEfetivo(s.acesso), membroId: s.acesso.membro?.id ?? null });
+  if (!acesso?.pode) return recusa(403, "sem permissão para assistir");
   if (!(await sessaoReproducaoViva({ ...dados, criadorId }))) return recusa(403, "sessão de reprodução encerrada");
   return { video: v };
 }

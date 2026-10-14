@@ -258,8 +258,8 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
         "matriculas", "Matrículas", Inbox, 1,
         tabela(
           "Matrículas", ["Matrículas", "Progresso", "Feedbacks de conteúdo", "Avaliações", "Correção"],
-          [{ titulo: "Nome" }, { titulo: "Conteúdo", largura: 150 }, { titulo: "Iniciada", largura: 110 }, { titulo: "Concluída", largura: 110 }, { titulo: "Progresso", largura: 130 }, { titulo: "Situação", largura: 100 }, ACOES_COL],
-          { acaoPrincipal: novo("Inscrever") }
+          [{ titulo: "Aluno" }, { titulo: "Produto", largura: 200 }, { titulo: "Origem", largura: 110 }, { titulo: "Situação", largura: 110 }, { titulo: "Iniciada em", largura: 110 }, { titulo: "Expira em", largura: 110 }, ACOES_COL],
+          { acaoPrincipal: novo("Matricular"), acaoSecundaria: { rotulo: "Importar CSV", icone: Upload, href: "/admin/matriculas/importar" } }
         )
       ),
       item(

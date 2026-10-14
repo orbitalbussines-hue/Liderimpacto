@@ -109,7 +109,7 @@ describe.skipIf(!ligado)("pipeline de vídeo real (FFmpeg + fila + worker)", () 
     expect(seg.pareceMpegTs(cifrado)).toBe(false);
     expect(seg.pareceMpegTs(seg.decifrarSegmento(cifrado, chave, seg.ivDaPlaylist(variante)))).toBe(true);
 
-    // ALUNO do mesmo criador: sem chave nesta fase.
+    // ALUNO do mesmo criador sem matrícula (e com o token de outra pessoa): sem chave.
     const aluno = await novoUsuario();
     await vincular(c.id, aluno.id, "ALUNO");
     const hAluno = await cabecalhosLogados(aluno.email, c.slug);

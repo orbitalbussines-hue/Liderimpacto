@@ -110,6 +110,9 @@ Montados só com as primitivas acima. Client: `MenuAluno`, `TabBarAluno`, `Filei
 | `CampoImagem` | `admin/campo-imagem.tsx` | capas 3:4/16:9, thumb da aula | client; prévia `EspacoImagem`, enviar/trocar (direto ao storage, com progresso), remover pelo modal block. `rotulo, proporcao, src, alt, onDefinir(arquivoId \| null), descricaoRemover, ajuda?` |
 | `useEnvioDeArquivo` | `admin/use-envio-arquivo.ts` | imagens e materiais | hook client: allowlist na tela → URL assinada → PUT com progresso → confirmação; devolve o `arquivoId` (ou `erro`) |
 | `SeletorCorMarca`, `PreviaCorMarca`, `PreviaMarca` | `admin/seletor-cor-marca.tsx`, `admin/previa-cor-marca.tsx`, `admin/previa-marca.tsx` | Aparência e cor própria do curso | seletor nativo + Hex + 4 cores prontas + aviso de ajuste (`cor`, `onMudar`, `onValidade`); prévia nos dois temas com os componentes reais (`cor`, `disposicao` lado/pilha) |
+| `ListaErrosCsv` | `admin/lista-erros-csv.tsx` | prévia e resultado das importações CSV | `erros {numero, mensagem}[]` (vazio = não renderiza) |
+| `LinksPrimeiroAcesso` | `admin/links-primeiro-acesso.tsx` | resultado das importações CSV | client; `links {nome, email, url, expiraEm}[]`: copiar todos / baixar CSV gerado no navegador (nunca URL/log) |
+| `DialogoMatricular` | `matriculas/dialogo-matricular.tsx` | botão "Matricular" de `/admin/matriculas` e "Matricular em…" de `/admin/membros` | client; `aberto`, `onFechar`, `produtos {id, titulo, status}[]`, `grupos`, `membroInicial?`. Pessoas (busca por action) OU grupo, produtos, expiração (`<input type="date">`); resumo no modal block; resultado criadas/reativadas/já existiam. Monte só quando aberto (estado novo a cada vez) |
 
 ### Tela nova do admin em 3 passos
 

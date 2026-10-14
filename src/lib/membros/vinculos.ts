@@ -21,7 +21,7 @@ export function violouUnico(e: unknown): boolean {
 }
 
 export type ResultadoVinculo =
-  | { tipo: "ja-membro" }
+  | { tipo: "ja-membro"; usuarioId: string; membroId: string }
   | { tipo: "vinculado"; usuarioId: string; membroId: string; identidadeNova: boolean };
 
 /**
@@ -58,7 +58,7 @@ export async function vincularPessoa(
       .select({ id: criadores_membros.id })
       .from(criadores_membros)
       .where(and(eq(criadores_membros.criador_id, p.criadorId), eq(criadores_membros.usuario_id, usuarioId), vivos(criadores_membros)));
-    if (vinculo) return { tipo: "ja-membro" };
+    if (vinculo) return { tipo: "ja-membro", usuarioId, membroId: vinculo.id };
   }
 
   const membroId = randomUUID();

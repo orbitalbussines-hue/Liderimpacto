@@ -6,7 +6,6 @@ import { EstadoVazio } from "@/components/ui/estado-vazio";
 
 /** Telas do aluno ainda sem conteúdo real: slug -> título da tela. Fora daqui: 404. */
 const SECOES: Record<string, string> = {
-  continuar: "Continuar aprendendo",
   trilhas: "Trilhas de aprendizado",
   avaliacoes: "Avaliações",
   comunidade: "Comunidade",

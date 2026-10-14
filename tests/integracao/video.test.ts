@@ -1,8 +1,8 @@
 /**
  * Vídeo da aula (ADR-0005) com PostgreSQL e storage S3 reais, SEM FFmpeg (o vídeo PRONTO é
  * montado com playlists de verdade gravadas no bucket): envio multipart real, troca, isolamento
- * A x B em actions e rotas, token vencido/adulterado/de outra pessoa, limite de telas e ALUNO
- * sem acesso nesta fase. O pipeline com FFmpeg + worker está em video-pipeline.test.ts.
+ * A x B em actions e rotas, token vencido/adulterado/de outra pessoa, limite de telas e ALUNO com e
+ * sem matrícula (passo 4). O pipeline com FFmpeg + worker está em video-pipeline.test.ts.
  * Sem S3 no ar, PULA com aviso (suba: npm run db:up && npm run armazenamento:preparar).
  */
 import { randomUUID } from "node:crypto";
@@ -233,7 +233,7 @@ describe.skipIf(!noAr)("vídeo da aula (storage real)", () => {
     expect((await entrega.situacaoParaEquipe(hB, vB.id)).status).toBe(200);
   });
 
-  it("ALUNO não assiste nesta fase (nem com token forjado) e não vê a situação", async () => {
+  it("ALUNO sem matrícula não assiste (nem com token forjado) e não vê a situação", async () => {
     const { c, dono, aula } = await cenario("Aluno");
     const v = await videoPronto(c.id, aula.id, dono.id);
     const aluno = await novoUsuario();
@@ -245,5 +245,51 @@ describe.skipIf(!noAr)("vídeo da aula (storage real)", () => {
     expect((await entrega.servirHls(req.h, forjado, v.id, ["master.m3u8"])).status).toBe(403);
     expect((await entrega.situacaoParaEquipe(req.h, v.id)).status).toBe(403);
     expect(await vid.acaoReprocessarVideo({ videoId: v.id })).toMatchObject({ ok: false });
+  });
+
+  it("ALUNO matriculado assiste (chave servida); rascunho, aula não liberada, cancelada e expirada recusam", async () => {
+    const { c, dono, aula } = await cenario("Matriculado");
+    const v = await videoPronto(c.id, aula.id, dono.id);
+    const [{ produtoId }] = await db
+      .select({ produtoId: s.produtos_modulos.produto_id })
+      .from(s.produtos_modulos_aulas)
+      .innerJoin(s.produtos_modulos, eq(s.produtos_modulos.id, s.produtos_modulos_aulas.modulo_id))
+      .where(eq(s.produtos_modulos_aulas.id, aula.id));
+    const aluno = await novoUsuario();
+    const membro = await vincular(c.id, aluno.id, "ALUNO");
+    const { matricular } = await import("@/lib/matriculas/servico");
+    const { matriculaId } = await db.transaction((tx) => matricular(tx, { criadorId: c.id, membroId: membro.id, produtoId, origem: "MANUAL", autor: dono.id }));
+    req.h = await cabecalhosLogados(aluno.email, c.slug);
+
+    // Produto ainda em RASCUNHO: nem matriculado assiste.
+    expect(await vid.acaoIniciarReproducao({ aulaId: aula.id })).toMatchObject({ ok: false });
+    await db.update(s.produtos).set({ status: "PUBLICADO" }).where(eq(s.produtos.id, produtoId));
+    const r = ok(await vid.acaoIniciarReproducao({ aulaId: aula.id }));
+    const chave = await entrega.servirChave(req.h, t(r), v.id);
+    expect(chave.status).toBe(200);
+    expect(Buffer.from(await chave.arrayBuffer()).equals(v.chave)).toBe(true);
+    expect((await entrega.servirHls(req.h, t(r), v.id, ["master.m3u8"])).status).toBe(200);
+
+    // Outro aluno do mesmo criador, sem matrícula, com o próprio cookie: recusado.
+    const semMatricula = await novoUsuario();
+    await vincular(c.id, semMatricula.id, "ALUNO");
+    const hSem = await cabecalhosLogados(semMatricula.email, c.slug);
+    req.h = hSem;
+    expect(await vid.acaoIniciarReproducao({ aulaId: aula.id })).toMatchObject({ ok: false });
+    req.h = await cabecalhosLogados(aluno.email, c.slug);
+    const hAluno = req.h;
+
+    // Aula programada para o futuro: a chave já emitida deixa de sair.
+    await db.update(s.produtos_modulos_aulas).set({ libera_em: new Date(Date.now() + 86_400_000) }).where(eq(s.produtos_modulos_aulas.id, aula.id));
+    expect((await entrega.servirChave(hAluno, t(r), v.id)).status).toBe(403);
+    expect(await vid.acaoIniciarReproducao({ aulaId: aula.id })).toMatchObject({ ok: false });
+    await db.update(s.produtos_modulos_aulas).set({ libera_em: null }).where(eq(s.produtos_modulos_aulas.id, aula.id));
+
+    // Expirada e cancelada: o acesso cai na próxima requisição.
+    await db.update(s.produtos_matriculas).set({ expira_em: new Date(Date.now() - 1000) }).where(eq(s.produtos_matriculas.id, matriculaId));
+    expect((await entrega.servirChave(hAluno, t(r), v.id)).status).toBe(403);
+    await db.update(s.produtos_matriculas).set({ expira_em: null, status: "CANCELADA", motivo_cancelamento: "teste" }).where(eq(s.produtos_matriculas.id, matriculaId));
+    expect((await entrega.servirChave(hAluno, t(r), v.id)).status).toBe(403);
+    expect(await vid.acaoIniciarReproducao({ aulaId: aula.id })).toMatchObject({ ok: false });
   });
 });

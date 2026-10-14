@@ -41,12 +41,28 @@ describe("caminho HLS aceito na rota", () => {
 });
 
 describe("podeAssistir (RN-114)", () => {
-  const aula = { liberaEm: null };
-  it("nesta fase: DONO e ADMIN (SUPER_ADMIN chega como DONO); ALUNO e sem vínculo não", () => {
-    expect(podeAssistir({ papel: "DONO" }, aula)).toBe(true);
-    expect(podeAssistir({ papel: "ADMIN" }, aula)).toBe(true);
-    expect(podeAssistir({ papel: "ALUNO", matriculaAtiva: true }, aula)).toBe(false);
-    expect(podeAssistir({ papel: null }, aula)).toBe(false);
+  const agora = new Date("2026-10-14T12:00:00Z");
+  const aula = { liberaEm: null, statusProduto: "PUBLICADO", statusModulo: "PUBLICADO" } as const;
+  const aluno = { papel: "ALUNO", matriculaAtiva: true } as const;
+
+  it("equipe sempre (SUPER_ADMIN chega como DONO), mesmo em rascunho e sem matrícula", () => {
+    const rascunho = { liberaEm: new Date("2030-01-01"), statusProduto: "RASCUNHO", statusModulo: "RASCUNHO" } as const;
+    expect(podeAssistir({ papel: "DONO", matriculaAtiva: false }, rascunho, agora)).toBe(true);
+    expect(podeAssistir({ papel: "ADMIN", matriculaAtiva: false }, rascunho, agora)).toBe(true);
+  });
+
+  it("ALUNO matriculado assiste aula liberada de produto publicado ou não listado", () => {
+    expect(podeAssistir(aluno, aula, agora)).toBe(true);
+    expect(podeAssistir(aluno, { ...aula, statusProduto: "NAO_LISTADO" }, agora)).toBe(true);
+    expect(podeAssistir(aluno, { ...aula, liberaEm: agora }, agora)).toBe(true);
+  });
+
+  it("ALUNO NÃO assiste: sem matrícula valendo, produto rascunho, módulo rascunho, aula não liberada", () => {
+    expect(podeAssistir({ papel: "ALUNO", matriculaAtiva: false }, aula, agora)).toBe(false);
+    expect(podeAssistir(aluno, { ...aula, statusProduto: "RASCUNHO" }, agora)).toBe(false);
+    expect(podeAssistir(aluno, { ...aula, statusModulo: "RASCUNHO" }, agora)).toBe(false);
+    expect(podeAssistir(aluno, { ...aula, liberaEm: new Date(agora.getTime() + 1) }, agora)).toBe(false);
+    expect(podeAssistir({ papel: null, matriculaAtiva: true }, aula, agora)).toBe(false);
   });
 });
 

@@ -75,4 +75,4 @@ e marca d'água. Falta decidir QUEM confere o token e entrega playlist, chave e 
 ### Neutras
 - Quando entrar Nginx/CDN: a borda valida o token do segmento (HMAC) e serve do cache; playlist e
   chave continuam no app. A interface e o formato do token não mudam.
-- O ALUNO entra no passo 4 só mudando `podeAssistir` (matrícula + liberação).
+- O ALUNO entra no passo 4 só mudando `podeAssistir` (matrícula + liberação). Feito em 14/10/2026 (`acessoDaAula`, RN-116).

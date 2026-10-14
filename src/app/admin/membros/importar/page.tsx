@@ -28,7 +28,7 @@ export default function PaginaImportarMembros() {
       <CabecalhoPagina
         variante="admin"
         titulo="Importar membros (CSV)"
-        descricao={`Arquivo .csv de até 1 MB e ${MAX_LINHAS_CSV} linhas, com o cabeçalho nome,email,grupo (grupo é opcional; se não existir, vira uma Turma). Todos entram como Aluno. Matrícula em curso é feita depois.`}
+        descricao={`Arquivo .csv de até 1 MB e ${MAX_LINHAS_CSV} linhas, com o cabeçalho nome,email,grupo (grupo é opcional; se não existir, vira uma Turma). Todos entram como Aluno. Para matricular em cursos, use Matrículas › Importar CSV.`}
       />
       <Cartao padding={24}>
         <Suspense fallback={null}>

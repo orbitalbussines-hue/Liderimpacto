@@ -62,3 +62,14 @@ export type SituacaoVideo = (typeof SITUACOES_VIDEO)[number];
 /** Uma tentativa do worker. */
 export const SITUACOES_PROCESSAMENTO = ["PROCESSANDO", "PRONTO", "FALHOU"] as const;
 export type SituacaoProcessamento = (typeof SITUACOES_PROCESSAMENTO)[number];
+
+/**
+ * Matricula (SISTEMA.md §4 Enrollment): como entrou e em que situacao esta. EXPIRADA nao e
+ * status gravado: e ATIVA com `expira_em` no passado (src/lib/matriculas/regras.ts).
+ * COMPRA fica para o webhook do gateway (ainda nao escolhido).
+ */
+export const ORIGENS_MATRICULA = ["MANUAL", "IMPORTACAO", "COMPRA"] as const;
+export type OrigemMatricula = (typeof ORIGENS_MATRICULA)[number];
+
+export const STATUS_MATRICULA = ["ATIVA", "PENDENTE", "CANCELADA"] as const;
+export type StatusMatricula = (typeof STATUS_MATRICULA)[number];

@@ -40,7 +40,9 @@ pura é `papelEfetivo`/`papelAceito` (`src/lib/auth/permissoes.ts`, com teste).
 | Aparência (`/admin/configuracoes/aparencia`) | só `DONO` (RN-107) |
 | Conteúdos (`/admin/conteudos`, `/novo`, `/[id]`, `/[id]/aulas/[aulaId]`) e envio de arquivos | `DONO` e `ADMIN` (`ALUNO` recebe 403 na página e "Sem permissão" em toda action) — RN-109 a RN-112 |
 | Vídeo da aula: enviar, cancelar, trocar, reprocessar (`src/lib/actions/videos.ts`) e situação (`GET /api/video/[id]/situacao`) | `DONO` e `ADMIN` (RN-113) |
-| Assistir vídeo: token (`acaoIniciarReproducao`/`acaoRenovarReproducao`), playlist (`/api/video/[id]/hls/...`) e chave (`/api/video/[id]/chave`) | quem passa em `podeAssistir`: nesta fase `DONO`, `ADMIN` e `SUPER_ADMIN`; `ALUNO` recusado até o passo 4 (RN-114). Vídeo de outro criador = 404 |
+| Assistir vídeo: token (`acaoIniciarReproducao`/`acaoRenovarReproducao`), playlist (`/api/video/[id]/hls/...`) e chave (`/api/video/[id]/chave`) | quem passa em `podeAssistir`: `DONO`, `ADMIN` e `SUPER_ADMIN` sempre; `ALUNO` só com matrícula valendo no produto, produto publicado/não listado, módulo publicado e aula liberada (RN-114, RN-116). Vídeo de outro criador = 404 |
+| Matrículas (`/admin/matriculas`, `/admin/matriculas/importar`; "Matricular em…" em `/admin/membros`): matricular pessoas ou grupo, alterar expiração, cancelar, reativar, importar CSV, buscar membros (`src/lib/actions/matriculas.ts`, `matriculas-importacao.ts`) | `DONO` e `ADMIN` (`ALUNO`: 403 na página e "Sem permissão" em toda action) — RN-116, RN-117. Membro, produto, grupo ou matrícula de outro criador = "não encontrado"/colisão |
+| `/continuar` (cursos do aluno) | qualquer membro ativo; mostra só as matrículas DELE neste criador |
 | Criadores (`/plataforma`, `/plataforma/novo`) | só `SUPER_ADMIN` no apex (RN-108) |
 | `/conta/seguranca` | qualquer sessão, inclusive a provisória do SUPER_ADMIN sem TOTP |
 | Link de senha para outra pessoa | ver RN-102 em `docs/regras-negocio.md` |

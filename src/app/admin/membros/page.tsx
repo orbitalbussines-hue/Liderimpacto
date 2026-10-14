@@ -6,6 +6,7 @@ import type { Coluna, Linha } from "@/components/admin/tabela-tipos";
 import { Selo } from "@/components/ui/selo";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { EQUIPE } from "@/lib/auth/permissoes";
+import { matriculasPorMembro, produtosParaMatricular } from "@/lib/matriculas/consultas";
 import { FILTROS_SITUACAO, contadoresDeMembros, listarGrupos, listarMembros, type FiltroSituacao } from "@/lib/membros/consultas";
 import { AcoesMembro } from "./_components/acoes-membro";
 import { ABAS_MEMBROS, ROTULO_PAPEL, dataCurta } from "./_components/comum";
@@ -17,6 +18,7 @@ const POR_PAGINA = 10;
 const COLUNAS: Coluna[] = [
   { titulo: "Membro" },
   { titulo: "Grupo", largura: 180 },
+  { titulo: "Matrículas", largura: 100 },
   { titulo: "Papel", largura: 150 },
   { titulo: "Criado em", largura: 110 },
   { titulo: "Último acesso", largura: 120 },
@@ -38,11 +40,17 @@ async function Membros({ searchParams }: { searchParams: Busca }) {
     grupoId: UUID.test(um(sp.grupo) ?? "") ? um(sp.grupo) : undefined,
   };
   const pagina = Math.max(1, Math.min(10_000, Number.parseInt(um(sp.pagina) ?? "1", 10) || 1));
-  const [contadores, lista, grupos] = await Promise.all([
+  const [contadores, lista, grupos, produtos] = await Promise.all([
     contadoresDeMembros(criador.id),
     listarMembros(criador.id, { ...filtros, pagina, porPagina: POR_PAGINA }),
     listarGrupos(criador.id),
+    produtosParaMatricular(criador.id),
   ]);
+  const matriculas = await matriculasPorMembro(
+    criador.id,
+    lista.linhas.map((m) => m.id),
+    new Date(),
+  );
 
   const href = (mudar: Partial<Record<"q" | "situacao" | "grupo" | "pagina", string | undefined>>) => {
     const p = new URLSearchParams();
@@ -62,6 +70,7 @@ async function Membros({ searchParams }: { searchParams: Busca }) {
   const linhas: Linha[] = lista.linhas.map((m) => [
     { tipo: "membro", nome: m.nome, email: m.email, src: m.imagem },
     m.grupos.length ? { tipo: "etiqueta", texto: m.grupos.length > 1 ? `${m.grupos[0].nome} +${m.grupos.length - 1}` : m.grupos[0].nome } : { tipo: "texto", texto: "—" },
+    { tipo: "numeroDestaque", texto: String(matriculas.get(m.id) ?? 0) },
     {
       tipo: "no",
       conteudo: (
@@ -83,8 +92,19 @@ async function Membros({ searchParams }: { searchParams: Busca }) {
       tipo: "no",
       conteudo: (
         <AcoesMembro
-          membro={{ id: m.id, usuarioId: m.usuarioId, nome: m.nome, papel: m.papel, status: m.status, versao: m.versao.toISOString(), grupoIds: m.grupos.map((g) => g.id) }}
+          membro={{
+            id: m.id,
+            usuarioId: m.usuarioId,
+            nome: m.nome,
+            email: m.email,
+            imagem: m.imagem,
+            papel: m.papel,
+            status: m.status,
+            versao: m.versao.toISOString(),
+            grupoIds: m.grupos.map((g) => g.id),
+          }}
           grupos={grupos.map((g) => ({ id: g.id, nome: g.nome }))}
+          produtos={produtos.map((p) => ({ id: p.id, titulo: p.titulo, status: p.status }))}
           ator={ator}
         />
       ),

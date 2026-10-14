@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { KeyRound, MoreVertical, Power, ShieldCheck, Trash2, Users } from "lucide-react";
+import { GraduationCap, KeyRound, MoreVertical, Power, ShieldCheck, Trash2, Users } from "lucide-react";
 import { DialogoAdmin } from "@/components/admin/dialogo-admin";
 import { MenuAdmin, type ItemMenuAdmin } from "@/components/admin/menu-admin";
+import { DialogoMatricular, type DialogoMatricularProps } from "@/components/matriculas/dialogo-matricular";
 import { ModalConfirmacaoBlock } from "@/components/modal-confirmacao-block";
 import { Button } from "@/components/ui/button";
 import type { Resultado } from "@/lib/acao";
@@ -23,22 +24,26 @@ export interface MembroDaLinha {
   /** `updated_at` ISO do vínculo (trava de colisão). */
   versao: string;
   grupoIds: string[];
+  email: string;
+  imagem: string | null;
 }
 
 export interface AcoesMembroProps {
   membro: MembroDaLinha;
   grupos: readonly { id: string; nome: string }[];
+  /** Produtos do criador para "Matricular em…". */
+  produtos: DialogoMatricularProps["produtos"];
   ator: { usuarioId: string; papel: PapelCriador };
 }
 
-type Aberto = "link" | "papel" | "grupos" | null;
+type Aberto = "link" | "papel" | "grupos" | "matricular" | null;
 type Critica = { titulo: string; mensagem: string; texto: string; executar: () => Promise<Resultado<null>> } | null;
 
 /**
  * Menu "⋮" da linha de membro. Esconder item é conforto: a action confere tudo de novo.
  * Ações críticas (papel, inativar, remover) passam pelo ModalConfirmacaoBlock.
  */
-export function AcoesMembro({ membro, grupos, ator }: AcoesMembroProps) {
+export function AcoesMembro({ membro, grupos, produtos, ator }: AcoesMembroProps) {
   const router = useRouter();
   const [aberto, setAberto] = useState<Aberto>(null);
   const [critica, setCritica] = useState<Critica>(null);
@@ -57,7 +62,7 @@ export function AcoesMembro({ membro, grupos, ator }: AcoesMembroProps) {
       router.refresh();
     });
 
-  const itens: ItemMenuAdmin[] = [];
+  const itens: ItemMenuAdmin[] = [{ rotulo: "Matricular em…", icone: <GraduationCap />, onSelecionar: () => setAberto("matricular") }];
   if (gerir) itens.push({ rotulo: "Gerar link de senha", icone: <KeyRound />, onSelecionar: () => setAberto("link") });
   if (podeMudarPapel(ator.papel)) itens.push({ rotulo: "Mudar papel", icone: <ShieldCheck />, onSelecionar: () => setAberto("papel") });
   if (podeGerir(ator.papel, membro.papel)) itens.push({ rotulo: "Grupos", icone: <Users />, onSelecionar: () => setAberto("grupos") });
@@ -88,7 +93,6 @@ export function AcoesMembro({ membro, grupos, ator }: AcoesMembroProps) {
         }),
     });
   }
-  if (itens.length === 0) return null;
 
   return (
     <div className="flex justify-center">
@@ -96,6 +100,15 @@ export function AcoesMembro({ membro, grupos, ator }: AcoesMembroProps) {
         <MoreVertical aria-hidden />
       </MenuAdmin>
 
+      {aberto === "matricular" && (
+        <DialogoMatricular
+          aberto
+          onFechar={() => setAberto(null)}
+          produtos={produtos}
+          grupos={grupos}
+          membroInicial={{ id: membro.id, nome: membro.nome, email: membro.email, imagem: membro.imagem }}
+        />
+      )}
       <DialogoLink aberto={aberto === "link"} onFechar={() => setAberto(null)} nome={membro.nome} usuarioId={membro.usuarioId} />
       <DialogoPapel
         aberto={aberto === "papel"}
