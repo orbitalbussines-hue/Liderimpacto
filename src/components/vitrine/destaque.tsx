@@ -48,6 +48,7 @@ export function Destaque({
           <h1 className="m-0 font-serif text-[46px] leading-[.98] font-bold tracking-[-.02em] text-fixo-titulo uppercase desk:text-[84px]">
             {titulo}
           </h1>
+          {(meta.length > 0 || badge) && (
           <div className="flex flex-wrap items-center gap-2.5 text-[15px] font-bold text-fixo-text">
             {meta.map((item, i) => (
               <span key={item} className="contents">
@@ -65,16 +66,23 @@ export function Destaque({
               </Selo>
             )}
           </div>
-          <p className="m-0 max-w-[560px] text-[15px] leading-[1.45] text-fixo-text desk:text-lg">{descricao}</p>
-          <div className="mt-1.5 flex flex-wrap gap-3">
-            <Link href={botaoPrincipal.href} className={buttonVariants({ variant: "heroPrimario", size: "48", className: "gap-2.5" })}>
-              <Play aria-hidden className="fill-current" />
-              {botaoPrincipal.texto}
-            </Link>
-            <Link href={botaoSecundario.href} className={buttonVariants({ variant: "heroSecundario", size: "48" })}>
-              {botaoSecundario.texto}
-            </Link>
-          </div>
+          )}
+          {descricao && <p className="m-0 max-w-[560px] text-[15px] leading-[1.45] text-fixo-text desk:text-lg">{descricao}</p>}
+          {(botaoPrincipal || botaoSecundario) && (
+            <div className="mt-1.5 flex flex-wrap gap-3">
+              {botaoPrincipal && (
+                <Link href={botaoPrincipal.href} className={buttonVariants({ variant: "heroPrimario", size: "48", className: "gap-2.5" })}>
+                  <Play aria-hidden className="fill-current" />
+                  {botaoPrincipal.texto}
+                </Link>
+              )}
+              {botaoSecundario && (
+                <Link href={botaoSecundario.href} className={buttonVariants({ variant: "heroSecundario", size: "48" })}>
+                  {botaoSecundario.texto}
+                </Link>
+              )}
+            </div>
+          )}
         </div>
         {temAvisos && (
           <div className="hidden items-center gap-[26px] pb-1.5 text-xs font-bold text-fixo-text desk:flex">

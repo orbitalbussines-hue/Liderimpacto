@@ -244,8 +244,10 @@ aulaParaPlayer → {
   anterior, proxima: { id, numero, titulo, href } | null, // vizinhas LIBERADAS na ordem do curso
   playlist: ModuloDoCurso[], progressoDoCurso, favorito: boolean,
   concluirManual: boolean,                           // mostra o botão "Concluir e avançar"
-  flags: { abas: { descricao, materiais, comentarios: false, anotacoes }, playlist, autoplay /* preferência */,
-           contagemAutoplaySeg: 5, velocidade, marcadores, avisoCertificado: false }, // passo 9 lê do construtor
+  flags: { abas: { descricao, materiais, comentarios, anotacoes }, playlist, autoplay /* construtor E preferência */,
+           contagemAutoplaySeg: 5, velocidade, marcadores, aulasParaCertificado: number | null }, // passo 9: `player` publicado
+// aulaParaPlayer(q, aulaId, agora?, player = PLAYER_PADRAO): a página passa `(await configPublicada(criadorId))?.player`.
+// aulasParaCertificado = aulas que faltam, só com o aviso ligado, ALUNO matriculado e falta > 0.
 }
 ```
 
@@ -258,6 +260,55 @@ aulaParaPlayer → {
 | `acaoSalvarPreferencias({ reproducaoAutomatica?, lembretes? })`: as duas | `src/lib/actions/preferencias.ts` | a própria sessão | atualizar (antes e depois) | RN-121 |
 | `acaoSalvarPerfil({ nome, whatsapp, empresaCargo, versao })`: dados pessoais de "Meu perfil" (WhatsApp BR por regex; vazio vira nulo; e-mail não muda aqui) | `src/lib/actions/perfil.ts` | a própria sessão (nenhum id no corpo) | atualizar (antes e depois), trava pelo `updated_at` | RN-121 |
 | `acaoLinkDoMaterial({ materialId })`: `{ url }` (5 min) | `src/lib/actions/aulas.ts` | equipe; ALUNO se `podeAssistir` a aula | não (leitura) | RN-114 |
+
+## Construtor da vitrine (passo 9)
+
+RN-135 a RN-138, ADR-0010. Tabelas `criadores_vitrines` (1 rascunho vivo por criador, `rascunho`
+jsonb; `updated_at` = trava do autosave) e `criadores_vitrines_versoes` (número 1..n único, `config`
+jsonb imutável, `publicada_por` FK usuário, `publicada_em`). Migração `0008_vitrine_construtor.sql`
+(só aditiva).
+
+### Config (`src/lib/vitrine/config.ts`, puro: servidor e tela)
+
+```ts
+ConfigVitrine = {
+  destaque: { imagemArquivoId: uuid | null /* null = capa 16:9 do curso */, selo: string | null /* null = "N AULAS" */,
+              titulo, descricao, botaoPrincipal: Botao, botaoSecundario: Botao | null, mostrarAvisos },
+  fileiras: { id /* estável */, titulo /* {nome} */, tipo: CONTINUAR|TOP10|NOVIDADES|TRILHAS|MENTORIAS|LISTA|MANUAL,
+              quantidade: 3|5|7|10, ordenacao: MANUAL|RECENTES|MAIS_ASSISTIDOS /* ORDENACOES_DO_TIPO */,
+              grupos: uuid[] /* [] = todos */, visivel, itensManuais: { tipo: PRODUTO|AULA, id }[] /* ≤ 10, só MANUAL */ }[] /* ≤ 20 */,
+  player: { abas: { descricao, materiais, comentarios, anotacoes }, playlist, autoplay, velocidade, marcadores, avisoCertificado },
+}
+Botao = { texto, acao: CURSO|AULA|CONTINUAR|LINK, alvo /* CURSO/CONTINUAR: produto (CONTINUAR null = onde parou); AULA: aula; LINK: "/..." */ }
+```
+
+`configVitrineSchema` (strictObject em tudo), `configPadrao(curso)`, `FILEIRAS_PADRAO`, `PLAYER_PADRAO`,
+`mesmaConfig`, `resumoDaMudanca`, `fileiraParaQuem`, `referenciasDaConfig`, `tituloComNome`.
+
+### Leituras
+
+| Função | Arquivo | Retorno |
+|--------|---------|---------|
+| `configPublicada(criadorId)` | `vitrine/cache.ts` (`"use cache"`, etiqueta `vitrine:<criador>`, `max`) | `ConfigVitrine \| null` |
+| `publicadaAgora`, `rascunhoAtual`, `rascunhoEfetivo`, `versoesDaVitrine`, `dadosDoConstrutor`, `rascunhoPadrao`, `cursoPrincipal`, `rotulosDasReferencias`, `opcoesDoConstrutor`, `buscarConteudos` | `vitrine/dados.ts` (sem cache) | tela do construtor |
+| `vitrineDoAluno(q)` / `previaDaVitrine(q, rascunho)` (só equipe; aluno = erro) | `vitrine/resolver.ts` | `{ destaque: DestaqueConfig \| null, fileiras: { id, titulo, variante, tag?, itens: ItemFileira[] }[] }` (só as com itens) |
+| `fileirasVisiveis(q, config)`, `resolverFileira(q, f)`, `resolverDestaque(q, d \| null)`, `gruposDoMembro(q)` | `vitrine/resolver.ts` | peças usadas por `/` e `/previa-vitrine` (`VitrineMontada`) |
+| `cartoesEscolhidos(q, itens)`, `visualizacoesPorProduto(criadorId, dias)` | `progresso/consultas.ts` | fileira MANUAL (só o que a pessoa abre) e "mais assistidos" |
+
+### Actions (`src/lib/actions/vitrine.ts`; `executar()` → `Resultado`; `exigirMembro(EQUIPE)`; criador do HOST)
+
+| Action | Retorno | Audita | Regra |
+|--------|---------|--------|-------|
+| `acaoSalvarRascunhoVitrine({ versao: iso \| null, config })` | `{ versao }` | criar/atualizar com o resumo do que mudou | trava (null = nunca salvo); refs deste criador |
+| `acaoPublicarVitrine({ versao })` | `{ numero, publicadaEm, versao }` | publicar (config inteira) + `updateTag` | versão n+1; sem rascunho publica o padrão |
+| `acaoReverterVitrine({ versao, numero })` | `{ versao, config }` | atualizar | versão → rascunho (não publica) |
+| `acaoDescartarRascunhoVitrine({ versao })` | `{ versao, config }` | atualizar | rascunho ← publicada (ou padrão) |
+| `acaoBuscarConteudoVitrine({ termo })` | `{ tipo, id, titulo, detalhe }[]` | não | cursos e aulas do criador |
+| `acaoPrepararImagemDestaque({ arquivoId })` | `{ url }` | não | IMAGEM DISPONIVEL deste criador |
+
+Página `/previa-vitrine` (grupo `(aluno)`, só equipe): a vitrine com o rascunho; `?v=` força recarregar,
+`?sel=` marca o bloco; ponte `postMessage` (`vitrine:selecionar` / `vitrine:clique` / `vitrine:altura`)
+com origem conferida.
 
 ## Painel do admin (passo 6)
 

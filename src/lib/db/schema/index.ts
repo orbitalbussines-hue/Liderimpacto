@@ -16,4 +16,5 @@ export * from "./certificados";
 export * from "./trilhas";
 export * from "./comunidade";
 export * from "./comunidade-moderacao";
+export * from "./vitrines";
 export * from "./auditoria";

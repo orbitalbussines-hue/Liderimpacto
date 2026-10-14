@@ -57,7 +57,8 @@ describe("SeletorDatas", () => {
     expect(nav.push).toHaveBeenCalledWith(`/admin/analytics?aba=avaliacoes&curso=${curso}&de=2026-10-03&ate=2026-10-10`, { scroll: false });
   });
 
-  it("navega entre meses e bloqueia o fim a 366 dias ou mais do início", async () => {
+  // Clica ~24 meses: sob a suíte inteira em paralelo passa dos 5 s padrão.
+  it("navega entre meses e bloqueia o fim a 366 dias ou mais do início", { timeout: 20_000 }, async () => {
     render(<SeletorDatas valor={null} hoje={HOJE} caminho="/admin" />);
     abrir();
     const voltar = async (n: number) => {

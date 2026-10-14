@@ -20,8 +20,9 @@ export interface DestaqueConfig {
   badge?: string;
   /** Itens da linha meta, separados por "•" ("Curso", "Liderança", "2026"). */
   meta: string[];
-  botaoPrincipal: AcaoLink;
-  botaoSecundario: AcaoLink;
+  /** Sem botão: o alvo configurado sumiu ou o aluno não o vê (construtor, RN-136). */
+  botaoPrincipal?: AcaoLink;
+  botaoSecundario?: AcaoLink;
   avisos?: AvisosDestaque;
   /** Só desktop, e só se houver `avisos`. */
   mostrarAvisos: boolean;
