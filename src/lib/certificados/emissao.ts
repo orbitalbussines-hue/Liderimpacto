@@ -18,6 +18,7 @@ import {
 import { MSG_COLISAO, travaDeColisao, vivos } from "@/lib/db/soft-delete";
 import { enfileirarCertificadoComPrazo } from "./fila";
 import { cargaHorariaTexto, corDoCertificado, dataPorExtenso, gerarCodigo, MODELO_PADRAO, preencherTexto, urlDeVerificacao } from "./regras";
+import { notificarCertificado } from "@/lib/notificacoes/gerar";
 
 /**
  * Emissão de certificados (RN-127, RN-128). Condição: matrícula viva, não cancelada, CONCLUÍDA
@@ -145,6 +146,8 @@ export async function emitir(criadorId: string, membroId: string, produtoId: str
   });
   if (!r) return null;
   if (r.versaoId) await enfileirarCertificadoComPrazo(r.versaoId);
+  // Depois do commit; nunca lança (RN-134).
+  if (r.novo) await notificarCertificado(criadorId, r.certificadoId);
   return { certificadoId: r.certificadoId, novo: r.novo };
 }
 

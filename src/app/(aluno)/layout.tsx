@@ -5,6 +5,7 @@ import { iniciais } from "@/components/ui/avatar";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
 import { hostAtual } from "@/lib/criador/atual";
+import { contarNaoLidas } from "@/lib/notificacoes/consultas";
 
 /**
  * Sessao + criador do HOST, lidos dentro do <Suspense> (cacheComponents). Sem sessao ->
@@ -12,9 +13,10 @@ import { hostAtual } from "@/lib/criador/atual";
  */
 async function ShellComSessao({ children }: { children: ReactNode }) {
   if ((await hostAtual()).tipo === "plataforma") redirect("/plataforma");
-  const { usuario, criador } = await membroDaPagina(TODOS_OS_MEMBROS);
+  const { usuario, criador, membro } = await membroDaPagina(TODOS_OS_MEMBROS);
+  const naoLidas = membro.id ? await contarNaoLidas(criador.id, membro.id) : 0;
   return (
-    <ShellAluno usuario={{ nome: usuario.nome, iniciais: iniciais(usuario.nome) }} notificacoes={0} corMarca={criador.cor_marca ?? undefined}>
+    <ShellAluno usuario={{ nome: usuario.nome, iniciais: iniciais(usuario.nome) }} notificacoes={naoLidas} corMarca={criador.cor_marca ?? undefined}>
       {children}
     </ShellAluno>
   );

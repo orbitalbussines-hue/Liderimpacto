@@ -44,7 +44,10 @@ export type TipoMaterial = (typeof TIPOS_MATERIAL)[number];
  * Para que serve o arquivo: define a allowlist (MIME, extensao, tamanho) e onde pode ser usado
  * (src/lib/armazenamento/regras.ts). Video NAO entra aqui (pipeline proprio, passo 3b).
  */
-export const FINALIDADES_ARQUIVO = ["IMAGEM", "MATERIAL"] as const;
+export const FINALIDADES_ARQUIVO_CATALOGO = ["IMAGEM", "MATERIAL"] as const;
+/** Anexos de publicação da comunidade (passo 8, RN-131): qualquer membro envia, só ao próprio post. */
+export const FINALIDADES_ARQUIVO_COMUNIDADE = ["COMUNIDADE_IMAGEM", "COMUNIDADE_PDF"] as const;
+export const FINALIDADES_ARQUIVO = [...FINALIDADES_ARQUIVO_CATALOGO, ...FINALIDADES_ARQUIVO_COMUNIDADE] as const;
 export type FinalidadeArquivo = (typeof FINALIDADES_ARQUIVO)[number];
 
 /** ENVIADO_PENDENTE = URL de envio emitida; DISPONIVEL = HEAD no storage conferiu tamanho e tipo. */
@@ -114,3 +117,28 @@ export type StatusTrilha = (typeof STATUS_TRILHA)[number];
 /** Item da trilha. Aula avulsa fica de fora: YAGNI (RN-126). */
 export const TIPOS_ITEM_TRILHA = ["PRODUTO", "AVALIACAO"] as const;
 export type TipoItemTrilha = (typeof TIPOS_ITEM_TRILHA)[number];
+
+/** Comunidade (passo 8, RN-130): quem VÊ o canal. GRUPO/PRODUTO apontam o grupo ou o produto. */
+export const ACESSOS_CANAL = ["TODOS", "GRUPO", "PRODUTO", "EQUIPE"] as const;
+export type AcessoCanal = (typeof ACESSOS_CANAL)[number];
+
+/** Quem PUBLICA no canal (comentar segue quem vê). EQUIPE = canal de avisos. */
+export const QUEM_POSTA_CANAL = ["TODOS", "EQUIPE"] as const;
+export type QuemPostaCanal = (typeof QUEM_POSTA_CANAL)[number];
+
+export const SITUACOES_DENUNCIA = ["ABERTA", "RESOLVIDA", "DESCARTADA"] as const;
+export type SituacaoDenuncia = (typeof SITUACOES_DENUNCIA)[number];
+
+/** Notificação in-app (passo 8, RN-134). Texto e link saem de src/lib/notificacoes/regras.ts. */
+export const TIPOS_NOTIFICACAO = [
+  "COMENTARIO_NO_POST",
+  "RESPOSTA_AO_COMENTARIO",
+  "CURTIDAS_NO_POST",
+  "POST_FIXADO",
+  "AVISO",
+  "AULA_NOVA",
+  "CERTIFICADO_EMITIDO",
+  "MATRICULA_NOVA",
+  "DENUNCIA_NOVA",
+] as const;
+export type TipoNotificacao = (typeof TIPOS_NOTIFICACAO)[number];

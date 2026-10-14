@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 475 |
-| Tabelas (Drizzle) | 35 |
-| Server Actions (arquivos) | 25 |
-| Rotas de API | 5 |
-| Paginas | 46 |
-| Componentes | 125 |
+| Arquivos TS/TSX | 526 |
+| Tabelas (Drizzle) | 44 |
+| Server Actions (arquivos) | 28 |
+| Rotas de API | 6 |
+| Paginas | 48 |
+| Componentes | 144 |
 
 ## Arvore (profundidade 3)
 
@@ -21,12 +21,13 @@ app/
     moldura-autenticacao.tsx
     pecas.tsx
   (aluno)/
-    [secao]/
     aula/
     avaliacoes/
     certificados/
+    comunidade/
     continuar/
     cursos/
+    notificacoes/
     perfil/
     trilhas/
     layout.tsx
@@ -36,6 +37,7 @@ app/
     [secao]/
     avaliacoes/
     certificados/
+    comunidade/
     configuracoes/
     conteudos/
     matriculas/
@@ -44,6 +46,7 @@ app/
     layout.tsx
     page.tsx
   api/
+    notificacoes/
     progresso/
     video/
   certificado/
@@ -131,6 +134,21 @@ components/
     previa-certificado.tsx
     verificacao-publica.test.tsx
     verificacao-publica.tsx
+  comunidade/
+    botao-curtir.tsx
+    comentarios.tsx
+    compositor-comunidade.tsx
+    comunidade.test.tsx
+    dialogo-motivo.tsx
+    extras-post.tsx
+    feed-comunidade.tsx
+    formatos.ts
+    menu-conteudo.tsx
+    menu-filtro.tsx
+    post-aberto.tsx
+    post-comunidade.tsx
+    seletor-canal.tsx
+    texto-com-links.tsx
   curso/
     acordeao-modulos.test.tsx
     acordeao-modulos.tsx
@@ -154,6 +172,7 @@ components/
     cartao-perfil.tsx
     cartao-post.tsx
     cartao-trilha.tsx
+    compositor-post.test.tsx
     compositor-post.tsx
     etapas-trilha.test.tsx
     etapas-trilha.tsx
@@ -167,6 +186,16 @@ components/
     logo.tsx
   matriculas/
     dialogo-matricular.tsx
+  notificacoes/
+    item-notificacao.tsx
+    leitura.ts
+    lista-completa.tsx
+    painel-notificacoes.tsx
+    sino-notificacoes.test.tsx
+    sino-notificacoes.tsx
+    tempo.test.ts
+    tempo.ts
+    use-contagem.ts
   player/
     acumulador.test.ts
     acumulador.ts
@@ -246,6 +275,8 @@ lib/
     avaliacoes-aluno.ts
     avaliacoes.ts
     certificados.ts
+    comunidade-moderacao.ts
+    comunidade.ts
     criadores.ts
     favoritos.ts
     grupos.ts
@@ -253,6 +284,7 @@ lib/
     matriculas.ts
     membros-gestao.ts
     membros.ts
+    notificacoes.ts
     perfil.ts
     preferencias.ts
     produtos-estrutura.ts
@@ -266,6 +298,7 @@ lib/
   armazenamento/
     arquivos.ts
     cliente.ts
+    envio.ts
     regras.test.ts
     regras.ts
   audit/
@@ -322,6 +355,16 @@ lib/
     regras.test.ts
     regras.ts
     worker.ts
+  comunidade/
+    anexos.ts
+    canais.ts
+    comentarios.ts
+    consultas.ts
+    moderacao.ts
+    publicacoes.ts
+    regras.test.ts
+    regras.ts
+    sql.ts
   criador/
     area.ts
     atual.ts
@@ -354,6 +397,12 @@ lib/
     regras.test.ts
     regras.ts
     vinculos.ts
+  notificacoes/
+    consultas.ts
+    gerar.ts
+    regras.test.ts
+    regras.ts
+    rota.ts
   painel/
     cache.ts
     consultas.ts
@@ -380,6 +429,7 @@ lib/
     avaliacoes.ts
     catalogo.test.ts
     catalogo.ts
+    comunidade.ts
     criadores.test.ts
     criadores.ts
     matriculas.ts
@@ -448,6 +498,33 @@ proxy.ts
 
 ### `produtos_certificados_versoes` — src/lib/db/schema/certificados.ts
 `id`, `criador_id`, `certificado_id`, `versao`, `situacao`, `dados`, `arquivo_id`, `gerada_em`, `erro`
+
+### `criadores_denuncias` — src/lib/db/schema/comunidade-moderacao.ts
+`id`, `criador_id`, `denunciante_membro_id`, `post_id`, `comentario_id`, `motivo`, `situacao`, `resolvida_em`, `decisao`
+
+### `criadores_membros_silenciamentos` — src/lib/db/schema/comunidade-moderacao.ts
+`id`, `criador_id`, `membro_id`, `ate`, `motivo`
+
+### `criadores_membros_notificacoes` — src/lib/db/schema/comunidade-moderacao.ts
+`id`, `criador_id`, `membro_id`, `tipo`, `dados`, `chave`, `atores`, `total`, `evento_em`, `lida_em`, `arquivada_em`
+
+### `criadores_canais` — src/lib/db/schema/comunidade.ts
+`id`, `criador_id`, `nome`, `descricao`, `ordem`, `acesso`, `grupo_id`, `produto_id`, `quem_posta`, `padrao`
+
+### `criadores_canais_posts` — src/lib/db/schema/comunidade.ts
+`id`, `criador_id`, `canal_id`, `autor_membro_id`, `aula_id`, `texto`, `enquete_pergunta`, `enquete_opcoes`, `enquete_encerra_em`, `fixado_em`, `oculto_em`, `motivo_ocultacao`, `editado_em`, `curtidas`, `comentarios`
+
+### `criadores_canais_posts_anexos` — src/lib/db/schema/comunidade.ts
+`id`, `criador_id`, `post_id`, `arquivo_id`, `ordem`
+
+### `criadores_canais_posts_votos` — src/lib/db/schema/comunidade.ts
+`id`, `criador_id`, `post_id`, `membro_id`, `opcao`
+
+### `criadores_comentarios` — src/lib/db/schema/comunidade.ts
+`id`, `criador_id`, `post_id`, `aula_id`, `pai_id`, `autor_membro_id`, `texto`, `oculto_em`, `motivo_ocultacao`, `editado_em`, `curtidas`
+
+### `criadores_curtidas` — src/lib/db/schema/comunidade.ts
+`id`, `criador_id`, `membro_id`, `post_id`, `comentario_id`
 
 ### `criadores_grupos` — src/lib/db/schema/criadores-grupos.ts
 `id`, `criador_id`, `nome`, `tipo`
@@ -531,6 +608,7 @@ proxy.ts
 
 | Rota | Metodos |
 |------|---------|
+| `/api/notificacoes/contagem` | GET |
 | `/api/progresso` | POST |
 | `/api/video/[id]/chave` | GET |
 | `/api/video/[id]/hls/[...caminho]` | GET |
@@ -547,6 +625,8 @@ proxy.ts
 - `src/lib/actions/avaliacoes-aluno.ts`: `acaoIniciarTentativa()`, `acaoResponder()`, `acaoFinalizarTentativa()`
 - `src/lib/actions/avaliacoes.ts`: `acaoCriarAvaliacao()`, `acaoSalvarAvaliacao()`, `acaoAlterarSituacaoAvaliacao()`, `acaoRemoverAvaliacao()`, `acaoCriarQuestao()`, `acaoSalvarQuestao()`, `acaoRemoverQuestao()`, `acaoReordenarQuestoes()`, `acaoConcederTentativa()`
 - `src/lib/actions/certificados.ts`: `acaoSalvarModeloCertificado()`, `acaoGerarNovaVersaoCertificado()`, `acaoRevogarCertificado()`, `acaoBaixarCertificado()`
+- `src/lib/actions/comunidade-moderacao.ts`: `acaoFixarPublicacao()`, `acaoOcultar()`, `acaoResolverDenuncia()`, `acaoSilenciarMembro()`, `acaoDessilenciarMembro()`, `acaoCriarCanal()`, `acaoSalvarCanal()`, `acaoRemoverCanal()`
+- `src/lib/actions/comunidade.ts`: `acaoPublicar()`, `acaoEditarPublicacao()`, `acaoRemoverPublicacao()`, `acaoVotarEnquete()`, `acaoCurtir()`, `acaoComentar()`, `acaoEditarComentario()`, `acaoRemoverComentario()`, `acaoDenunciar()`, `acaoIniciarEnvioAnexo()`, `acaoConfirmarEnvioAnexo()`, `acaoLinkDoAnexo()`, `acaoMaisPublicacoes()`
 - `src/lib/actions/criadores.ts`: `acaoCriarCriador()`, `acaoAlterarSituacaoCriador()`
 - `src/lib/actions/favoritos.ts`: `acaoFavoritar()`, `acaoDesfavoritar()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
@@ -554,6 +634,7 @@ proxy.ts
 - `src/lib/actions/matriculas.ts`: `acaoMatricular()`, `acaoCancelarMatricula()`, `acaoAlterarExpiracao()`, `acaoReativarMatricula()`, `acaoBuscarMembros()`
 - `src/lib/actions/membros-gestao.ts`: `acaoMudarPapel()`, `acaoAlterarSituacaoMembro()`, `acaoRemoverMembro()`, `acaoDefinirGruposDoMembro()`
 - `src/lib/actions/membros.ts`: `acaoCadastrarMembro()`, `acaoImportarMembros()`
+- `src/lib/actions/notificacoes.ts`: `acaoMarcarNotificacoesLidas()`, `acaoMaisNotificacoes()`
 - `src/lib/actions/perfil.ts`: `acaoSalvarPerfil()`
 - `src/lib/actions/preferencias.ts`: `acaoSalvarPreferencias()`
 - `src/lib/actions/produtos-estrutura.ts`: `acaoCriarModulo()`, `acaoEditarModulo()`, `acaoRemoverModulo()`, `acaoReordenarModulos()`, `acaoCriarAula()`, `acaoRemoverAula()`, `acaoReordenarAulas()`
@@ -567,15 +648,16 @@ proxy.ts
 
 ## Paginas
 
-- `src/app/(aluno)/[secao]/page.tsx`
 - `src/app/(aluno)/aula/[id]/page.tsx`
 - `src/app/(aluno)/avaliacoes/[id]/page.tsx`
 - `src/app/(aluno)/avaliacoes/[id]/resultado/[tentativaId]/page.tsx`
 - `src/app/(aluno)/avaliacoes/[id]/tentativa/[tentativaId]/page.tsx`
 - `src/app/(aluno)/avaliacoes/page.tsx`
 - `src/app/(aluno)/certificados/page.tsx`
+- `src/app/(aluno)/comunidade/page.tsx`
 - `src/app/(aluno)/continuar/page.tsx`
 - `src/app/(aluno)/cursos/[slug]/page.tsx`
+- `src/app/(aluno)/notificacoes/page.tsx`
 - `src/app/(aluno)/page.tsx`
 - `src/app/(aluno)/perfil/page.tsx`
 - `src/app/(aluno)/trilhas/[id]/page.tsx`
@@ -587,6 +669,7 @@ proxy.ts
 - `src/app/admin/avaliacoes/page.tsx`
 - `src/app/admin/certificados/modelo/page.tsx`
 - `src/app/admin/certificados/page.tsx`
+- `src/app/admin/comunidade/page.tsx`
 - `src/app/admin/configuracoes/aparencia/page.tsx`
 - `src/app/admin/conteudos/[id]/aulas/[aulaId]/page.tsx`
 - `src/app/admin/conteudos/[id]/page.tsx`

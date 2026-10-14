@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ErroDeNegocio, executar } from "@/lib/acao";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { exigirSuperAdmin, MSG_SEM_PERMISSAO } from "@/lib/auth/autorizacao";
+import { garantirCanalGeral } from "@/lib/comunidade/canais";
 import { db } from "@/lib/db";
 import { criadores } from "@/lib/db/schema";
 import { STATUS_CRIADOR } from "@/lib/db/schema/_enums";
@@ -35,6 +36,7 @@ export async function acaoCriarCriador(entrada: unknown) {
     const vinculo = await db
       .transaction(async (tx) => {
         await tx.insert(criadores).values({ id: criadorId, slug: e.slug, nome: e.nome, cor_marca: cor, modified_by: s.userId });
+        await garantirCanalGeral(tx, criadorId, s.userId);
         await registrarAuditoria(tx, {
           userId: s.userId,
           criadorId,

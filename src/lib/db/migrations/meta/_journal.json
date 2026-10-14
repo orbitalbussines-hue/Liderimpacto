@@ -50,6 +50,13 @@
       "when": 1791983623184,
       "tag": "0006_avaliacoes_certificados_trilhas",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791990288156,
+      "tag": "0007_comunidade_notificacoes",
+      "breakpoints": true
     }
   ]
 }

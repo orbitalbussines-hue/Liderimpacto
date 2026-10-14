@@ -4,6 +4,7 @@ import { registrarAuditoria } from "@/lib/audit/registrar";
 import { db, type Transacao } from "@/lib/db";
 import { produtos_modulos_aulas, produtos_modulos_aulas_videos as videos, produtos_modulos_aulas_videos_processamentos as processamentos } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
+import { notificarAulaNova } from "@/lib/notificacoes/gerar";
 import type { EstadoVideo, EventoVideo } from "./provedor";
 
 /**
@@ -68,7 +69,8 @@ async function fecharTentativa(tx: Transacao, v: typeof videos.$inferSelect, ten
  * (o `modified_by` atual do vídeo); na trilha, `user_id` nulo: quem age é o sistema.
  */
 export async function aplicarEvento(e: EventoVideo): Promise<boolean> {
-  return db.transaction(async (tx) => {
+  let pronto: { criadorId: string; aulaId: string; autor: string } | null = null;
+  const aplicado = await db.transaction(async (tx) => {
     const v = await travarEmProcessamento(tx, e.videoId);
     if (!v) return false;
     const autor = v.modified_by;
@@ -110,6 +112,7 @@ export async function aplicarEvento(e: EventoVideo): Promise<boolean> {
         dadosAnteriores: { situacao: v.situacao },
         dadosNovos: { situacao: "PRONTO", duracao_seg: duracaoSeg, resolucoes: e.resolucoes },
       });
+      pronto = { criadorId: v.criador_id, aulaId: v.aula_id, autor };
       return true;
     }
 
@@ -136,4 +139,8 @@ export async function aplicarEvento(e: EventoVideo): Promise<boolean> {
     }
     return true;
   });
+  // Aula nova para os matriculados: depois do commit, idempotente por aula, nunca lança (RN-134).
+  const p = pronto as { criadorId: string; aulaId: string; autor: string } | null;
+  if (p) await notificarAulaNova(p.criadorId, p.aulaId, p.autor);
+  return aplicado;
 }

@@ -412,6 +412,123 @@ npm run worker:certificados   # outro terminal/container; reenfileira as versõe
 `emitir`/`gerarNovaVersao` enfileiram `{ versaoId }` DEPOIS do commit (`enfileirado: false` = fila fora
 do ar: a versão fica PENDENTE até o worker subir). Sem worker rodando, os PDFs ficam "Gerando…".
 
+## Comunidade e notificações (passo 8)
+
+ADR-0009, RN-130 a RN-134 (padrões aguardando o cliente). Migração `0007_comunidade_notificacoes`
+(cria o canal "Geral" de todo criador que já existia). Nenhuma variável de ambiente nem pacote novo.
+
+| Tabela | Para quê |
+|--------|----------|
+| `criadores_canais` | nome (único entre os vivos, sem caixa), descrição, ordem, `acesso` TODOS/GRUPO/PRODUTO/EQUIPE (+ `grupo_id`/`produto_id`, CHECK), `quem_posta` TODOS/EQUIPE (avisos), `padrao` (o "Geral": um por criador, sempre TODOS, não sai) |
+| `criadores_canais_posts` | canal, autor (membro), `aula_id` opcional ("em <aula>"), `texto` PURO 1–5000, enquete (`enquete_pergunta`, `enquete_opcoes` jsonb 2–6, `enquete_encerra_em`), `fixado_em`, `oculto_em` + `motivo_ocultacao`, `editado_em`, contadores `curtidas`/`comentarios` (sistema: não tocam `updated_at`) |
+| `criadores_canais_posts_anexos` | arquivo (`arquivos`, finalidade COMUNIDADE_IMAGEM/COMUNIDADE_PDF) do post, ordem; um arquivo, um uso |
+| `criadores_canais_posts_votos` | voto único por (post, membro); trocar = UPDATE |
+| `criadores_comentarios` | em post OU aula (CHECK), `pai_id` (1 nível), texto PURO 1–2000, oculto/motivo, `editado_em`, `curtidas` |
+| `criadores_curtidas` | post OU comentário; UMA linha por (membro, alvo) para sempre (toggle = soft delete/reativa) |
+| `criadores_denuncias` | denunciante, post OU comentário, motivo, situação ABERTA/RESOLVIDA/DESCARTADA, `resolvida_em`, `decisao`; uma viva por pessoa e alvo |
+| `criadores_membros_silenciamentos` | membro silenciado até `ate`, motivo; uma linha viva por membro |
+| `criadores_membros_notificacoes` | destinatário (membro), `tipo`, `dados` jsonb (só ids e rótulos curtos), `chave` (idempotência/agregação, única por membro), `atores`/`total` (curtidas agregadas), `evento_em` (ordena e conta a retenção), `lida_em`, `arquivada_em`. Índice PARCIAL das não lidas para o contador |
+
+Também: `arquivos.finalidade` aceita COMUNIDADE_IMAGEM (JPG/PNG/WebP até 5 MB) e COMUNIDADE_PDF (até
+20 MB) — `ALLOWLIST` em `src/lib/armazenamento/regras.ts`; o envio do catálogo (`acaoIniciarEnvio`)
+segue só IMAGEM/MATERIAL. O fluxo de envio de 3 tempos mora em `src/lib/armazenamento/envio.ts`
+(`iniciarEnvio`, `confirmarEnvio`), usado pelo catálogo e pela comunidade. Criador novo
+(`acaoCriarCriador`) nasce com o "Geral" (`garantirCanalGeral`).
+
+### Regras puras (`src/lib/comunidade/regras.ts`, `src/lib/notificacoes/regras.ts` — servem à tela)
+
+```ts
+segmentosDeTexto(texto): ({ tipo: "texto"; valor } | { tipo: "link"; valor; href })[]
+// A TELA renderiza texto com o escape do React e link como
+// <a href={href} rel="noopener noreferrer nofollow" target="_blank">{valor}</a>. NUNCA dangerouslySetInnerHTML.
+normalizarTexto(texto)  // o validador já aplica (sem controles, bidi, largura zero)
+iniciais(nome) /* "AP" */, primeiroNome(nome), resumo(texto, max = 80)
+ACCEPT_ANEXOS /* accept do <input type="file"> */, MAX_IMAGENS_POST = 4, MAX_PDFS_POST = 2, problemaDosAnexos(finalidades)
+TEXTO_POST_MAX = 5000, TEXTO_COMENTARIO_MAX = 2000, ENQUETE_OPCOES_MIN/MAX = 2/6, enqueteAberta(encerraEm, agora)
+LIMITE_POSTS_JANELA = 5, LIMITE_COMENTARIOS_JANELA = 20, LIMITE_ENVIOS_JANELA = 12, JANELA_LIMITE_MIN = 10
+// notificacoes/regras.ts
+textoDaNotificacao({ tipo, dados, total }), linkDaNotificacao({ tipo, dados }), rotuloDoContador(n) /* "99+" */
+INTERVALO_POLLING_MS = 60_000, RETENCAO_DIAS = 90, TETO_CONTADOR = 99
+```
+
+### Leituras para as telas
+
+`q: QuemPede` = o `membroDaPagina(TODOS_OS_MEMBROS)` inteiro (criador do HOST). Datas como `Date`.
+
+| Função | Retorno |
+|--------|---------|
+| `canaisDoMembro(q)` (`comunidade/canais.ts`) | `{ id, nome, descricao, acesso, quemPosta, padrao, podePublicar }[]` — só os que `q` vê, por ordem e nome |
+| `feedDaComunidade(q, { canalId?, ordem?: "RECENTES" \| "CURTIDOS", cursor?, limite = 20 })` (`comunidade/consultas.ts`) | `null` (canal que `q` não vê/de outro criador: 404) ou `{ itens: PostDoFeed[], proximoCursor: string \| null }`. Sem `canalId` = todos os canais visíveis |
+| `PostDoFeed` | `{ id, canal: { id, nome }, autor: { membroId, nome, iniciais, imagem, equipe }, aula: { id, titulo } \| null, texto, criadoEm, editadoEm, fixado, oculto: { motivo } \| null, curtidas, comentarios, curtiu, anexos: { id, tipo: "IMAGEM" \| "PDF", nome, tamanho, url /* imagem: assinada 1–2 h; PDF: null, use acaoLinkDoAnexo */ }[], enquete: { pergunta, opcoes: { indice, texto, votos }[], totalVotos, meuVoto, encerraEm, aberta } \| null, podeEditar, podeRemover, podeModerar, versao }` |
+| `totalDePublicacoes(q, canalId?)` | `number` ("32 publicações") |
+| `postDaComunidade(q, postId)` | `null` ou `{ post: PostDoFeed, comentarios: ComentarioDaArvore[] }` |
+| `comentariosDaAula(q, aulaId)` — aba "Comentários" do player | `null` (quem pede não pode assistir) ou `ComentarioDaArvore[]` |
+| `ComentarioDaArvore` | `{ id, autor, texto, criadoEm, editadoEm, oculto: { motivo } \| null, curtidas, curtiu, podeEditar, podeRemover, podeModerar, versao, respostas: ComentarioDaArvore[] /* 1 nível */ }` (ordem de criação; até 500) |
+| `lateralDaComunidade(q)` | `{ proximoEncontro: null /* não há eventos ainda */, fixados: { id, canalId, canalNome, titulo }[] /* 5 */, membrosAtivos: (AutorPublico & { pontos: 0, interacoes })[] /* 5, posts + comentários em 30 dias */ }` |
+| `aulasParaRelacionar(q, limite = 30)` — "em <aula>" do compositor | `{ id, titulo, produtoTitulo }[]`. ALUNO: aulas com progresso dele (inclusive concluídas), mais recentes primeiro, só as que ainda pode assistir agora (regra de `motivoDoBloqueio`); equipe: aulas visíveis mais recentes do criador. `acaoPublicar` recusa (`"Aula não encontrada."`) aula que o autor não pode assistir |
+| `situacaoNaComunidade(q)` | `{ podeParticipar /* tem vínculo */, equipe, silenciadoAte: Date \| null }` — compositor |
+| `canaisParaEditar(criadorId)` (equipe) | `{ id, nome, descricao, ordem, acesso, grupo: { id, nome } \| null, produto: { id, titulo } \| null, quemPosta, padrao, publicacoes, versao }[]` |
+| `filaDeDenuncias(criadorId, situacao = "ABERTA")` (`comunidade/moderacao.ts`, equipe) | `{ id, situacao, motivo, decisao, criadaEm, denunciante: { membroId, nome }, alvo: { tipo: "POST" \| "COMENTARIO", id, postId, aulaId, autor: { membroId, nome, equipe /* DONO/ADMIN: sem "Silenciar" */ }, trecho, oculto, removido, versao /* trava do POST/COMENTÁRIO para acaoOcultar */ }, versao /* trava da denúncia */ }[]` (100) |
+| `membrosSilenciados(criadorId)` (equipe) | `{ membroId, nome, ate, motivo }[]` |
+| `notificacoesDoMembro(criadorId, membroId, { cursor?, limite = 20 })` (`notificacoes/consultas.ts`) | `{ itens: { id, tipo, texto, href, lida, em }[], proximoCursor }` — membro da SESSÃO (`q.membro.id`; nulo = sem notificações) |
+| `contarNaoLidas(criadorId, membroId)` | `number` (até 100 = "99+") |
+
+### Serviços de escrita (`src/lib/comunidade/`, chamados pelas actions e pelo seed)
+
+`Participante = { criadorId, usuarioId, membroId, papel, nome }` (precisa de vínculo);
+`Moderador = { criadorId, usuarioId, membroId | null, nome }`.
+
+```ts
+publicacoes.ts: publicar(p, { canalId, texto, aulaId, anexoIds, enquete }) → { id, versao }
+  editarPublicacao(p, postId, versao, texto) → { versao }; removerPublicacao({ criadorId, usuarioId, membroId, equipe }, postId, versao)
+  votarNaEnquete(p, postId, opcao) → { opcao }; alternarCurtida(p, { postId } | { comentarioId }) → { curtiu, curtidas }
+comentarios.ts: comentar(p, { postId } | { aulaId }, texto, paiId) → { id, versao }; editarComentario; removerComentario (leva as respostas)
+moderacao.ts: fixarPublicacao(m, postId, versao, fixar); ocultar(m, alvo, versao, { ocultar: true, motivo } | { ocultar: false });
+  denunciar(p, alvo, motivo) → { id }; resolverDenuncia(m, id, versao, "RESOLVIDA" | "DESCARTADA", decisao);
+  silenciar(m, membroId, dias, motivo) → { ate }; dessilenciar(m, membroId)
+canais.ts: garantirCanalGeral(exec, criadorId, autorId); criarCanal; salvarCanal; removerCanal
+anexos.ts: iniciarEnvioDeAnexo(p, { nome, mime, tamanho }); confirmarEnvioDeAnexo(p, arquivoId); linkDoAnexo(q, anexoId)
+notificacoes/gerar.ts (depois do commit; NUNCA lançam): notificarComentario, notificarCurtidaNoPost, notificarCanal (AVISO/POST_FIXADO),
+  notificarAulaNova, notificarCertificado, notificarMatriculas, notificarDenuncia, arquivarNotificacoesAntigas(agora?, dias = 90)
+```
+
+Eventos que já existiam e agora notificam (depois do commit): vídeo da aula PRONTO pela primeira vez
+(`aplicarEvento` em `src/lib/video/registro.ts`: AULA_NOVA para os matriculados, se a aula já é
+visível), certificado emitido (`emitir`), matrícula criada/reativada (`acaoMatricular`,
+`acaoReativarMatricula`, importação CSV; `matricularGrupo(tx, p, novas?)` devolve os ids no 3º
+parâmetro). Tentativa corrigida NÃO notifica: o resultado aparece na hora da finalização.
+
+### Actions (todas `executar()` → `Resultado`; criador do HOST; sessão antes do Zod `strictObject` de `src/lib/validators/comunidade.ts`)
+
+| Action | Arquivo | Quem | Entrada → `dados` | Audita |
+|--------|---------|------|-------------------|--------|
+| `acaoPublicar` | `actions/comunidade.ts` | membro com vínculo (avisos: só equipe; silenciado não) | `{ canalId, texto, aulaId?, anexoIds? (até 6), enquete?: { pergunta, opcoes: string[2..6], encerraEm?: ISO } }` → `{ id, versao }` | criar |
+| `acaoEditarPublicacao` | idem | só o autor (não silenciado) | `{ postId, versao, texto }` → `{ versao }` | atualizar |
+| `acaoRemoverPublicacao` | idem | autor ou DONO/ADMIN (modal block) | `{ postId, versao }` → `null` | excluir |
+| `acaoVotarEnquete` | idem | membro que vê o post | `{ postId, opcao /* índice */ }` → `{ opcao }` | atualizar |
+| `acaoCurtir` | idem | membro que vê o alvo | `{ postId }` ou `{ comentarioId }` → `{ curtiu, curtidas }` | criar / excluir |
+| `acaoComentar` | idem | quem vê o post / pode assistir a aula (não silenciado) | `{ postId \| aulaId, texto, paiId? }` → `{ id, versao }` | criar |
+| `acaoEditarComentario` / `acaoRemoverComentario` | idem | autor / autor ou DONO/ADMIN | `{ comentarioId, versao, texto }` → `{ versao }` / `{ comentarioId, versao }` → `null` | atualizar / excluir |
+| `acaoDenunciar` | idem | membro que vê o alvo (não o próprio) | `{ postId \| comentarioId, motivo }` → `{ id }` | criar |
+| `acaoIniciarEnvioAnexo` / `acaoConfirmarEnvioAnexo` | idem | membro com vínculo | `{ nome, mime, tamanho }` → `{ arquivoId, envio: UrlDeEnvio }` / `{ arquivoId }` → `{ arquivoId, nome, tamanho, tipo: "IMAGEM" \| "PDF" }` | criar / atualizar |
+| `acaoLinkDoAnexo` | idem | quem vê o post | `{ anexoId }` → `{ url /* 5 min */ }` | não (leitura) |
+| `acaoMaisPublicacoes` | idem | qualquer membro | `{ canalId?, ordem?, cursor? }` → `{ itens, proximoCursor }` | não (leitura) |
+| `acaoFixarPublicacao` | `actions/comunidade-moderacao.ts` | DONO, ADMIN | `{ postId, versao, fixar }` → `{ versao }` | atualizar |
+| `acaoOcultar` | idem | DONO, ADMIN | `{ postId \| comentarioId, versao, ocultar: true, motivo }` ou `{ ..., ocultar: false }` → `{ versao }` | atualizar |
+| `acaoResolverDenuncia` | idem | DONO, ADMIN | `{ denunciaId, versao, situacao: "RESOLVIDA" \| "DESCARTADA", decisao? }` → `{ versao }` | atualizar |
+| `acaoSilenciarMembro` / `acaoDessilenciarMembro` | idem | DONO, ADMIN (só ALUNO é silenciado) | `{ membroId, dias (1–365), motivo }` → `{ ate }` / `{ membroId }` → `null` | criar / excluir |
+| `acaoCriarCanal` / `acaoSalvarCanal` / `acaoRemoverCanal` | idem | DONO, ADMIN | `{ nome, descricao?, ordem?, acesso, grupoId?, produtoId?, quemPosta? }` → `{ id, versao }` / `{ canalId, versao, dados }` → `{ versao }` / `{ canalId, versao }` → `null` | criar / atualizar / excluir |
+| `acaoMarcarNotificacoesLidas` | `actions/notificacoes.ts` | a própria pessoa | `{ ids: uuid[1..100] }` ou `{ todas: true }` → `{ marcadas }` | não (caixa da própria pessoa) |
+| `acaoMaisNotificacoes` | idem | a própria pessoa | `{ cursor? }` → `{ itens, proximoCursor }` | não (leitura) |
+
+### `GET /api/notificacoes/contagem` (sino)
+
+Route handler fino que chama `atenderContagem(req)` (`src/lib/notificacoes/rota.ts`). Sessão PLENA do
+host (cookie de outro host = 401), resposta `{ "naoLidas": n }` com `Cache-Control: no-store`; sem
+sessão = 401 sem corpo; SUPER_ADMIN sem vínculo = `{ "naoLidas": 0 }`. A tela faz polling a cada
+`INTERVALO_POLLING_MS` SÓ com a aba visível (`document.visibilityState`). A rota lê a sessão com
+`sessaoDosCabecalhos(h, { renovar: false })`: o polling NÃO conta como uso (aba esquecida expira em 1 h).
+
 ## Variáveis de ambiente (passo 3)
 
 | Variável | Dev (docker-compose) | Produção | Para quê |

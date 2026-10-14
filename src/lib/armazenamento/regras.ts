@@ -47,6 +47,23 @@ export const ALLOWLIST: Record<FinalidadeArquivo, Regra> = {
       { mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extensoes: ["docx"], material: "DOC" },
     ],
   },
+  // Comunidade (passo 8, RN-131): limites menores, qualquer membro envia.
+  COMUNIDADE_IMAGEM: {
+    maxBytes: 5 * MB,
+    descricao: "JPG, PNG ou WebP até 5 MB",
+    pasta: "comunidade",
+    tipos: [
+      { mime: "image/jpeg", extensoes: ["jpg", "jpeg"] },
+      { mime: "image/png", extensoes: ["png"] },
+      { mime: "image/webp", extensoes: ["webp"] },
+    ],
+  },
+  COMUNIDADE_PDF: {
+    maxBytes: 20 * MB,
+    descricao: "PDF até 20 MB",
+    pasta: "comunidade",
+    tipos: [{ mime: "application/pdf", extensoes: ["pdf"] }],
+  },
 };
 
 /** Extensao em minusculas, sem o ponto ("" se nao houver). */

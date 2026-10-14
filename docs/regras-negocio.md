@@ -312,6 +312,46 @@ Cada regra segue este formato:
 - **Comportamento esperado**: revogar usa trava de colisão e vai para a trilha (antes → depois); a página pública passa a dizer "revogado" na hora.
 - **Impacto se descumprida**: certificado cancelado ainda "válido" para quem confere, vazamento de dados pessoais na página pública.
 
+### RN-130 - Canais da comunidade — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Área do aluno › Comunidade / Admin
+- **Descricao**: O criador tem canais com nome, descrição e ordem. Quem VÊ: **todos os membros** (padrão), só quem está num **grupo**, só quem tem **matrícula valendo num curso**, ou só a **equipe**. Quem PUBLICA: todos que veem (padrão) ou **só a equipe** (canal de avisos). Comentar segue quem vê. Todo criador nasce com o canal **"Geral"** (de todos; não se remove nem fecha). A equipe (DONO, ADMIN) vê e modera todos os canais.
+- **Comportamento esperado**: aluno nunca vê canal, post, comentário ou anexo de canal fora do acesso dele — nem pelo link; matrícula expirada ou saída do grupo tira o acesso na próxima requisição. Nome de canal único por área. Criar/alterar/remover canal: só DONO e ADMIN, com trava e trilha.
+- **Impacto se descumprida**: conteúdo de turma/curso pago vazando para quem não comprou; avisos misturados com conversa.
+
+### RN-131 - Publicações: texto puro, anexos e enquete — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Área do aluno › Comunidade
+- **Descricao**: Publicação = texto puro de 1 a 5000 caracteres (sem HTML/formatação; links http/https ficam clicáveis e abrem em outra aba; menção fica para depois), aula relacionada opcional ("em <aula>", só uma aula que a pessoa pode assistir), até **4 imagens** (JPG, PNG ou WebP até **5 MB**) e **2 PDFs** (até **20 MB**), e enquete opcional (pergunta + **2 a 6 opções**, **voto único que pode ser trocado** até o encerramento opcional). Só o autor edita o texto (aparece "editado"); anexos e enquete não se editam. O autor ou a equipe removem (modal block); os anexos saem junto.
+- **Comportamento esperado**: HTML digitado aparece como texto, nunca executa; arquivo fora da lista, maior que o limite, de outra pessoa ou já usado é recusado; voto depois do encerramento é recusado.
+- **Impacto se descumprida**: XSS/golpe por link disfarçado, arquivo perigoso na área, enquete fraudada.
+
+### RN-132 - Comentários, curtidas e moderação — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Comunidade / Player (aba Comentários) / Admin
+- **Descricao**: Comentário (texto puro 1 a 2000) em publicação ou em AULA (visível a quem pode assistir a aula), com **um nível de resposta** (responder a uma resposta vai para o mesmo comentário principal). Autor edita e remove; remover o comentário principal leva as respostas. Curtida em publicação ou comentário: **uma por pessoa** (curtir de novo descurte). A equipe **fixa** publicações, **oculta/reexibe com motivo** (o autor continua vendo, com o motivo; os outros alunos não) e remove. Qualquer membro **denuncia** publicação ou comentário de outra pessoa (motivo; uma vez por item) e a equipe vê a **fila de denúncias** para resolver ou descartar. A equipe **silencia um aluno por 1 a 365 dias** (não publica, não comenta, não edita; ainda lê, curte e vota). Equipe não é silenciada.
+- **Comportamento esperado**: tudo com trava de colisão e na trilha (quem, o quê, quando).
+- **Impacto se descumprida**: comunidade sem controle, conteúdo ofensivo sem resposta, aluno silenciado publicando.
+
+### RN-133 - Limite de frequência na comunidade — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Comunidade
+- **Descricao**: Por pessoa, numa janela de 10 minutos: no máximo **5 publicações**, **20 comentários** e **12 envios de anexo**. Apagar não devolve a cota.
+- **Comportamento esperado**: o excedente recebe "Você publicou muitas vezes em pouco tempo. Aguarde alguns minutos e tente de novo." e nada é gravado.
+- **Impacto se descumprida**: spam e enxurrada de notificações.
+
+### RN-134 - Notificações — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Sino (área do aluno e admin)
+- **Descricao**: Notificação dentro do sistema (sem e-mail) para: comentário na minha publicação; resposta ao meu comentário; curtidas na minha publicação (**agrupadas: uma por publicação por dia**, "Ana e mais 3 curtiram"); aviso novo no canal de avisos e publicação fixada (para quem vê o canal); **aula nova** (o vídeo ficou pronto) em curso em que estou matriculado; certificado emitido; matrícula nova; denúncia nova (só equipe). Nunca para quem causou o evento. Não lida/lida, "marcar todas como lidas", contador no sino (atualiza a cada ~1 minuto, "99+" no teto). Notificações com mais de **90 dias** somem da lista (arquivadas, não apagadas). Tentativa de avaliação corrigida não notifica (o resultado aparece na hora). Preferência por tipo fica para depois.
+- **Comportamento esperado**: a notificação nunca derruba a ação que a gerou; nada de dado pessoal além do primeiro nome de quem agiu e do nome do curso/aula/canal.
+- **Impacto se descumprida**: aluno sem saber que responderam, ou notificação vazando conteúdo de quem não deveria ver.
+
 <!-- Exemplo de registro: -->
 
 <!--

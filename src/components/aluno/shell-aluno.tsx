@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Bell, ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { Logo } from "@/components/marca/logo";
 import { EstiloMarca } from "@/components/marca/estilo-marca";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { SinoNotificacoes } from "@/components/notificacoes/sino-notificacoes";
 import { MenuAluno } from "./menu-aluno";
 import { TabBarAluno } from "./tab-bar-aluno";
 
@@ -16,7 +17,7 @@ export interface UsuarioShell {
 
 export interface ShellAlunoProps {
   usuario: UsuarioShell;
-  /** Contador do sino; 0 esconde a bolinha. */
+  /** Contagem inicial do sino (depois o cliente segue por polling); 0 esconde a bolinha. */
   notificacoes: number;
   /** Cor da marca em hex (EstiloMarca); sem ela vale o dourado padrão. */
   corMarca?: string;
@@ -41,22 +42,7 @@ export function ShellAluno({ usuario, notificacoes, corMarca, children }: ShellA
         <Button variant="fantasma" size="icone44" aria-label="Buscar" className="min-w-11 shrink-0">
           <Search aria-hidden />
         </Button>
-        <Button
-          variant="fantasma"
-          size="icone44"
-          aria-label={notificacoes > 0 ? `Notificações (${notificacoes} novas)` : "Notificações"}
-          className="relative min-w-11 shrink-0"
-        >
-          <Bell aria-hidden />
-          {notificacoes > 0 && (
-            <span
-              aria-hidden
-              className="absolute top-[5px] right-1 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-accent text-[10px] font-extrabold text-accent-ink"
-            >
-              {notificacoes > 9 ? "9+" : notificacoes}
-            </span>
-          )}
-        </Button>
+        <SinoNotificacoes inicial={notificacoes} />
         <Link href="/perfil" aria-label="Meu perfil" className="flex shrink-0 items-center gap-1.5">
           <Avatar nome={usuario.nome} src={usuario.avatarUrl} tamanho={36} forma="quadrado" tom="dourado" />
           <ChevronDown aria-hidden className="hidden size-3.5 text-muted desk:block" />

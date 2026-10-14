@@ -5,7 +5,11 @@ import { EstiloMarca } from "@/components/marca/estilo-marca";
 import { urlDeImagemOuNula } from "@/lib/armazenamento/cliente";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
+import { comentariosDaAula, situacaoNaComunidade } from "@/lib/comunidade/consultas";
+import { iniciais } from "@/lib/comunidade/regras";
 import { aulaParaPlayer } from "@/lib/progresso/consultas";
+import { Comentarios } from "@/components/comunidade/comentarios";
+import { textoSilenciado } from "@/components/comunidade/formatos";
 import { cn } from "@/lib/utils";
 import { idSchema } from "@/lib/validators/progresso";
 import { AulaInterativa } from "./aula-interativa";
@@ -47,7 +51,8 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
   const d = await aulaParaPlayer(q, id);
   if (!d) notFound();
 
-  const poster = await urlDeImagemOuNula(q.criador.id, d.aula.thumbChave);
+  const [poster, comentarios, situacao] = await Promise.all([urlDeImagemOuNula(q.criador.id, d.aula.thumbChave), comentariosDaAula(q, d.aula.id), situacaoNaComunidade(q)]);
+  const eu = q.membro.id ? { membroId: q.membro.id, nome: q.usuario.nome, iniciais: iniciais(q.usuario.nome), imagem: null, equipe: situacao.equipe } : null;
   const atualNaPlaylist = d.playlist.flatMap((m) => m.aulas).find((a) => a.id === d.aula.id);
   const aviso = d.motivoBloqueio
     ? avisoDeBloqueio(d.motivoBloqueio, { produto: d.produto, liberaEm: atualNaPlaylist?.liberaEm ?? null, preRequisito: atualNaPlaylist?.preRequisito ?? null, avaliacaoPendente: atualNaPlaylist?.avaliacaoPendente ?? null })
@@ -70,6 +75,18 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
         proxima={d.proxima}
         materiais={d.materiais}
         anotacoes={d.anotacoes}
+        abaInicial={typeof busca.aba === "string" ? busca.aba : undefined}
+        comentarios={
+          comentarios && (
+            <Comentarios
+              alvo={{ aulaId: d.aula.id }}
+              iniciais={comentarios}
+              eu={eu}
+              bloqueio={situacao.silenciadoAte ? textoSilenciado(situacao.silenciadoAte) : null}
+              vazio="Ninguém comentou esta aula ainda. Tire sua dúvida ou conte o que achou."
+            />
+          )
+        }
       />
       {d.flags.playlist && (
         <ListaAulas tituloCurso={d.produto.titulo} aulasConcluidas={d.progressoDoCurso.concluidas} totalAulas={d.progressoDoCurso.total} grupos={gruposDaPlaylist(d)} />

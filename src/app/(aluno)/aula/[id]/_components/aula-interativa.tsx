@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { FaixaCapitulos } from "@/components/curso/faixa-capitulos";
 import { capituloEm, type CapituloPlayer } from "@/components/player/barra-tempo";
@@ -33,6 +33,10 @@ export interface AulaInterativaProps {
   proxima: AulaVizinhaPlayer | null;
   materiais: MaterialAula[];
   anotacoes: Anotacao[];
+  /** Painel da aba Comentários (montado no servidor com `comentariosDaAula`). */
+  comentarios?: ReactNode;
+  /** `?aba=comentarios` (link das notificações): abre direto nesta aba. */
+  abaInicial?: string;
 }
 
 type Aba = "descricao" | "materiais" | "comentarios" | "anotacoes";
@@ -60,7 +64,11 @@ export function AulaInterativa(p: AulaInterativaProps) {
       p.flags.abas.anotacoes && p.podeAnotar && { valor: "anotacoes", rotulo: "Anotações" },
     ] as const
   ).filter((a): a is { valor: Aba; rotulo: string } => !!a);
-  const [aba, setAba] = useState<Aba>(abas[0]?.valor ?? "comentarios");
+  const [aba, setAba] = useState<Aba>(abas.find((a) => a.valor === p.abaInicial)?.valor ?? abas[0]?.valor ?? "comentarios");
+  const abasRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (p.abaInicial === "comentarios") abasRef.current?.scrollIntoView({ block: "start" });
+  }, [p.abaInicial]);
 
   const concluirEAvancar = () =>
     iniciar(async () => {
@@ -180,7 +188,7 @@ export function AulaInterativa(p: AulaInterativaProps) {
       )}
 
       {abas.length > 0 && (
-        <div className="flex flex-col gap-4">
+        <div ref={abasRef} className="flex scroll-mt-24 flex-col gap-4">
           <Abas itens={abas.map((a) => ({ ...a, idPainel: `painel-${a.valor}` }))} ativo={aba} onSelecionar={(v) => setAba(v as Aba)} aria-label="Conteúdo da aula" />
           {/* Painéis montados o tempo todo (só escondidos): anotação em edição não se perde ao trocar de aba. */}
           <div id="painel-descricao" role="tabpanel" aria-label="Descrição" hidden={aba !== "descricao"} className="flex max-w-[760px] flex-col gap-3.5 text-[15px] leading-[1.65]">
@@ -190,8 +198,8 @@ export function AulaInterativa(p: AulaInterativaProps) {
           <div id="painel-materiais" role="tabpanel" aria-label="Materiais" hidden={aba !== "materiais"}>
             {p.materiais.length ? <MateriaisAula materiais={p.materiais} /> : <EstadoVazio comMoldura titulo="Sem materiais nesta aula" descricao="Quando a equipe anexar PDFs, documentos ou links, eles aparecem aqui." />}
           </div>
-          <div id="painel-comentarios" role="tabpanel" aria-label="Comentários" hidden={aba !== "comentarios"}>
-            <EstadoVazio comMoldura titulo="Comentários em breve" descricao="Logo você poderá tirar dúvidas e conversar com a turma sobre cada aula." />
+          <div id="painel-comentarios" role="tabpanel" aria-label="Comentários" hidden={aba !== "comentarios"} className="max-w-[760px]">
+            {p.comentarios ?? <EstadoVazio comMoldura titulo="Comentários indisponíveis" descricao="Os comentários desta aula aparecem para quem pode assisti-la." />}
           </div>
           {abas.some((a) => a.valor === "anotacoes") && (
             <div id="painel-anotacoes" role="tabpanel" aria-label="Anotações" hidden={aba !== "anotacoes"}>

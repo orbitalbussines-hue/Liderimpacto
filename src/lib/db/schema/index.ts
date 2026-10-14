@@ -14,4 +14,6 @@ export * from "./favoritos";
 export * from "./avaliacoes";
 export * from "./certificados";
 export * from "./trilhas";
+export * from "./comunidade";
+export * from "./comunidade-moderacao";
 export * from "./auditoria";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FINALIDADES_ARQUIVO, STATUS_MODULO, STATUS_PRODUTO, TIPOS_PRODUTO } from "@/lib/db/schema/_enums";
+import { FINALIDADES_ARQUIVO_CATALOGO, STATUS_MODULO, STATUS_PRODUTO, TIPOS_PRODUTO } from "@/lib/db/schema/_enums";
 import { idSchema, versaoSchema } from "./membros";
 
 /**
@@ -117,7 +117,7 @@ export const novaOrdemSchema = z
 
 /** Pedido de URL de envio: a allowlist (src/lib/armazenamento/regras.ts) confere o resto. */
 export const envioSchema = z.strictObject({
-  finalidade: z.enum(FINALIDADES_ARQUIVO, "Finalidade inválida."),
+  finalidade: z.enum(FINALIDADES_ARQUIVO_CATALOGO, "Finalidade inválida."),
   nome: z.string().trim().min(1, "Arquivo sem nome.").max(200, "Nome do arquivo longo demais."),
   mime: z.string().trim().toLowerCase().min(3, "Tipo de arquivo ausente.").max(120),
   tamanho: z.int("Tamanho inválido.").positive("Arquivo vazio."),

@@ -7,8 +7,8 @@ import type { UrlDeEnvio } from "@/lib/armazenamento/cliente";
 import { mimeDaExtensao, validarEnvio } from "@/lib/armazenamento/regras";
 import type { FinalidadeArquivo } from "@/lib/db/schema/_enums";
 
-/** PUT direto no storage com progresso (fetch nao informa progresso de envio). */
-function enviarComProgresso(envio: UrlDeEnvio, arquivo: File, aoProgredir: (pct: number) => void): Promise<boolean> {
+/** PUT direto no storage com progresso (fetch nao informa progresso de envio). Tambem usado pelos anexos da comunidade. */
+export function enviarComProgresso(envio: UrlDeEnvio, arquivo: File, aoProgredir: (pct: number) => void): Promise<boolean> {
   return new Promise((resolver) => {
     const xhr = new XMLHttpRequest();
     xhr.open(envio.metodo, envio.url);

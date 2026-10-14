@@ -25,6 +25,8 @@ interface Props {
   refBusca?: Ref<HTMLInputElement>;
   /** Botão extra no topo (fechar da gaveta). */
   fechar?: ReactNode;
+  /** Sino de notificações (só na sidebar fixa; no celular ele fica na topbar). */
+  sino?: ReactNode;
 }
 
 const classeItem = (ativo: boolean) =>
@@ -50,7 +52,7 @@ function LinkItem({ alvo, ativo, aoNavegar, seta }: { alvo: ItemNavegacao; ativo
 }
 
 /** Conteúdo da navegação lateral: usado na sidebar fixa (desktop) e na gaveta (celular). */
-export function SidebarAdmin({ usuario, aoNavegar, refBusca, fechar }: Props) {
+export function SidebarAdmin({ usuario, aoNavegar, refBusca, fechar, sino }: Props) {
   const ativo = itemAtivo(usePathname())?.slug;
   const visivel = (i: ItemNavegacao) => papelPodeVer(usuario.papel, i);
 
@@ -63,6 +65,7 @@ export function SidebarAdmin({ usuario, aoNavegar, refBusca, fechar }: Props) {
         <Selo forma="etiqueta" className="ml-auto">
           Admin
         </Selo>
+        {sino}
         {fechar}
       </div>
 

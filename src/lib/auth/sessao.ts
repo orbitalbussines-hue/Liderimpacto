@@ -54,8 +54,13 @@ export async function expirarSessoesDe(tx: Transacao | typeof db, usuarioId: str
  * `null` quando: sem cookie valido, ociosa > 1 h, sessao de OUTRO host (cookie copiado),
  * conta excluida/inativa, ou a conta perdeu o acesso a esta area (vinculo inativo, criador
  * suspenso, deixou de ser SUPER_ADMIN no apex).
+ * `renovar: false` le sem carimbar o uso: chamada automatica (polling do sino) nao pode manter
+ * viva uma aba esquecida aberta, senao a expiracao por inatividade nunca acontece.
  */
-export async function sessaoDosCabecalhos(h: Headers): Promise<SessaoDeSeguranca | null> {
+export async function sessaoDosCabecalhos(
+  h: Headers,
+  { renovar = true }: { renovar?: boolean } = {},
+): Promise<SessaoDeSeguranca | null> {
   const alvo = await alvoDosCabecalhos(h);
   if (!alvo) return null;
   const s = await auth.api.getSession({ headers: h });
@@ -67,7 +72,7 @@ export async function sessaoDosCabecalhos(h: Headers): Promise<SessaoDeSeguranca
   }
   // Cookie por host (ADR-0003): a sessao so vale na area em que nasceu.
   if ((s.session.criadorId ?? null) !== criadorIdDo(alvo)) return null;
-  if (ociosaMs > CARIMBO_MS) {
+  if (renovar && ociosaMs > CARIMBO_MS) {
     await db.update(usuarios_sessoes).set({ updated_at: new Date() }).where(eq(usuarios_sessoes.id, s.session.id));
   }
   const [u] = await db

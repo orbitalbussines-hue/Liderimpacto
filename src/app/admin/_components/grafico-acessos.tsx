@@ -48,7 +48,9 @@ export function GraficoAcessos({ dias }: { dias: AcessoDoDia[] }) {
           <span key={i}>{i === ultimo ? "hoje" : diaMes(dias[i].dia)}</span>
         ))}
       </div>
-      <table className="sr-only">
+      {/* sr-only numa <div>: tabela ignora width 1px e, absoluta, esticaria a pagina no celular. */}
+      <div className="sr-only">
+      <table>
         <caption>Alunos com atividade de aula por dia, últimos 14 dias</caption>
         <thead>
           <tr>
@@ -65,6 +67,7 @@ export function GraficoAcessos({ dias }: { dias: AcessoDoDia[] }) {
           ))}
         </tbody>
       </table>
+      </div>
     </figure>
   );
 }

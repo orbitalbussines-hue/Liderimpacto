@@ -269,13 +269,21 @@ export async function membrosDoGrupo(tx: Transacao, criadorId: string, grupoId: 
   return linhas.map((l) => l.membroId);
 }
 
-/** Matricula o GRUPO inteiro (membros vivos de agora) no produto; quem ja tem fica como esta. */
+/**
+ * Matricula o GRUPO inteiro (membros vivos de agora) no produto; quem ja tem fica como esta.
+ * `novas` (opcional) recebe os ids criados/reativados (notificação depois do commit, RN-134).
+ */
 export async function matricularGrupo(
   tx: Transacao,
   p: Omit<PedidoMatricula, "membroId" | "referenciaExterna" | "versao"> & { grupoId: string },
+  novas?: string[],
 ): Promise<ContagemMatriculas & { membros: number }> {
   const membros = await membrosDoGrupo(tx, p.criadorId, p.grupoId);
   const contagem = contagemVazia();
-  for (const membroId of membros) somar(contagem, (await matricular(tx, { ...p, membroId })).resultado);
+  for (const membroId of membros) {
+    const r = await matricular(tx, { ...p, membroId });
+    somar(contagem, r.resultado);
+    if (r.resultado !== "ja-existia") novas?.push(r.matriculaId);
+  }
   return { ...contagem, membros: membros.length };
 }

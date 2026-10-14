@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { produtos_matriculas } from "@/lib/db/schema";
 import { MSG_COLISAO, vivos } from "@/lib/db/soft-delete";
 import { buscarMembros } from "@/lib/matriculas/consultas";
+import { notificarMatriculas } from "@/lib/notificacoes/gerar";
 import { MSG_EXPIRACAO_PASSADA, expiracaoValida } from "@/lib/matriculas/regras";
 import {
   alterarExpiracao,
@@ -51,13 +52,14 @@ export async function acaoMatricular(entrada: unknown) {
     const membroIds = [...new Set(e.membroIds)].sort();
     const base = { criadorId: criador.id, origem: "MANUAL" as const, expiraEm: e.expiraEm, autor: usuario.id, agora };
 
-    return db
+    const novas: string[] = [];
+    const r = await db
       .transaction(async (tx) => {
         const c = contagemVazia();
         let pessoas = membroIds.length;
         for (const produtoId of produtoIds) {
           if (e.grupoId) {
-            const g = await matricularGrupo(tx, { ...base, produtoId, grupoId: e.grupoId });
+            const g = await matricularGrupo(tx, { ...base, produtoId, grupoId: e.grupoId }, novas);
             if (g.membros === 0) throw new ErroDeNegocio("Este grupo não tem membros.");
             pessoas = g.membros;
             c.criadas += g.criadas;
@@ -65,11 +67,18 @@ export async function acaoMatricular(entrada: unknown) {
             c.jaExistiam += g.jaExistiam;
             continue;
           }
-          for (const membroId of membroIds) somar(c, (await matricular(tx, { ...base, membroId, produtoId })).resultado);
+          for (const membroId of membroIds) {
+            const m = await matricular(tx, { ...base, membroId, produtoId });
+            somar(c, m.resultado);
+            if (m.resultado !== "ja-existia") novas.push(m.matriculaId);
+          }
         }
         return { ...c, pessoas, produtos: produtoIds.length };
       })
       .catch(concorrencia);
+    // Depois do commit; nunca lança (RN-134).
+    await notificarMatriculas(criador.id, novas, usuario.id);
+    return r;
   });
 }
 
@@ -107,6 +116,7 @@ export async function acaoReativarMatricula(entrada: unknown) {
         if (r.resultado === "ja-existia") throw new ErroDeNegocio("Esta matrícula já está ativa.");
       })
       .catch(concorrencia);
+    await notificarMatriculas(criador.id, [e.matriculaId], usuario.id);
     return null;
   });
 }

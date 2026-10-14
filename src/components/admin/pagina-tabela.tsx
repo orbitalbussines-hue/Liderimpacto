@@ -217,7 +217,9 @@ export function PaginaTabela({
         {controles}
       </div>
 
-      <div className="overflow-x-auto">
+      {/* `relative`: os textos sr-only das celulas (absolute) ficam presos aqui; sem isso escapam
+          da rolagem e esticam a pagina inteira no celular. */}
+      <div className="relative overflow-x-auto">
         <table className="w-full border-collapse text-left text-[13px]" style={{ minWidth: larguraMinima }}>
           <thead>
             <tr className="border-y border-border bg-surface-2 text-xs text-muted">

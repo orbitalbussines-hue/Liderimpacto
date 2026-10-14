@@ -3,12 +3,15 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { SinoNotificacoes } from "@/components/notificacoes/sino-notificacoes";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { SidebarAdmin, type UsuarioAdmin } from "./sidebar-admin";
 
 export interface ShellAdminProps {
   usuario: UsuarioAdmin;
+  /** Contagem inicial do sino (a equipe recebe denúncias; depois o polling assume). */
+  naoLidas?: number;
   children: ReactNode;
 }
 
@@ -17,7 +20,7 @@ export interface ShellAdminProps {
  * "Assistente do professor" + selo; 280 = largura da gaveta); no celular, topbar de 56px
  * que abre a mesma navegação numa gaveta (foco preso, ESC e clique fora fecham).
  */
-export function ShellAdmin({ usuario, children }: ShellAdminProps) {
+export function ShellAdmin({ usuario, naoLidas = 0, children }: ShellAdminProps) {
   const [gaveta, setGaveta] = useState(false);
   const busca = useRef<HTMLInputElement>(null);
 
@@ -36,7 +39,7 @@ export function ShellAdmin({ usuario, children }: ShellAdminProps) {
   return (
     <div className="grid min-h-dvh grid-cols-[minmax(0,1fr)] desk:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="scrollbar-oculta sticky top-0 hidden h-dvh overflow-y-auto border-r border-border bg-surface desk:block">
-        <SidebarAdmin usuario={usuario} refBusca={busca} />
+        <SidebarAdmin usuario={usuario} refBusca={busca} sino={<SinoNotificacoes inicial={naoLidas} celular="painel" lado="right" somente="desktop" />} />
       </aside>
 
       <div className="flex min-w-0 flex-col">
@@ -47,6 +50,7 @@ export function ShellAdmin({ usuario, children }: ShellAdminProps) {
             </Dialog.Trigger>
             <span className="text-[13px] font-extrabold">Admin</span>
             <div className="flex-1" />
+            <SinoNotificacoes inicial={naoLidas} celular="painel" somente="celular" />
             <Avatar nome={usuario.nome} tamanho={30} tom="accent" />
           </div>
 

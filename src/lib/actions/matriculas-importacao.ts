@@ -15,6 +15,7 @@ import { contagemVazia, matricular, somar, type ContagemMatriculas } from "@/lib
 import { MAX_BYTES_CSV, type ErroCsv } from "@/lib/membros/csv";
 import { enviarPrimeiroAcesso, linkDePrimeiroAcesso, type LinkNaTela } from "@/lib/membros/primeiro-acesso";
 import { vincularPessoa, violouUnico } from "@/lib/membros/vinculos";
+import { notificarMatriculas } from "@/lib/notificacoes/gerar";
 
 /**
  * Importacao CSV de matriculas (`nome,email,produto,expira_em,grupo`), RN-117. DONO e ADMIN.
@@ -83,6 +84,7 @@ export async function acaoImportarMatriculas(entrada: unknown) {
     let reaproveitados = 0;
     let jaMembros = 0;
     const gruposCriados: string[] = [];
+    const novasMatriculas: string[] = [];
 
     await db
       .transaction(async (tx) => {
@@ -116,6 +118,7 @@ export async function acaoImportarMatriculas(entrada: unknown) {
             agora,
           });
           somar(contagem, r.resultado);
+          if (r.resultado !== "ja-existia") novasMatriculas.push(r.matriculaId);
         }
         await registrarAuditoria(tx, {
           userId: usuario.id,
@@ -131,6 +134,9 @@ export async function acaoImportarMatriculas(entrada: unknown) {
         if (violouUnico(erro)) throw new ErroDeNegocio("Outra pessoa alterou membros, grupos ou matrículas durante a importação. Nada foi gravado; tente de novo.");
         throw erro;
       });
+
+    // Depois do commit; nunca lança (RN-134).
+    await notificarMatriculas(criador.id, novasMatriculas, usuario.id);
 
     // ponytail: um link (e um e-mail) por conta nova, em sequencia; fila se passar de 1000 linhas.
     const links: ResultadoImportacaoMatriculas["links"] = [];
