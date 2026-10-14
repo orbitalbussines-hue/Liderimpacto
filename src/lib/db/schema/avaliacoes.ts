@@ -162,6 +162,8 @@ export const produtos_avaliacoes_tentativas = pgTable(
     uniqueIndex("uq_produtos_avaliacoes_tentativas_aberta").on(t.membro_id, t.avaliacao_id).where(sql`finalizada_em is null and is_deleted = false`),
     uniqueIndex("uq_produtos_avaliacoes_tentativas_numero").on(t.membro_id, t.avaliacao_id, t.numero).where(sql`is_deleted = false`),
     index("ix_produtos_avaliacoes_tentativas_avaliacao").on(t.criador_id, t.avaliacao_id).where(sql`is_deleted = false`),
+    // Analytics e painel: tentativas FINALIZADAS do criador no período (e o recálculo de pontos).
+    index("ix_produtos_avaliacoes_tentativas_finalizadas").on(t.criador_id, t.finalizada_em).where(sql`finalizada_em is not null and is_deleted = false`),
     check("ck_produtos_avaliacoes_tentativas_numero", sql`numero >= 1`),
     check("ck_produtos_avaliacoes_tentativas_nota", sql`nota is null or nota between 0 and 100`),
     check(

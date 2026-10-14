@@ -92,6 +92,10 @@ export interface DadosNotificacao {
   produtoSlug?: string;
   certificadoId?: string;
   denunciaId?: string;
+  /** Eventos ao vivo (ADR-0011): id, título e início (ISO) congelados na hora do aviso. */
+  eventoId?: string;
+  eventoTitulo?: string;
+  eventoInicio?: string;
 }
 
 /**

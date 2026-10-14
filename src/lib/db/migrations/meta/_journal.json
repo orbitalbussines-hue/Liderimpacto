@@ -64,6 +64,13 @@
       "when": 1791997612808,
       "tag": "0008_vitrine_construtor",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792005184125,
+      "tag": "0009_eventos_gamificacao",
+      "breakpoints": true
     }
   ]
 }

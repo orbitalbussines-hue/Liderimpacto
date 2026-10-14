@@ -149,11 +149,11 @@ ADR-0006, RN-118 a RN-121. Migração `0004_experiencia_aluno`. Nenhuma variáve
 
 | Tabela | Para quê |
 |--------|----------|
-| `produtos_modulos_aulas_progressos` | progresso por (membro, aula), único entre os vivos: `segundos_bitmap` (1 bit/s), `segundos_assistidos`, `max_posicao_seg`, `ultima_posicao_seg`, `percentual`, `concluida`/`concluida_em`/`concluida_por` (`ASSISTIU` ou `MANUAL`), `ultima_visualizacao_dia`, `visualizacao_nova`; `updated_at` = última batida aceita. Índices: único (membro, aula) e (membro, updated_at desc) |
+| `produtos_modulos_aulas_progressos` | progresso por (membro, aula), único entre os vivos: `segundos_bitmap` (1 bit/s), `segundos_assistidos`, `max_posicao_seg`, `ultima_posicao_seg`, `percentual`, `concluida`/`concluida_em`/`concluida_por` (`ASSISTIU` ou `MANUAL`), `ultima_visualizacao_dia`, `visualizacao_nova`, `segundos_novos` (sistema: segundos únicos que a ÚLTIMA batida acrescentou, migração 0009); `updated_at` = última batida aceita. Índices: único (membro, aula), (membro, updated_at desc), (criador, concluida_em) e (criador, aula) — o último para o Analytics |
 | `produtos_modulos_aulas_visualizacoes` | agregado do Top 10: visualizações por (aula, dia de Brasília); índice (criador, dia) |
 | `produtos_modulos_aulas_anotacoes` | anotação (membro, aula, `tempo_seg`, `texto` 1–2000) com trava |
 | `criadores_membros_favoritos` | "Minha lista": `produto_id` OU `aula_id` (CHECK), um vivo por alvo |
-| `usuarios.reproducao_automatica`, `usuarios.lembretes` | preferências da pessoa (padrão `true`) |
+| `usuarios.reproducao_automatica`, `usuarios.lembretes`, `usuarios.aparecer_no_ranking` | preferências da pessoa (padrão `true`; a última é da gamificação, RN-146) |
 | `produtos.publicado_em` | 1ª saída de rascunho (NOVIDADES); preenchida por `acaoAlterarSituacaoProduto` |
 
 Todas com `criador_id` + FKs compostas (membro, criador) e (aula ou produto, criador).
@@ -179,6 +179,10 @@ receberBatida(quem: { criadorId; membroId: string | null; usuarioId; papel; sess
 // regras.ts (puro): esquemaBatida, mesclarIntervalos, prepararBatida, retomarEm(ultima, duracao),
 // podeConcluirManual({ id }) (hoje sempre true; o passo 9 lê o construtor aqui), constantes.
 ```
+
+A batida soma no dia de atividade (`criadores_membros_atividades.segundos`) os segundos ÚNICOS
+NOVOS: `segundos_novos = bit_count(OR) − segundos_assistidos` da versão TRAVADA da linha, na mesma
+instrução (ADR-0012 item 9). Medido: 5,5–5,7 ms → 6,0–6,5 ms por batida (1.000 sequenciais, local).
 
 ### `POST /api/progresso` (beacon)
 
@@ -316,7 +320,7 @@ ADR-0007, RN-122. Migração `0005_painel_atividades`. Nenhuma variável de ambi
 
 | Tabela / índice | Para quê |
 |--------|----------|
-| `criadores_membros_atividades` | um dia de atividade de aula por (membro, dia de Brasília), único entre os vivos; índice (criador, dia). Escrito pelo upsert do progresso (`registrar.ts`, CTE `ativ`, só na 1ª batida do dia de cada aula) e pela conclusão pelo botão; carga inicial pelo progresso existente |
+| `criadores_membros_atividades` | um dia de atividade de aula por (membro, dia de Brasília), único entre os vivos; índice (criador, dia). Escrito pelo upsert do progresso (`registrar.ts`, CTE `ativ`: cria na 1ª batida do dia e soma `segundos` — segundos únicos novos do dia, migração 0009 — a cada batida com segundo novo) e pela conclusão pelo botão (segundos 0); carga inicial pelo progresso existente |
 | `ix_produtos_modulos_aulas_progressos_concluidas` | (criador, `concluida_em` desc) onde concluída e viva: "Aulas concluídas" e "Acontecendo agora" |
 
 Período (`src/lib/painel/periodo.ts`, puro e testado; o mesmo do Analytics e dos Logs):
@@ -347,7 +351,8 @@ Tela: `src/app/admin/page.tsx` + `_components/` (um `<Suspense>` com esqueleto p
 
 ## Analytics do admin (`/admin/analytics`)
 
-RN-139. Sem migração, sem tabela nova, sem variável nova: lê as tabelas do progresso (ADR-0006), do
+RN-139. Sem tabela nova nem variável nova (a migração 0009 acrescentou `criadores_membros_atividades.segundos`
+e os índices (criador, aula) do progresso e (criador, `finalizada_em`) das tentativas — ADR-0012): lê as tabelas do progresso (ADR-0006), do
 painel (ADR-0007), das matrículas e das avaliações. Filtros na URL: `?aba=visao-geral|conteudo|retencao|avaliacoes`,
 `?de=&ate=` (o `lerIntervalo` e os limites `limites()` do painel — ver "Período" no Painel; legado `?periodo=`), `?curso=<produto>` (uuid; de outro criador = "todos") e `?ordem=estrutura` no Conteúdo.
 Em todas: criador do HOST, vivos em cada tabela (produto, módulo, aula, avaliação, questão, vínculo) e só vínculos
@@ -356,7 +361,7 @@ vivos com papel ALUNO.
 | Métrica | Definição exata | Fonte | Período / curso |
 |---------|-----------------|-------|-----------------|
 | Alunos ativos | alunos distintos com dia em `criadores_membros_atividades` | atividades | período e anterior. Com curso: alunos com progresso no curso e `updated_at` (última batida) no período; anterior = nulo ("indisponível por curso": a batida nova apaga a anterior). Por isso, com curso e intervalo no passado, quem voltou a assistir depois de `ate` não conta |
-| Horas assistidas | soma de `segundos_assistidos` (segundos ÚNICOS, bitmap) | progresso | **acumulado** desde sempre, sem período e sem comparação (não existe segundos por dia); filtra curso |
+| Horas assistidas | sem curso: soma de `criadores_membros_atividades.segundos` (segundos ÚNICOS NOVOS do dia; rever não soma; dias antes de 14/10/2026 = 0). Com curso: soma de `segundos_assistidos` (bitmap) nas aulas do curso | atividades / progresso | sem curso: período e anterior (`recorte: "periodo"`). Com curso: **acumulado** desde sempre, sem comparação (`recorte: "acumulado"`: o dia não guarda a aula) |
 | Aulas concluídas | progressos com `concluida_em` no período | progresso | período e anterior; filtra curso |
 | Conclusão de cursos | matrículas valendo (ATIVA, não expirada) com `concluida_em` ÷ matrículas valendo, hoje; e matrículas com `concluida_em` no período | matrículas | taxa = hoje; contagem = período e anterior; filtra curso |
 | Aprovação em avaliações | pares (aluno, avaliação) com ≥ 1 tentativa aprovada ÷ pares com tentativa finalizada (`finalizada_em`) | tentativas | período e anterior (variação em p.p.); filtra curso |
@@ -371,7 +376,7 @@ vivos com papel ALUNO.
 |--------|---------|-------|
 | `cursosDoCriador(criadorId)` | `{ id, titulo }[]` (produtos vivos) | `cursosCacheados` |
 | `kpisAnalytics(criadorId, periodo, curso)` | `{ ativos, ativosAnt \| null, aulas, aulasAnt, validas, validasConcluidas, cursosConcluidos, cursosConcluidosAnt, avaliados, aprovados, avaliadosAnt, aprovadosAnt }`, UMA instrução | `visaoGeralCacheada` |
-| `horasAssistidas(criadorId, periodo, curso)` | `{ segundos, segundosAnt: null, recorte: "acumulado" }`. **Ponto único de troca**: quando existir `segundos` em `criadores_membros_atividades` (próxima migração), vira soma por período e `recorte: "periodo"`; a tela já trata os dois casos | idem |
+| `horasAssistidas(criadorId, periodo, curso)` | sem curso `{ segundos, segundosAnt, recorte: "periodo" }`; com curso `{ segundos, segundosAnt: null, recorte: "acumulado" }` | idem |
 | `serieDiaria(criadorId, periodo, curso)` | `{ dia, alunos, visualizacoes }[]` de `de` a `ate`; por semana acima de 92 dias (`agrupamentoDaSerie`; `dia` = 1º dia da semana dentro do período) | idem |
 | `conteudo(criadorId, curso)` | `{ cursos: CursoConteudo[], aulas: AulaAnalytics[] }` (duas instruções em paralelo) | `conteudoCacheado` |
 | `coortes(criadorId, curso)` | `LinhaCoorte[]` (8, a mais antiga primeiro) | `coortesCacheadas` |
@@ -639,6 +644,94 @@ host (cookie de outro host = 401), resposta `{ "naoLidas": n }` com `Cache-Contr
 sessão = 401 sem corpo; SUPER_ADMIN sem vínculo = `{ "naoLidas": 0 }`. A tela faz polling a cada
 `INTERVALO_POLLING_MS` SÓ com a aba visível (`document.visibilityState`). A rota lê a sessão com
 `sessaoDosCabecalhos(h, { renovar: false })`: o polling NÃO conta como uso (aba esquecida expira em 1 h).
+
+## Eventos ao vivo
+
+ADR-0011, RN-142 e RN-143. Migração `0009_eventos_gamificacao`. Nenhuma variável de ambiente nova
+(a fila usa `REDIS_URL`/`VIDEO_FILA_PREFIXO` como as outras).
+
+| Tabela | Para quê |
+|--------|----------|
+| `criadores_eventos` | título (3–120), `descricao` (texto puro ≤ 2000), `inicio_em`, `duracao_min` (5–720), `link_acesso` (https, CHECK = `REGEX_LINK_EVENTO_SQL`; nulo só em RASCUNHO), `situacao` RASCUNHO/PUBLICADO/CANCELADO (`publicado_em`, `cancelado_em` coerentes por CHECK), `publico` TODOS/PRODUTO/GRUPOS (`produto_id` ⇔ PRODUTO), `gravacao_aula_id`, `criado_por`. FKs compostas (produto, aula). Índice (criador, `inicio_em`) |
+| `criadores_eventos_grupos` | grupos do público GRUPOS (único vivo por evento × grupo) |
+| `criadores_eventos_inscricoes` | presença: única VIVA por evento × membro; desconfirmar = soft delete; índice (membro) |
+
+```ts
+// regras.ts (puro): ROTA_EVENTOS = "/eventos", LINK_ABRE_ANTES_MIN = 15, LEMBRETE_ANTES_MIN = 60,
+// fimDoEvento(agenda), momentoDoEvento(agenda, agora): "EM_BREVE" | "ABERTO" | "ENCERRADO",
+// momentoDoLembrete(inicio), idDoJobLembrete(eventoId, inicio) = "lembrete-<id>-<ms>",
+// chaveDoLembrete(eventoId, inicio), linkDeEventoValido(texto), quandoDoEvento(inicio) = "21/10 às 19:30"
+// sql.ts: vePublicoSql({ tipo: "evento" | "desafio", id, publico, produtoId? }, membroId, papel, agora),
+//         veEventoSql(membroId, papel, agora, alias = "e"), veDesafioSql(membroId, papel, agora, alias = "d")
+// consultas.ts (área do aluno; q = membroDaPagina(TODOS_OS_MEMBROS); rascunho nunca):
+eventosProximos(q, agora, limite = 50): Promise<EventoDoMembro[]>   // não terminados, mais cedo primeiro
+eventosPassados(q, agora, limite = 50): Promise<EventoDoMembro[]>   // terminados, mais recente primeiro
+eventoDoMembro(q, eventoId, agora): Promise<EventoDoMembro | null>
+proximoEventoDoMembro(q, agora): Promise<EventoDoMembro | null>     // "Próximo encontro" (comunidade/vitrine)
+type EventoDoMembro = { id, titulo, descricao, inicioEm, fimEm, duracaoMin, situacao: "PUBLICADO" | "CANCELADO",
+  momento, link: string | null /* SÓ ABERTO e PUBLICADO */, gravacaoAulaId: string | null /* só ENCERRADO */,
+  inscrito: boolean, inscritos: number }
+// presenca.ts (a action faz exigirMembro + Zod do id; escrita + trilha na transação):
+confirmarPresenca(q, eventoId, agora): Promise<boolean>  // false = já estava; ErroDeNegocio(MSG_EVENTO_INDISPONIVEL)
+cancelarPresenca(q, eventoId, agora): Promise<boolean>   // false = não estava (ou já terminou)
+// notificacoes/gerar.ts (depois do commit):
+notificarEventoPublicado(criadorId, eventoId, ator, agora?)   // alunos do público; nunca lança
+notificarEventoCancelado(criadorId, eventoId, ator)           // inscritos; nunca lança
+notificarLembreteEvento(criadorId, eventoId, inicioEsperado, agora?): Promise<number> // LANÇA (o job tenta de novo)
+```
+
+**Lembrete (a implementar pelo agente de Eventos, contrato do ADR-0011 item 6)**: fila nova
+`eventos` (DLQ `eventos-dlq`, chaves `li:eventos:*`) consumida por um 2º `Worker` dentro de
+`npm run worker:certificados`. Payload `{ criadorId, eventoId, inicioEm }` (ISO), `jobId =
+idDoJobLembrete(...)`, `delay = max(0, momentoDoLembrete(inicio) − agora)`, 3 tentativas; enfileirar
+depois do commit ao publicar e ao mudar o horário de evento publicado; o job chama
+`notificarLembreteEvento`. Ao subir, reenfileirar os PUBLICADOS com `inicio_em > now()`.
+Admin (a escrever): CRUD com `exigirMembro(EQUIPE)`, Zod `strictObject` (`linkDeEventoValido` no
+link), trava por `updated_at`, grupos/curso conferidos no criador (a FK composta recusa os de fora).
+
+## Gamificação
+
+ADR-0012, RN-144 a RN-147. Migração `0009_eventos_gamificacao`. Comando:
+`npm run gamificacao:recalcular -- <slug>` (idempotente).
+
+| Tabela | Para quê |
+|--------|----------|
+| `criadores_gamificacao` | 1 viva por criador (sem linha = desligada com os padrões): `ligada`, `pontos_aula_concluida` 10, `pontos_curso_concluido` 100, `pontos_avaliacao_aprovada` 30, `pontos_publicacao_comunidade` 2 (0–10000), `niveis` jsonb `{ nome, minimo }[]` |
+| `criadores_membros_pontos` | RAZÃO append-only (`compliance:append-only`): `motivo`, `pontos` (negativo só AJUSTE_MANUAL), `referencia`, `ocorrido_em` (data do fato), `justificativa` (obrigatória no ajuste), `modified_by` = quem lançou. Único (membro, motivo, referência) em TODAS as linhas; índice (criador, `ocorrido_em`, membro, pontos) para o ranking |
+| `criadores_desafios` | janela `inicio_em`..`fim_em`, meta (`meta_tipo` + `meta_quantidade` / `meta_produto_id` / `meta_avaliacao_id`, CHECK de coerência), `pontos_bonus`, `recompensa`, situação RASCUNHO/PUBLICADO/ENCERRADO, público TODOS/GRUPOS, `criado_por` |
+| `criadores_desafios_grupos` | grupos do público GRUPOS |
+| `criadores_desafios_participacoes` | opt-in (único vivo por desafio × membro), `concluido_em` (sistema), `recompensa_entregue_em/por` (equipe, com trava) |
+| `usuarios.aparecer_no_ranking` | preferência da pessoa (padrão `true`), em `acaoSalvarPreferencias`/`preferenciasDoAluno` |
+
+```ts
+// regras.ts (puro): NIVEIS_PADRAO, PONTOS_PADRAO (de padroes.ts), COLUNA_DO_MOTIVO, ROTULO_DO_MOTIVO,
+// esquemaNiveis (Zod), nivelDoMembro(pontos, niveis) → { atual, proximo, faltam, progresso 0..1 },
+// momentoDoDesafio({ inicioEm, fimEm, situacao }, agora): "EM_BREVE" | "ATIVO" | "ENCERRADO",
+// PERIODOS_RANKING = ["semana", "mes", "total"], lerPeriodoRanking(v)
+// pontos.ts
+type Conquista = { motivo: "AULA_CONCLUIDA"; aulaId } | { motivo: "CURSO_CONCLUIDO"; produtoId }
+  | { motivo: "AVALIACAO_APROVADA"; avaliacaoId } | { motivo: "PUBLICACAO_COMUNIDADE" } // ref = dia de Brasília
+concederPontos(exec, { criadorId, membroId, conquista, ocorridoEm? }): Promise<number> // 0 = nada novo
+registrarConquista({ criadorId, membroId, conquista, ocorridoEm? }, agora?): Promise<void> // concede + conclui desafios; NUNCA lança; chamar DEPOIS do commit
+ajustarPontos(tx, { criadorId, membroId, pontos, justificativa, autorUsuarioId }): Promise<string> // só ALUNO; trilha na tx
+configDaGamificacao(criadorId, exec?): Promise<{ id | null, updatedAt | null, ligada, pontos: {...}, niveis }>
+// ranking.ts
+rankingDoCriador(criadorId, periodo, agora, limite = 50): Promise<{ posicao, membroId, nome, imagem, pontos }[]>
+resumoDoMembro(criadorId, membroId, agora): Promise<{ total, semana, mes, nivel, posicao: { semana, mes, total } (null = fora), aparecerNoRanking }>
+extratoDoMembro(criadorId, membroId, limite = 50): Promise<{ id, motivo, pontos, referencia, ocorridoEm, justificativa }[]>
+// desafios.ts
+desafiosDoMembro(q, agora, desafioId?): Promise<DesafioDoMembro[]> // PUBLICADO/ENCERRADO do público, com atual/meta/participando/concluidoEm
+participarDoDesafio(q, desafioId, agora): Promise<boolean>       // false = já participava; ErroDeNegocio(MSG_DESAFIO_INDISPONIVEL)
+concluirDesafiosCumpridos(exec, criadorId, membroId | null, agora): Promise<number>
+progressoDoDesafioSql(membroSql) // expressão para a linha `criadores_desafios d` (telas do admin)
+// recalcular.ts
+recalcularPontos(criadorId, agora?): Promise<{ AULA_CONCLUIDA, CURSO_CONCLUIDO, AVALIACAO_APROVADA, PUBLICACAO_COMUNIDADE, DESAFIO_CONCLUIDO, desafiosConcluidos }>
+```
+
+**Onde ligar `registrarConquista`** (agente de Gamificação, depois do commit): `registrarProgresso` e
+`concluirManualmente` quando `concluiuAgora` (AULA_CONCLUIDA, `ocorridoEm` = agora);
+`concluirMatriculaSeCompleta` (CURSO_CONCLUIDO); `finalizarTentativa` aprovada (AVALIACAO_APROVADA);
+`publicar` da comunidade (PUBLICACAO_COMUNIDADE). Ao LIGAR a gamificação: `recalcularPontos`.
 
 ## Telas restantes do admin: estúdio, área de membros e configurações
 

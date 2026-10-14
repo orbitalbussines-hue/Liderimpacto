@@ -12,7 +12,8 @@
  * atividade e conclusões para o painel do admin (`seed-demo-painel.ts`), e o passo 7 (2 avaliações,
  * 1 trilha e 1 certificado com PDF da Ana: `seed-demo-passo7.ts`) e o passo 8 (canais, publicações,
  * comentários, curtidas, enquete, fixado, comentários numa aula e notificações da Ana:
- * `seed-demo-passo8.ts`).
+ * `seed-demo-passo8.ts`), e eventos ao vivo + gamificação (2 eventos, 1 desafio, pontos
+ * recalculados: `seed-demo-engajamento.ts`).
  */
 import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -44,6 +45,7 @@ import { matricular } from "@/lib/matriculas/servico";
 import { semearPainel } from "./seed-demo-painel";
 import { semearPasso7 } from "./seed-demo-passo7";
 import { semearPasso8 } from "./seed-demo-passo8";
+import { semearEngajamento } from "./seed-demo-engajamento";
 
 // ---------------------------------------------------------------- travas de ambiente
 function exigirAmbienteDeDesenvolvimento(): void {
@@ -452,6 +454,7 @@ async function principal() {
   await semearPainel(criador.id, garantirPessoa, aluno, cursos, aulas);
   await semearPasso7(criador.id, dono, aluno, cursos, aulas);
   await semearPasso8(criador.id, dono, aluno, cursos, aulas);
+  await semearEngajamento(criador.id, dono, aluno, aulas);
 
   const ids = (slug: string) => aulas.filter((a) => a.produtoSlug === slug).map((a) => `    ${a.id}  ${a.titulo}`).join("\n");
   console.log(`Criador demo: ${criador.id} (abra http://demo.localhost:3011)`);

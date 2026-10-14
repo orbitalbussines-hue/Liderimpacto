@@ -294,7 +294,10 @@ export async function numerosDoPerfil(q: QuemPede) {
 }
 
 /** Preferências da pessoa (Perfil e player). */
-export async function preferenciasDoAluno(usuarioId: string): Promise<{ reproducaoAutomatica: boolean; lembretes: boolean }> {
-  const [u] = await db.select({ reproducaoAutomatica: usuarios.reproducao_automatica, lembretes: usuarios.lembretes }).from(usuarios).where(eq(usuarios.id, usuarioId));
-  return u ?? { reproducaoAutomatica: true, lembretes: true };
+export async function preferenciasDoAluno(usuarioId: string): Promise<{ reproducaoAutomatica: boolean; lembretes: boolean; aparecerNoRanking: boolean }> {
+  const [u] = await db
+    .select({ reproducaoAutomatica: usuarios.reproducao_automatica, lembretes: usuarios.lembretes, aparecerNoRanking: usuarios.aparecer_no_ranking })
+    .from(usuarios)
+    .where(eq(usuarios.id, usuarioId));
+  return u ?? { reproducaoAutomatica: true, lembretes: true, aparecerNoRanking: true };
 }

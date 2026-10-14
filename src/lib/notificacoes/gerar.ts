@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import type { TipoNotificacao } from "@/lib/db/schema/_enums";
 import type { DadosNotificacao } from "@/lib/db/schema/comunidade-moderacao";
 import { criadores_membros_notificacoes as notificacoes } from "@/lib/db/schema";
+import { chaveDoLembrete } from "@/lib/eventos/regras";
+import { veEventoSql } from "@/lib/eventos/sql";
 import { dataEmBrasilia } from "@/lib/matriculas/regras";
 import { RETENCAO_DIAS } from "./regras";
 
@@ -33,8 +35,8 @@ const json = (d: DadosNotificacao) => sql`${JSON.stringify(d)}::jsonb`;
  * e vivo no criador; quem causou fica de fora). `dados`/`chave` podem usar colunas de m.
  * `autorId` nulo = evento do sistema: `modified_by` = a própria pessoa notificada.
  */
-async function enviar(p: { criadorId: string; tipo: TipoNotificacao; dados: SQL; chave: SQL; autorId: string | null; excluirUsuarioId: string | null; onde: SQL; de?: SQL }) {
-  await db.execute(sql`
+async function enviar(p: { criadorId: string; tipo: TipoNotificacao; dados: SQL; chave: SQL; autorId: string | null; excluirUsuarioId: string | null; onde: SQL; de?: SQL }): Promise<number> {
+  const r = await db.execute(sql`
     insert into criadores_membros_notificacoes (criador_id, membro_id, tipo, dados, chave, modified_by)
     select m.criador_id, m.id, ${p.tipo}, ${p.dados}, ${p.chave}, ${p.autorId ? sql`${p.autorId}::uuid` : sql`m.usuario_id`}
     from criadores_membros m ${p.de ?? sql``}
@@ -42,6 +44,7 @@ async function enviar(p: { criadorId: string; tipo: TipoNotificacao; dados: SQL;
       ${p.excluirUsuarioId ? sql`and m.usuario_id <> ${p.excluirUsuarioId}::uuid` : sql``}
       and ${p.onde}
     on conflict (membro_id, chave) where chave is not null do nothing`);
+  return r.rowCount ?? 0;
 }
 
 export interface Ator {
@@ -203,6 +206,66 @@ export async function notificarDenuncia(criadorId: string, denunciaId: string, a
       onde: sql`m.papel in ('DONO', 'ADMIN')`,
     }),
   );
+}
+
+// ---------------------------------------------------------------- eventos ao vivo (ADR-0011, RN-143)
+
+/** Junta o evento vivo do criador (`e`) e congela id, título e início na notificação. */
+const deEvento = (eventoId: string) => sql`join criadores_eventos e on e.id = ${eventoId}::uuid and e.criador_id = m.criador_id and e.is_deleted = false`;
+const DADOS_EVENTO = sql`jsonb_build_object('eventoId', e.id::text, 'eventoTitulo', e.titulo,
+  'eventoInicio', to_char(e.inicio_em at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`;
+const inscritoSql = sql`exists (select 1 from criadores_eventos_inscricoes i where i.evento_id = e.id and i.membro_id = m.id and i.is_deleted = false)`;
+
+/** Evento PUBLICADO: para os ALUNOS do público (`veEventoSql`), uma vez por evento. */
+export async function notificarEventoPublicado(criadorId: string, eventoId: string, ator: Ator, agora = new Date()): Promise<void> {
+  await seguro("evento publicado", () =>
+    enviar({
+      criadorId,
+      tipo: "EVENTO_PUBLICADO",
+      dados: DADOS_EVENTO,
+      chave: sql`${`evento:${eventoId}`}`,
+      autorId: ator.usuarioId,
+      excluirUsuarioId: ator.usuarioId,
+      de: deEvento(eventoId),
+      onde: sql`e.situacao = 'PUBLICADO' and m.papel = 'ALUNO' and ${veEventoSql(sql`m.id`, sql`m.papel`, agora)}`,
+    }),
+  );
+}
+
+/** Evento CANCELADO: para quem tinha confirmado presença. */
+export async function notificarEventoCancelado(criadorId: string, eventoId: string, ator: Ator): Promise<void> {
+  await seguro("evento cancelado", () =>
+    enviar({
+      criadorId,
+      tipo: "EVENTO_CANCELADO",
+      dados: DADOS_EVENTO,
+      chave: sql`${`evento-cancelado:${eventoId}`}`,
+      autorId: ator.usuarioId,
+      excluirUsuarioId: ator.usuarioId,
+      de: deEvento(eventoId),
+      onde: sql`e.situacao = 'CANCELADO' and ${inscritoSql}`,
+    }),
+  );
+}
+
+/**
+ * Lembrete (chamado pelo JOB atrasado da fila, ADR-0011): para os inscritos com a preferência
+ * "Lembretes" ligada, se o evento continua PUBLICADO, com o MESMO início do job (reagendado = job
+ * velho não faz nada) e ainda não terminou. Chave por (evento, início): idempotente por membro.
+ * LANÇA em erro de banco (o job tenta de novo); devolve quantos avisou.
+ */
+export async function notificarLembreteEvento(criadorId: string, eventoId: string, inicioEsperado: Date, agora = new Date()): Promise<number> {
+  return enviar({
+    criadorId,
+    tipo: "EVENTO_LEMBRETE",
+    dados: DADOS_EVENTO,
+    chave: sql`${chaveDoLembrete(eventoId, inicioEsperado)}`,
+    autorId: null,
+    excluirUsuarioId: null,
+    de: sql`${deEvento(eventoId)} join usuarios u on u.id = m.usuario_id`,
+    onde: sql`e.situacao = 'PUBLICADO' and e.inicio_em = ${inicioEsperado} and e.inicio_em + make_interval(mins => e.duracao_min) > ${agora}
+      and u.lembretes and ${inscritoSql}`,
+  });
 }
 
 /**

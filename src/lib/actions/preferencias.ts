@@ -11,7 +11,7 @@ import { vivos } from "@/lib/db/soft-delete";
 import { preferenciasSchema } from "@/lib/validators/progresso";
 
 /**
- * Preferências da PESSOA (RN-121): reprodução automática e lembretes, valendo em qualquer criador
+ * Preferências da PESSOA (RN-121, RN-146): reprodução automática, lembretes e aparecer no ranking, valendo em qualquer criador
  * (como o tema). O alvo é SEMPRE a sessão — nenhum id no corpo. Interruptor: última gravação vale
  * (sem trava de colisão, como o tema). Mudança vai para a trilha (antes → depois).
  */
@@ -21,14 +21,24 @@ export async function acaoSalvarPreferencias(entrada: unknown) {
     const s = await exigirSessao();
     return db.transaction(async (tx) => {
       const [antes] = await tx
-        .select({ reproducaoAutomatica: usuarios.reproducao_automatica, lembretes: usuarios.lembretes })
+        .select({ reproducaoAutomatica: usuarios.reproducao_automatica, lembretes: usuarios.lembretes, aparecerNoRanking: usuarios.aparecer_no_ranking })
         .from(usuarios)
         .where(and(eq(usuarios.id, s.userId), vivos(usuarios)))
         .for("update");
-      const depois = { reproducaoAutomatica: p.reproducaoAutomatica ?? antes.reproducaoAutomatica, lembretes: p.lembretes ?? antes.lembretes };
+      const depois = {
+        reproducaoAutomatica: p.reproducaoAutomatica ?? antes.reproducaoAutomatica,
+        lembretes: p.lembretes ?? antes.lembretes,
+        aparecerNoRanking: p.aparecerNoRanking ?? antes.aparecerNoRanking,
+      };
       await tx
         .update(usuarios)
-        .set({ reproducao_automatica: depois.reproducaoAutomatica, lembretes: depois.lembretes, updated_at: new Date(), modified_by: s.userId })
+        .set({
+          reproducao_automatica: depois.reproducaoAutomatica,
+          lembretes: depois.lembretes,
+          aparecer_no_ranking: depois.aparecerNoRanking,
+          updated_at: new Date(),
+          modified_by: s.userId,
+        })
         .where(eq(usuarios.id, s.userId));
       await registrarAuditoria(tx, {
         userId: s.userId,

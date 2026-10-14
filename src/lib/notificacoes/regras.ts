@@ -1,5 +1,6 @@
 import type { TipoNotificacao } from "@/lib/db/schema/_enums";
 import type { DadosNotificacao } from "@/lib/db/schema/comunidade-moderacao";
+import { quandoDoEvento, ROTA_EVENTOS } from "@/lib/eventos/regras";
 
 /**
  * Regras PURAS das notificações (RN-134): texto e link de cada tipo saem DAQUI na hora de ler —
@@ -44,8 +45,16 @@ export function textoDaNotificacao(n: NotificacaoParaTexto): string {
       return `Sua matrícula em ${aspas(d.produtoTitulo)} está ativa.`;
     case "DENUNCIA_NOVA":
       return "Nova denúncia na comunidade para revisar.";
+    case "EVENTO_PUBLICADO":
+      return `Novo encontro ao vivo: ${aspas(d.eventoTitulo)}${quando(d)}.`;
+    case "EVENTO_LEMBRETE":
+      return `${aspas(d.eventoTitulo)} começa em breve${quando(d)}.`;
+    case "EVENTO_CANCELADO":
+      return `O encontro ${aspas(d.eventoTitulo)}${quando(d)} foi cancelado.`;
   }
 }
+
+const quando = (d: DadosNotificacao) => (d.eventoInicio ? ` (${quandoDoEvento(new Date(d.eventoInicio))})` : "");
 
 /**
  * Destino do clique. Rotas das telas do passo 8: `/comunidade?post=<id>` (post aberto),
@@ -71,6 +80,10 @@ export function linkDaNotificacao(n: Pick<NotificacaoParaTexto, "tipo" | "dados"
       return d.produtoSlug ? `/cursos/${d.produtoSlug}` : "/continuar";
     case "DENUNCIA_NOVA":
       return "/admin/comunidade?aba=denuncias";
+    case "EVENTO_PUBLICADO":
+    case "EVENTO_LEMBRETE":
+    case "EVENTO_CANCELADO":
+      return d.eventoId ? `${ROTA_EVENTOS}/${d.eventoId}` : ROTA_EVENTOS;
   }
 }
 

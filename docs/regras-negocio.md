@@ -388,7 +388,7 @@ Cada regra segue este formato:
 - **Definida por**: Bah! Tech (padrão provisório)
 - **Data**: 2026-10-14
 - **Modulo**: Admin > Analytics (`/admin/analytics`, DONO e ADMIN)
-- **Descricao**: Só alunos (vínculo vivo com papel ALUNO) entram; a equipe nunca conta. Período escolhido no mesmo calendário do painel (RN-122: até 366 dias, dias de Brasília, nada depois do último dia conta), comparado com os N dias imediatamente anteriores. Os gráficos de alunos ativos e visualizações são por dia até 92 dias e por semana acima disso. **Alunos ativos** = alunos distintos com dia de atividade de aula; com filtro de curso, os que tiveram batida no curso no período, sem comparação (o progresso guarda só a última batida). **Horas assistidas** = segundos ÚNICOS assistidos, ACUMULADO desde o início (ainda não existe segundos por dia: sem período nem comparação). **Aulas concluídas** = conclusões no período. **Conclusão de cursos** = matrículas valendo concluídas ÷ matrículas valendo (hoje) + cursos concluídos no período. **Aprovação** = pares (aluno, avaliação) com ao menos uma tentativa aprovada ÷ pares com tentativa finalizada no período (variação em pontos percentuais). **Abandono da aula** = alunos que começaram e não concluíram (abaixo de 90%) ÷ alunos que começaram (situação de hoje, só módulos publicados). **Retenção** = coortes pela semana (segunda a domingo) da PRIMEIRA matrícula, últimas 8 semanas; % da coorte com atividade em qualquer aula N semanas depois; coorte com menos de 5 alunos é "amostra pequena". **Avaliações** = tentativas finalizadas no período; nota média das tentativas; top 3 questões pelo número de erros.
+- **Descricao**: Só alunos (vínculo vivo com papel ALUNO) entram; a equipe nunca conta. Período escolhido no mesmo calendário do painel (RN-122: até 366 dias, dias de Brasília, nada depois do último dia conta), comparado com os N dias imediatamente anteriores. Os gráficos de alunos ativos e visualizações são por dia até 92 dias e por semana acima disso. **Alunos ativos** = alunos distintos com dia de atividade de aula; com filtro de curso, os que tiveram batida no curso no período, sem comparação (o progresso guarda só a última batida). **Horas assistidas** = segundos ÚNICOS NOVOS assistidos por dia (rever um trecho não soma), no período e no anterior; contados a partir de 14/10/2026 (migração 0009 — dias antes disso valem 0). Com filtro de curso: segundos únicos ACUMULADOS desde o início nas aulas do curso, sem comparação (o registro diário não guarda a aula). **Aulas concluídas** = conclusões no período. **Conclusão de cursos** = matrículas valendo concluídas ÷ matrículas valendo (hoje) + cursos concluídos no período. **Aprovação** = pares (aluno, avaliação) com ao menos uma tentativa aprovada ÷ pares com tentativa finalizada no período (variação em pontos percentuais). **Abandono da aula** = alunos que começaram e não concluíram (abaixo de 90%) ÷ alunos que começaram (situação de hoje, só módulos publicados). **Retenção** = coortes pela semana (segunda a domingo) da PRIMEIRA matrícula, últimas 8 semanas; % da coorte com atividade em qualquer aula N semanas depois; coorte com menos de 5 alunos é "amostra pequena". **Avaliações** = tentativas finalizadas no período; nota média das tentativas; top 3 questões pelo número de erros.
 - **Comportamento esperado**: número sem base vira "—", nunca "0%"; o que não tem recorte por período ou por curso é dito na tela ("acumulado", "indisponível por curso"). O CSV de cada aba sai só com agregados (nenhum nome, e-mail ou id de pessoa).
 - **Impacto se descumprida**: decisão de conteúdo tomada em cima de número que não significa o que o rótulo diz.
 
@@ -407,6 +407,54 @@ Cada regra segue este formato:
 - **Descricao**: O DONO renomeia a área (2 a 80 caracteres, trava de colisão, trilha com antes/depois). O endereço `<slug>.<domínio da plataforma>` é somente leitura (trocar quebraria links, sessões e certificados). Fuso `America/Sao_Paulo` e idioma `pt-BR` são fixos da plataforma. **Domínio próprio fica "Em breve"**: a coluna existe, mas nada grava por enquanto — ligar exige DNS (CNAME) e certificado HTTPS na infraestrutura e o host passar a resolver o domínio (hoje responde 404).
 - **Comportamento esperado**: nenhuma tela promete um domínio que ainda não responde.
 - **Impacto se descumprida**: aluno perde o acesso por um endereço que não funciona.
+
+### RN-142 - Eventos ao vivo: cadastro, público e link — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Eventos (DONO e ADMIN) e área do aluno (`/eventos`)
+- **Descricao**: DONO e ADMIN cadastram encontros ao vivo: título (3 a 120), descrição em texto puro (até 2.000), início (data e hora de Brasília), duração (5 a 720 min), link da sala **https** (Zoom, Meet, YouTube...; obrigatório para publicar), situação **Rascunho → Publicado → Cancelado**, público (**todos os alunos**, **só os matriculados de um curso** — matrícula valendo — ou **grupos escolhidos**) e, depois, a **gravação** (uma aula do catálogo). O aluno vê os eventos publicados e cancelados do seu público (rascunho nunca). **O link só aparece de 15 minutos antes do início até o fim (início + duração)**; antes, contagem regressiva; depois, "encerrado" e "assistir à gravação" se houver (a aula segue as regras de acesso dela). Cancelado continua na lista, sem link.
+- **Comportamento esperado**: o link nunca vai para a página fora da janela nem para quem não é do público; link sem https é recusado; edição com trava de colisão; toda escrita na trilha.
+- **Impacto se descumprida**: link da sala circulando antes da hora ou para quem não pagou.
+
+### RN-143 - Eventos ao vivo: presença e avisos — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Área do aluno (`/eventos`), sino
+- **Descricao**: O aluno do público confirma presença ("Vou participar") num evento publicado que ainda não terminou e pode desconfirmar até o fim (uma confirmação valendo por pessoa; o histórico fica). Avisos no sino: **ao publicar**, para os alunos do público; **1 hora antes**, lembrete para quem confirmou e está com "Lembretes" ligado no Perfil; **ao cancelar**, para quem confirmou. Mudar o horário de um evento publicado reprograma o lembrete (o do horário antigo não sai). Quem confirma na última hora ou evento publicado com menos de 1 h de antecedência fica sem lembrete.
+- **Comportamento esperado**: nunca dois lembretes do mesmo horário para a mesma pessoa; lembrete de evento cancelado ou já terminado não sai.
+- **Impacto se descumprida**: aluno perde o encontro, ou recebe aviso de encontro que não vai acontecer.
+
+### RN-144 - Gamificação: configuração e níveis — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Gamificação (DONO e ADMIN)
+- **Descricao**: Por área, **desligada por padrão**. Pontos por ação (0 a 10.000; 0 = não pontua): **aula concluída 10**, **curso concluído 100**, **avaliação aprovada 30** (a primeira aprovação de cada avaliação), **primeira publicação do dia na comunidade 2**, **desafio concluído = bônus do desafio**. Níveis (1 a 10, nome de 2 a 30 caracteres, o primeiro em 0, mínimos crescentes): **Iniciante 0, Aprendiz 100, Praticante 300, Líder 700, Referência 1500**. Só alunos pontuam (a equipe não). **Ligar a gamificação calcula os pontos de tudo o que o aluno já fez** (retroativo, pela data em que aconteceu). Mudar o valor de uma ação vale dali em diante (o que já foi lançado fica).
+- **Comportamento esperado**: desligada, nenhum ponto novo é lançado e o ranking some da área do aluno; trava de colisão e trilha na configuração.
+- **Impacto se descumprida**: pontos que mudam sozinhos ou que dependem de quando a área ligou a gamificação.
+
+### RN-145 - Pontos: lançamentos, idempotência e ajuste manual
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Gamificação (razão de pontos)
+- **Descricao**: Cada ponto é um **lançamento** com motivo, valor, referência (a aula, o curso, a avaliação, o desafio ou o dia) e a data do fato. O mesmo fato **nunca pontua duas vezes** (repetir, reprocessar ou recalcular não muda nada). Lançamento nunca é alterado nem apagado. **Ajuste manual** só por DONO ou ADMIN, só para alunos, positivo ou negativo (nunca zero), com **justificativa de 5 a 500 caracteres**, autor e trilha; corrigir um ajuste = outro ajuste com o sinal contrário. Saldo = soma dos lançamentos (pode ficar negativo por ajuste; o nível não desce do primeiro).
+- **Comportamento esperado**: o aluno vê o extrato (motivo, pontos, quando); a equipe vê quem ajustou e por quê.
+- **Impacto se descumprida**: pontos em dobro, ou correção sem rastro de quem fez.
+
+### RN-146 - Ranking — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Área do aluno (ranking, perfil)
+- **Descricao**: Ranking da área por **semana** (segunda 00:00 a domingo, Brasília), **mês** (desde o dia 1) e **total**, somando os pontos pela data em que cada fato aconteceu. Só alunos ativos com saldo positivo no período; empate = mesma posição. O aluno pode **sair do ranking** no Perfil ("Aparecer no ranking", ligado por padrão; vale em todas as áreas, como "Lembretes"): some da lista dos outros e não tem posição, mas continua vendo os próprios pontos e nível.
+- **Comportamento esperado**: nada de outra área aparece; a lista pode ficar alguns minutos atrasada (cache).
+- **Impacto se descumprida**: aluno exposto contra a vontade, ou ranking que mistura áreas.
+
+### RN-147 - Desafios — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Gamificação > Desafios (DONO e ADMIN) e área do aluno
+- **Descricao**: Desafio = título, descrição, **início e fim**, meta (**concluir N aulas**, **concluir um curso**, **ser aprovado numa avaliação** ou **N publicações na comunidade**), bônus em pontos (0 a 10.000), recompensa opcional em texto (ex.: "Mentoria individual de 30 min"), situação **Rascunho → Publicado → Encerrado** (encerrar antes do fim para tudo) e público (todos ou grupos, como os eventos). O aluno do público clica **Participar** até o fim. O progresso conta só o que ele fez **entre o início e o fim** (mesmo antes de clicar em Participar); publicação removida ou oculta não conta. Ao alcançar a meta o desafio fica **concluído** e o bônus entra uma única vez; a equipe marca quando **entregou a recompensa**.
+- **Comportamento esperado**: progresso sempre recalculado dos dados (nunca um contador que diverge); desafio encerrado não conclui ninguém.
+- **Impacto se descumprida**: bônus em dobro, recompensa prometida e não registrada, ou desafio que conta atividade fora do prazo.
 
 <!-- Exemplo de registro: -->
 

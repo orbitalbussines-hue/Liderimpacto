@@ -110,20 +110,29 @@ export async function kpisAnalytics(criadorId: string, periodo: Intervalo, curso
 export interface HorasAssistidas {
   segundos: number;
   segundosAnt: number | null;
-  /** "acumulado" = desde sempre (hoje); "periodo" = só quando existir segundos por dia. */
+  /** "periodo" = sem filtro de curso (segundos por dia); "acumulado" = com curso, desde sempre. */
   recorte: "acumulado" | "periodo";
 }
 
 /**
- * Horas assistidas = soma dos segundos ÚNICOS assistidos (bitmap do progresso) pelos alunos.
- * ponytail: o progresso guarda só o total acumulado por (aluno, aula) e nenhuma tabela tem
- * segundos por dia, então hoje sai ACUMULADO, sem período nem comparação. TODO (próxima migração):
- * coluna `segundos` em `criadores_membros_atividades` somada no upsert do progresso → trocar esta
- * função por `sum(segundos)` no período e no anterior e devolver `recorte: "periodo"` (a tela já
- * trata os dois casos). Com curso, a coluna precisaria também da aula (ou do produto).
+ * Horas assistidas = segundos ÚNICOS assistidos pelos alunos (rever não soma).
+ * - Sem curso: soma de `criadores_membros_atividades.segundos` (segundos NOVOS por dia, gravados pela
+ *   batida) no período e no anterior → `recorte: "periodo"`. Dias antes da migração 0009 valem 0.
+ * - Com curso: o registro diário não guarda a aula, então continua o total ACUMULADO do bitmap do
+ *   progresso nas aulas do curso, sem comparação (`recorte: "acumulado"`; a tela diz isso).
  */
-export async function horasAssistidas(criadorId: string, _periodo: Intervalo, curso: string | null): Promise<HorasAssistidas> {
+export async function horasAssistidas(criadorId: string, periodo: Intervalo, curso: string | null): Promise<HorasAssistidas> {
   const c = sql`${criadorId}::uuid`;
+  if (!curso) {
+    const { rows } = await db.execute<{ segundos: number; ant: number }>(sql`
+      with ${limites(periodo)}
+      select coalesce(sum(a.segundos) filter (where a.dia >= t.ini), 0)::float8 as segundos,
+        coalesce(sum(a.segundos) filter (where a.dia < t.ini), 0)::float8 as ant
+      from t, criadores_membros_atividades a ${ALUNO(sql`a.membro_id`)}
+      where a.criador_id = ${c} and a.is_deleted = false and a.dia between t.ini_ant and t.fim
+    `);
+    return { segundos: Number(rows[0].segundos), segundosAnt: Number(rows[0].ant), recorte: "periodo" };
+  }
   const { rows } = await db.execute<{ segundos: number }>(sql`
     with ${aulasDoEscopo(c, curso)}
     select coalesce(sum(pr.segundos_assistidos), 0)::bigint::float8 as segundos

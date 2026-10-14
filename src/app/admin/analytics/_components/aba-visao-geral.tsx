@@ -58,7 +58,7 @@ export async function AbaVisaoGeral({ parametros }: { parametros: ParametrosAnal
           anterior={horas.recorte === "periodo" ? horas.segundosAnt : null}
           valor={formatarHoras(horas.segundos)}
           indisponivel="Acumulado desde o início"
-          complemento={horas.recorte === "acumulado" ? "Ainda sem recorte por período" : undefined}
+          complemento={horas.recorte === "acumulado" ? "Por curso não há recorte por período" : undefined}
         />
         <KpiContagem rotulo="Aulas concluídas" atual={k.aulas} anterior={k.aulasAnt} />
         <CartaoKpi

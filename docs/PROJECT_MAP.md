@@ -6,8 +6,8 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 583 |
-| Tabelas (Drizzle) | 46 |
+| Arquivos TS/TSX | 597 |
+| Tabelas (Drizzle) | 54 |
 | Server Actions (arquivos) | 30 |
 | Rotas de API | 7 |
 | Paginas | 58 |
@@ -399,6 +399,20 @@ lib/
     soft-delete.ts
   email/
     enviar.ts
+  eventos/
+    consultas.ts
+    presenca.ts
+    regras.test.ts
+    regras.ts
+    sql.ts
+  gamificacao/
+    desafios.ts
+    padroes.ts
+    pontos.ts
+    ranking.ts
+    recalcular.ts
+    regras.test.ts
+    regras.ts
   marca/
     paleta.test.ts
     paleta.ts
@@ -566,8 +580,32 @@ proxy.ts
 ### `criadores_membros` — src/lib/db/schema/criadores.ts
 `id`, `criador_id`, `usuario_id`, `papel`, `status`, `ultimo_acesso_em`
 
+### `criadores_eventos` — src/lib/db/schema/eventos.ts
+`id`, `criador_id`, `titulo`, `descricao`, `inicio_em`, `duracao_min`, `link_acesso`, `situacao`, `publico`, `produto_id`, `gravacao_aula_id`, `publicado_em`, `cancelado_em`, `criado_por`
+
+### `criadores_eventos_grupos` — src/lib/db/schema/eventos.ts
+`id`, `criador_id`, `evento_id`, `grupo_id`
+
+### `criadores_eventos_inscricoes` — src/lib/db/schema/eventos.ts
+`id`, `criador_id`, `evento_id`, `membro_id`
+
 ### `criadores_membros_favoritos` — src/lib/db/schema/favoritos.ts
 `id`, `criador_id`, `membro_id`, `produto_id`, `aula_id`
+
+### `criadores_gamificacao` — src/lib/db/schema/gamificacao.ts
+`id`, `criador_id`, `ligada`, `pontos_aula_concluida`, `pontos_curso_concluido`, `pontos_avaliacao_aprovada`, `pontos_publicacao_comunidade`, `niveis`
+
+### `criadores_membros_pontos` — src/lib/db/schema/gamificacao.ts
+`id`, `criador_id`, `membro_id`, `motivo`, `pontos`, `referencia`, `ocorrido_em`, `justificativa`, `created_at`, `modified_by`
+
+### `criadores_desafios` — src/lib/db/schema/gamificacao.ts
+`id`, `criador_id`, `titulo`, `descricao`, `inicio_em`, `fim_em`, `meta_tipo`, `meta_quantidade`, `meta_produto_id`, `meta_avaliacao_id`, `pontos_bonus`, `recompensa`, `situacao`, `publico`, `criado_por`
+
+### `criadores_desafios_grupos` — src/lib/db/schema/gamificacao.ts
+`id`, `criador_id`, `desafio_id`, `grupo_id`
+
+### `criadores_desafios_participacoes` — src/lib/db/schema/gamificacao.ts
+`id`, `criador_id`, `desafio_id`, `membro_id`, `concluido_em`, `recompensa_entregue_em`, `recompensa_entregue_por`
 
 ### `produtos_matriculas` — src/lib/db/schema/matriculas.ts
 `id`, `criador_id`, `membro_id`, `produto_id`, `origem`, `status`, `iniciada_em`, `concluida_em`, `expira_em`, `referencia_externa`, `motivo_cancelamento`
@@ -585,13 +623,13 @@ proxy.ts
 `id`, `criador_id`, `aula_id`, `nome`, `tipo`, `arquivo_id`, `url`
 
 ### `produtos_modulos_aulas_progressos` — src/lib/db/schema/progresso.ts
-`id`, `criador_id`, `membro_id`, `aula_id`, `segundos_bitmap`, `segundos_assistidos`, `max_posicao_seg`, `ultima_posicao_seg`, `percentual`, `concluida`, `concluida_em`, `concluida_por`, `ultima_visualizacao_dia`, `visualizacao_nova`
+`id`, `criador_id`, `membro_id`, `aula_id`, `segundos_bitmap`, `segundos_assistidos`, `max_posicao_seg`, `ultima_posicao_seg`, `percentual`, `concluida`, `concluida_em`, `concluida_por`, `ultima_visualizacao_dia`, `visualizacao_nova`, `segundos_novos`
 
 ### `produtos_modulos_aulas_visualizacoes` — src/lib/db/schema/progresso.ts
 `id`, `criador_id`, `aula_id`, `dia`, `visualizacoes`
 
 ### `criadores_membros_atividades` — src/lib/db/schema/progresso.ts
-`id`, `criador_id`, `membro_id`, `dia`
+`id`, `criador_id`, `membro_id`, `dia`, `segundos`
 
 ### `produtos_modulos_aulas_anotacoes` — src/lib/db/schema/progresso.ts
 `id`, `criador_id`, `membro_id`, `aula_id`, `tempo_seg`, `texto`
@@ -621,7 +659,7 @@ proxy.ts
 `id`, `usuario_id`, `senha_hash`
 
 ### `usuarios` — src/lib/db/schema/usuarios.ts
-`id`, `nome`, `email`, `email_verificado`, `imagem`, `papel_plataforma`, `ativo`, `tema`, `reproducao_automatica`, `lembretes`, `whatsapp`, `empresa_cargo`, `ultimo_acesso_em`, `falhas_login`, `bloqueado_ate`, `two_factor_enabled`
+`id`, `nome`, `email`, `email_verificado`, `imagem`, `papel_plataforma`, `ativo`, `tema`, `reproducao_automatica`, `lembretes`, `aparecer_no_ranking`, `whatsapp`, `empresa_cargo`, `ultimo_acesso_em`, `falhas_login`, `bloqueado_ate`, `two_factor_enabled`
 
 ### `produtos_modulos_aulas_videos` — src/lib/db/schema/videos.ts
 `id`, `criador_id`, `aula_id`, `situacao`, `nome_original`, `mime`, `tamanho_bytes`, `chave_origem`, `upload_id`, `prefixo_hls`, `chave_cifrada`, `duracao_seg`, `resolucoes`, `thumb_chave`, `erro`, `tentativas`, `processado_em`

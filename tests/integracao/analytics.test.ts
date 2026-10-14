@@ -5,7 +5,7 @@
  * equipe (401/403/200) e sem dado pessoal. Cada teste monta o PRÓPRIO criador.
  */
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { cabecalhos, cabecalhosLogados, novoCriador, trilhaDe } from "./_apoio";
 import { avaliacaoPronta } from "./_passo7";
@@ -131,8 +131,17 @@ describe("Visão geral", () => {
     const k2 = await c.kpisAnalytics(cr.id, u(7), c2.produto.id);
     expect([k2.ativos, k2.aulas, k2.validas, k2.validasConcluidas, k2.avaliados]).toEqual([1, 0, 1, 0, 0]);
 
-    // Horas: acumulado (sem período) e por curso; equipe fora.
-    expect(await c.horasAssistidas(cr.id, u(7), null)).toEqual({ segundos: 100 + 30 + 40 + 95, segundosAnt: null, recorte: "acumulado" });
+    // Horas sem curso: segundos novos por dia no período x anterior (a2 dia 9 e a3 dia 10 no anterior); equipe fora.
+    const segundosNoDia = (m: Membro, n: number, segundos: number) =>
+      db.update(s.criadores_membros_atividades).set({ segundos }).where(and(eq(s.criadores_membros_atividades.membro_id, m.membro.id), eq(s.criadores_membros_atividades.dia, diaSP(n))));
+    await segundosNoDia(a1, 0, 600);
+    await segundosNoDia(a1, 2, 120);
+    await segundosNoDia(a2, 9, 300);
+    await segundosNoDia(a3, 10, 50);
+    await segundosNoDia(admin, 0, 999);
+    expect(await c.horasAssistidas(cr.id, u(7), null)).toEqual({ segundos: 720, segundosAnt: 350, recorte: "periodo" });
+    // Com curso: acumulado do bitmap nas aulas do curso, sem comparação.
+    expect(await c.horasAssistidas(cr.id, u(7), c1.produto.id)).toEqual({ segundos: 100 + 40 + 95, segundosAnt: null, recorte: "acumulado" });
     expect((await c.horasAssistidas(cr.id, u(7), c2.produto.id)).segundos).toBe(30);
   });
 

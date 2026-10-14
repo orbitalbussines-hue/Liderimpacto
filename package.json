@@ -26,7 +26,8 @@
     "sessao:demo": "tsx --conditions=react-server scripts/sessao-demo.ts",
     "armazenamento:preparar": "tsx --conditions=react-server scripts/armazenamento-preparar.ts",
     "worker:video": "tsx --conditions=react-server scripts/worker-video.ts",
-    "worker:certificados": "tsx --conditions=react-server scripts/worker-certificados.ts"
+    "worker:certificados": "tsx --conditions=react-server scripts/worker-certificados.ts",
+    "gamificacao:recalcular": "tsx --conditions=react-server scripts/gamificacao-recalcular.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1151.0",

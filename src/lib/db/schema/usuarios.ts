@@ -26,6 +26,8 @@ export const usuarios = pgTable(
     // Preferencias da PESSOA (valem em qualquer criador, como o tema): passo 5.
     reproducao_automatica: boolean("reproducao_automatica").notNull().default(true),
     lembretes: boolean("lembretes").notNull().default(true),
+    // Gamificação (RN-146): aparecer no ranking das áreas em que é aluno. Sair esconde do ranking, não zera pontos.
+    aparecer_no_ranking: boolean("aparecer_no_ranking").notNull().default(true),
     whatsapp: text("whatsapp"),
     empresa_cargo: text("empresa_cargo"),
     ultimo_acesso_em: instante("ultimo_acesso_em"),

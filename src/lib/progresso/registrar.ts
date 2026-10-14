@@ -13,8 +13,10 @@ import { esquemaBatida, FOLGA_SEG, PERCENTUAL_CONCLUSAO, prepararBatida, TETO_PR
  * `registrarProgresso` é UMA instrução SQL (uma ida ao banco): lê a duração da aula, faz o
  * UPSERT por (membro, aula) com OR bit a bit nos segundos assistidos, recalcula percentual e
  * conclusão, soma a visualização do dia no agregado do Top 10 e marca o dia de atividade do membro
- * (painel, `criadores_membros_atividades`). Duas batidas simultâneas se
- * enfileiram na trava de linha do ON CONFLICT: a segunda mescla sobre a primeira (nada se perde).
+ * (painel, `criadores_membros_atividades`) somando nele os segundos ÚNICOS novos (`segundos_novos` =
+ * bits do OR − bits de antes, calculado sobre a versão travada da linha). Duas batidas simultâneas se
+ * enfileiram na trava de linha do ON CONFLICT: a segunda mescla sobre a primeira (nada se perde nem
+ * conta duas vezes).
  *
  * A batida é IGNORADA (sem erro) quando a aula não tem duração (vídeo não processado) ou quando
  * declara mais segundos do que o tempo real permite (2× o decorrido desde a última batida aceita
@@ -86,7 +88,7 @@ export async function registrarProgresso(e: EntradaProgresso): Promise<Progresso
     ),
     up as (
       insert into ${P} as p (criador_id, membro_id, aula_id, segundos_bitmap, segundos_assistidos, max_posicao_seg, ultima_posicao_seg,
-        percentual, concluida, concluida_em, concluida_por, ultima_visualizacao_dia, visualizacao_nova, modified_by)
+        percentual, concluida, concluida_em, concluida_por, ultima_visualizacao_dia, visualizacao_nova, segundos_novos, modified_by)
       select ${e.criadorId}::uuid, ${e.membroId}::uuid, ${e.aulaId}::uuid, b, bit_count(b), least(${lote.maiorFim}::int, d), least(${lote.posicao}::int, d),
         (bit_count(b) * 100 / d)::smallint,
         bit_count(b) * 100 >= d * ${PERCENTUAL_CONCLUSAO},
@@ -94,6 +96,7 @@ export async function registrarProgresso(e: EntradaProgresso): Promise<Progresso
         case when bit_count(b) * 100 >= d * ${PERCENTUAL_CONCLUSAO} then 'ASSISTIU' end,
         case when ${lote.segundos}::int > 0 then ${HOJE} end,
         ${lote.segundos}::int > 0,
+        bit_count(b),
         ${e.usuarioId}::uuid
       from nova
       where ${lote.segundos}::int <= ${TETO_PRIMEIRA_BATIDA_SEG}
@@ -109,10 +112,11 @@ export async function registrarProgresso(e: EntradaProgresso): Promise<Progresso
         concluida_por = case when p.concluida then p.concluida_por when ${CRUZOU} then 'ASSISTIU' end,
         ultima_visualizacao_dia = case when ${lote.segundos}::int > 0 then ${HOJE} else p.ultima_visualizacao_dia end,
         visualizacao_nova = ${lote.segundos}::int > 0 and p.ultima_visualizacao_dia is distinct from ${HOJE},
+        segundos_novos = greatest(bit_count(${MESCLADO}) - p.segundos_assistidos, 0),
         updated_at = now(),
         modified_by = excluded.modified_by
       where ${lote.segundos}::int <= ${VELOCIDADE_MAXIMA} * extract(epoch from now() - p.updated_at) + ${FOLGA_SEG}
-      returning percentual, concluida, concluida_por, ultima_posicao_seg, segundos_assistidos, visualizacao_nova,
+      returning percentual, concluida, concluida_por, ultima_posicao_seg, segundos_assistidos, visualizacao_nova, segundos_novos,
         coalesce(concluida_em > now() - interval '1 millisecond', false) as concluiu_agora
     ),
     vis as (
@@ -121,9 +125,11 @@ export async function registrarProgresso(e: EntradaProgresso): Promise<Progresso
       on conflict (aula_id, dia) where is_deleted = false do update set visualizacoes = v.visualizacoes + 1, updated_at = now()
     ),
     ativ as (
-      insert into criadores_membros_atividades (criador_id, membro_id, dia, modified_by)
-      select ${e.criadorId}::uuid, ${e.membroId}::uuid, ${HOJE}, ${e.usuarioId}::uuid from up where up.visualizacao_nova
-      on conflict (membro_id, dia) where is_deleted = false do nothing
+      insert into criadores_membros_atividades as a (criador_id, membro_id, dia, segundos, modified_by)
+      select ${e.criadorId}::uuid, ${e.membroId}::uuid, ${HOJE}, up.segundos_novos, ${e.usuarioId}::uuid from up
+      where up.visualizacao_nova or up.segundos_novos > 0
+      on conflict (membro_id, dia) where is_deleted = false do update set segundos = a.segundos + excluded.segundos
+        where excluded.segundos > 0
     )
     select * from up
   `);

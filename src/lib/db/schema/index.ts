@@ -17,4 +17,6 @@ export * from "./trilhas";
 export * from "./comunidade";
 export * from "./comunidade-moderacao";
 export * from "./vitrines";
+export * from "./eventos";
+export * from "./gamificacao";
 export * from "./auditoria";

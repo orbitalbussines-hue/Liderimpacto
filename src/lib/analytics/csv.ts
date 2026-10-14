@@ -13,7 +13,7 @@ export function csvVisaoGeral(k: KpisAnalytics, horas: HorasAssistidas, serie: r
     ["indicador", "periodo", "periodo_anterior", "observacao"],
     [
       ["alunos_ativos", k.ativos, k.ativosAnt, comCurso ? "com filtro de curso: alunos com batida no curso no período; anterior indisponível" : "alunos distintos com dia de atividade de aula"],
-      ["horas_assistidas", Math.round((horas.segundos / 3600) * 100) / 100, horas.segundosAnt === null ? null : Math.round((horas.segundosAnt / 3600) * 100) / 100, horas.recorte === "acumulado" ? "ACUMULADO desde o início (não há segundos por dia)" : "período"],
+      ["horas_assistidas", Math.round((horas.segundos / 3600) * 100) / 100, horas.segundosAnt === null ? null : Math.round((horas.segundosAnt / 3600) * 100) / 100, horas.recorte === "acumulado" ? "ACUMULADO desde o início (com filtro de curso não há segundos por dia)" : "segundos únicos novos por dia (contados desde 14/10/2026)"],
       ["aulas_concluidas", k.aulas, k.aulasAnt, ""],
       ["taxa_conclusao_cursos_hoje", taxa(k.validasConcluidas, k.validas), null, `${k.validasConcluidas} de ${k.validas} matrículas valendo`],
       ["cursos_concluidos", k.cursosConcluidos, k.cursosConcluidosAnt, ""],

@@ -50,6 +50,12 @@ export const produtos_modulos_aulas_progressos = pgTable(
     concluida_por: text("concluida_por", { enum: CONCLUSOES_AULA }),
     ultima_visualizacao_dia: date("ultima_visualizacao_dia", { mode: "string" }),
     visualizacao_nova: boolean("visualizacao_nova").notNull().default(false),
+    /**
+     * Segundos ÚNICOS que a ÚLTIMA batida acrescentou (campo de sistema, como `visualizacao_nova`):
+     * calculado na trava de linha do ON CONFLICT e devolvido pela mesma instrução para somar em
+     * `criadores_membros_atividades.segundos` sem contar duas vezes (ADR-0006/0007, RN-139).
+     */
+    segundos_novos: integer("segundos_novos").notNull().default(0),
     ...colunasAuditoria,
   },
   (t) => [
@@ -73,6 +79,10 @@ export const produtos_modulos_aulas_progressos = pgTable(
     index("ix_produtos_modulos_aulas_progressos_recentes").on(t.membro_id, t.updated_at.desc()).where(sql`is_deleted = false`),
     // Painel (passo 6): "Aulas concluídas" no período e "Acontecendo agora", por criador.
     index("ix_produtos_modulos_aulas_progressos_concluidas").on(t.criador_id, t.concluida_em.desc()).where(sql`concluida and is_deleted = false`),
+    // Analytics com filtro de curso e "Conteúdo" (aulas do escopo por criador). Sem INCLUDE de propósito:
+    // a batida já reescreve as entradas de todo índice (updated_at é indexado) e coluna a mais só
+    // engorda a escrita quente; o bitmap scan bastou (EXPLAIN 251→35 ms e 238→13 ms, ADR-0012).
+    index("ix_produtos_modulos_aulas_progressos_criador_aula").on(t.criador_id, t.aula_id).where(sql`is_deleted = false`),
     check("ck_produtos_modulos_aulas_progressos_bitmap", sql.raw(`length(segundos_bitmap) <= ${DURACAO_MAXIMA_PROGRESSO_SEG}`)),
     check(
       "ck_produtos_modulos_aulas_progressos_numeros",
@@ -130,6 +140,12 @@ export const criadores_membros_atividades = pgTable(
     criador_id: uuid("criador_id").notNull().references(() => criadores.id, restrito),
     membro_id: uuid("membro_id").notNull(),
     dia: date("dia", { mode: "string" }).notNull(),
+    /**
+     * Segundos ÚNICOS novos assistidos no dia (soma dos `segundos_novos` das batidas; rever não
+     * soma). Campo de sistema: muda sem tocar `updated_at`. "Horas assistidas" por período (RN-139).
+     * Dias anteriores à migração 0009 ficam com 0.
+     */
+    segundos: integer("segundos").notNull().default(0),
     ...colunasAuditoria,
   },
   (t) => [

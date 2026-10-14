@@ -140,5 +140,34 @@ export const TIPOS_NOTIFICACAO = [
   "CERTIFICADO_EMITIDO",
   "MATRICULA_NOVA",
   "DENUNCIA_NOVA",
+  // Eventos ao vivo (ADR-0011, RN-143): publicado (público), lembrete 1 h antes (inscritos), cancelado (inscritos).
+  "EVENTO_PUBLICADO",
+  "EVENTO_LEMBRETE",
+  "EVENTO_CANCELADO",
 ] as const;
 export type TipoNotificacao = (typeof TIPOS_NOTIFICACAO)[number];
+
+/** Eventos ao vivo (ADR-0011, RN-142). CANCELADO continua visível ("cancelado"), sem link. */
+export const SITUACOES_EVENTO = ["RASCUNHO", "PUBLICADO", "CANCELADO"] as const;
+export type SituacaoEvento = (typeof SITUACOES_EVENTO)[number];
+
+/**
+ * Quem vê o evento/desafio: TODOS os membros; PRODUTO = matrícula valendo no curso (`produto_id`);
+ * GRUPOS = está em ao menos um grupo da tabela de junção. Desafio não tem PRODUTO.
+ */
+export const PUBLICOS_EVENTO = ["TODOS", "PRODUTO", "GRUPOS"] as const;
+export type PublicoEvento = (typeof PUBLICOS_EVENTO)[number];
+export const PUBLICOS_DESAFIO = ["TODOS", "GRUPOS"] as const;
+export type PublicoDesafio = (typeof PUBLICOS_DESAFIO)[number];
+
+/** Gamificação (ADR-0012, RN-144 a RN-147). ENCERRADO = a equipe encerrou antes do fim. */
+export const SITUACOES_DESAFIO = ["RASCUNHO", "PUBLICADO", "ENCERRADO"] as const;
+export type SituacaoDesafio = (typeof SITUACOES_DESAFIO)[number];
+
+/** Meta do desafio: AULAS_CONCLUIDAS e PUBLICACOES_COMUNIDADE com quantidade; CURSO_CONCLUIDO com produto; AVALIACAO_APROVADA com avaliação. */
+export const METAS_DESAFIO = ["AULAS_CONCLUIDAS", "CURSO_CONCLUIDO", "AVALIACAO_APROVADA", "PUBLICACOES_COMUNIDADE"] as const;
+export type MetaDesafio = (typeof METAS_DESAFIO)[number];
+
+/** Motivo de um lançamento no razão de pontos. Só AJUSTE_MANUAL pode ser negativo. */
+export const MOTIVOS_PONTOS = ["AULA_CONCLUIDA", "CURSO_CONCLUIDO", "AVALIACAO_APROVADA", "PUBLICACAO_COMUNIDADE", "DESAFIO_CONCLUIDO", "AJUSTE_MANUAL"] as const;
+export type MotivoPontos = (typeof MOTIVOS_PONTOS)[number];

@@ -31,3 +31,5 @@ numerado e imutavel — se a decisao muda, cria-se um novo ADR que supersede o a
 | [0008](0008-avaliacoes-certificados-trilhas.md) | Avaliações com gabarito separado, certificado com PDF versionado em fila própria e trilhas | Aceito |
 | [0009](0009-comunidade-notificacoes.md) | Comunidade em texto puro, limite de frequência no banco e notificações por polling | Aceito |
 | [0010](0010-construtor-da-vitrine.md) | Construtor da vitrine: rascunho único, versões imutáveis, prévia por iframe e cache por etiqueta | Aceito |
+| [0011](0011-eventos-ao-vivo.md) | Eventos ao vivo: link só na janela, público por regra única e lembrete por job atrasado | Aceito |
+| [0012](0012-gamificacao-razao-de-pontos.md) | Gamificação: razão de pontos append-only, tudo calculado, desafios por janela; segundos por dia no heartbeat | Aceito |

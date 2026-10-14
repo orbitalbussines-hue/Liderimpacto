@@ -296,17 +296,19 @@ describe("actions: favoritos, anotações e preferências", () => {
   it("preferências: da sessão (nunca de id no corpo), valem em qualquer criador, com trilha", async () => {
     const cr = await novoCriador();
     const al = await membroCom(cr.id);
-    expect(await c.preferenciasDoAluno(al.usuario.id)).toEqual({ reproducaoAutomatica: true, lembretes: true });
+    expect(await c.preferenciasDoAluno(al.usuario.id)).toEqual({ reproducaoAutomatica: true, lembretes: true, aparecerNoRanking: true });
     req.h = await cabecalhosLogados(al.usuario.email, cr.slug);
-    expect(ok(await prefs.acaoSalvarPreferencias({ lembretes: false }))).toEqual({ reproducaoAutomatica: true, lembretes: false });
+    expect(ok(await prefs.acaoSalvarPreferencias({ lembretes: false }))).toEqual({ reproducaoAutomatica: true, lembretes: false, aparecerNoRanking: true });
     expect((await prefs.acaoSalvarPreferencias({ lembretes: true, usuarioId: al.usuario.id })).ok).toBe(false);
     expect((await prefs.acaoSalvarPreferencias({})).ok).toBe(false);
-    expect(await c.preferenciasDoAluno(al.usuario.id)).toEqual({ reproducaoAutomatica: true, lembretes: false });
+    // Sair do ranking (RN-146) é preferência da pessoa, como "Lembretes".
+    expect(ok(await prefs.acaoSalvarPreferencias({ aparecerNoRanking: false }))).toEqual({ reproducaoAutomatica: true, lembretes: false, aparecerNoRanking: false });
+    expect(await c.preferenciasDoAluno(al.usuario.id)).toEqual({ reproducaoAutomatica: true, lembretes: false, aparecerNoRanking: false });
     // Outro criador, mesma pessoa: mesma preferência.
     const b = await novoCriador();
     await matricular(b.id, (await vincular(b.id, al.usuario.id, "ALUNO")).id, (await cursoPronto(b.id)).produto.id);
     req.h = await cabecalhosLogados(al.usuario.email, b.slug);
-    expect(ok(await prefs.acaoSalvarPreferencias({ reproducaoAutomatica: false }))).toEqual({ reproducaoAutomatica: false, lembretes: false });
+    expect(ok(await prefs.acaoSalvarPreferencias({ reproducaoAutomatica: false }))).toEqual({ reproducaoAutomatica: false, lembretes: false, aparecerNoRanking: false });
   });
 });
 

@@ -31,5 +31,5 @@ export const alvoFavoritoSchema = z.union([z.strictObject({ produtoId: idSchema 
 });
 
 export const preferenciasSchema = z
-  .strictObject({ reproducaoAutomatica: z.boolean().optional(), lembretes: z.boolean().optional() })
-  .refine((p) => p.reproducaoAutomatica !== undefined || p.lembretes !== undefined, "Nada para salvar.");
+  .strictObject({ reproducaoAutomatica: z.boolean().optional(), lembretes: z.boolean().optional(), aparecerNoRanking: z.boolean().optional() })
+  .refine((p) => p.reproducaoAutomatica !== undefined || p.lembretes !== undefined || p.aparecerNoRanking !== undefined, "Nada para salvar.");
