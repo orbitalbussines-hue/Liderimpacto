@@ -28,8 +28,13 @@ export interface ControlesPlayerProps {
   pip: boolean;
   anterior: { titulo: string } | null;
   proxima: { titulo: string } | null;
-  menu: "velocidade" | "qualidade" | null;
-  onMenu: (m: "velocidade" | "qualidade" | null) => void;
+  menu: MenuAberto;
+  onMenu: (m: MenuAberto) => void;
+  /** Legendas da aula (vazio = botão desabilitado, só no desktop, como antes). */
+  legendas: readonly { id: string; rotulo: string }[];
+  legendaAtiva: string | null;
+  /** `null` = desligar. */
+  onLegenda: (id: string | null) => void;
   onAlternar: () => void;
   onBuscar: (seg: number) => void;
   onVolume: (v: number) => void;
@@ -42,11 +47,30 @@ export interface ControlesPlayerProps {
   onProxima: () => void;
 }
 
-function BotaoControle({ rotulo, onClick, disabled, title, children, className }: { rotulo: string; onClick?: () => void; disabled?: boolean; title?: string; children: ReactNode; className?: string }) {
+export type MenuAberto = "velocidade" | "qualidade" | "legendas" | null;
+
+function BotaoControle({
+  rotulo,
+  onClick,
+  disabled,
+  title,
+  children,
+  className,
+  pressionado,
+}: {
+  rotulo: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+  children: ReactNode;
+  className?: string;
+  pressionado?: boolean;
+}) {
   return (
     <button
       type="button"
       aria-label={rotulo}
+      aria-pressed={pressionado}
       title={title ?? rotulo}
       onClick={onClick}
       disabled={disabled}
@@ -57,6 +81,45 @@ function BotaoControle({ rotulo, onClick, disabled, title, children, className }
     >
       {children}
     </button>
+  );
+}
+
+/** Traço sob o ícone quando a legenda está ligada (o estado não depende só da cor). */
+const LIGADA = "relative text-white after:absolute after:bottom-[7px] after:left-1/2 after:h-[3px] after:w-5 after:-translate-x-1/2 after:rounded-full after:bg-fixo-accent";
+
+/**
+ * CC: sem legenda, desabilitado (só desktop: lugar no design, sem prometer o que não há); uma,
+ * liga/desliga (C); mais de uma, menu com "Desligadas" + os idiomas.
+ */
+function BotaoLegendas(p: ControlesPlayerProps) {
+  if (p.legendas.length === 0) {
+    return (
+      <BotaoControle rotulo="Legendas indisponíveis nesta aula" title="Sem legendas" disabled className="max-desk:hidden">
+        <Captions />
+      </BotaoControle>
+    );
+  }
+  const ligada = p.legendaAtiva !== null;
+  if (p.legendas.length === 1) {
+    return (
+      <BotaoControle rotulo="Legendas (C)" pressionado={ligada} onClick={() => p.onLegenda(ligada ? null : p.legendas[0].id)} className={cn(ligada && LIGADA)}>
+        <Captions />
+      </BotaoControle>
+    );
+  }
+  const ativa = p.legendas.find((l) => l.id === p.legendaAtiva);
+  return (
+    <MenuPlayer
+      rotulo={`Legendas: ${ativa?.rotulo ?? "desligadas"}`}
+      titulo="Legendas"
+      gatilho={<Captions className="size-5" aria-hidden />}
+      opcoes={[{ valor: "", rotulo: "Desligadas" }, ...p.legendas.map((l) => ({ valor: l.id, rotulo: l.rotulo }))]}
+      valor={p.legendaAtiva ?? ""}
+      aberto={p.menu === "legendas"}
+      onAbrir={(a) => p.onMenu(a ? "legendas" : null)}
+      onEscolher={(v) => p.onLegenda(v || null)}
+      className={cn(ligada && LIGADA)}
+    />
   );
 }
 
@@ -119,10 +182,7 @@ export function ControlesPlayer(p: ControlesPlayerProps) {
             onEscolher={p.onNivel}
           />
         )}
-        {/* Sem VTT no pipeline ainda: o botão existe (lugar no design) mas não promete o que não há. */}
-        <BotaoControle rotulo="Legendas indisponíveis nesta aula" title="Sem legendas" disabled className="max-desk:hidden">
-          <Captions />
-        </BotaoControle>
+        <BotaoLegendas {...p} />
         {p.pip && (
           <BotaoControle rotulo="Picture-in-picture" onClick={p.onPip} className="max-desk:hidden">
             <PictureInPicture2 />

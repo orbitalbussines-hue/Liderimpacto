@@ -44,7 +44,7 @@ export type TipoMaterial = (typeof TIPOS_MATERIAL)[number];
  * Para que serve o arquivo: define a allowlist (MIME, extensao, tamanho) e onde pode ser usado
  * (src/lib/armazenamento/regras.ts). Video NAO entra aqui (pipeline proprio, passo 3b).
  */
-export const FINALIDADES_ARQUIVO_CATALOGO = ["IMAGEM", "MATERIAL"] as const;
+export const FINALIDADES_ARQUIVO_CATALOGO = ["IMAGEM", "MATERIAL", "LEGENDA"] as const;
 /** Anexos de publicação da comunidade (passo 8, RN-131): qualquer membro envia, só ao próprio post. */
 export const FINALIDADES_ARQUIVO_COMUNIDADE = ["COMUNIDADE_IMAGEM", "COMUNIDADE_PDF"] as const;
 export const FINALIDADES_ARQUIVO = [...FINALIDADES_ARQUIVO_CATALOGO, ...FINALIDADES_ARQUIVO_COMUNIDADE] as const;

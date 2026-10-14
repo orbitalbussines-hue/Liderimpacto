@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 657 |
-| Tabelas (Drizzle) | 54 |
-| Server Actions (arquivos) | 32 |
-| Rotas de API | 8 |
+| Arquivos TS/TSX | 672 |
+| Tabelas (Drizzle) | 55 |
+| Server Actions (arquivos) | 33 |
+| Rotas de API | 9 |
 | Paginas | 71 |
-| Componentes | 149 |
+| Componentes | 151 |
 
 ## Arvore (profundidade 3)
 
@@ -56,6 +56,7 @@ app/
     layout.tsx
     page.tsx
   api/
+    legendas/
     notificacoes/
     progresso/
     video/
@@ -220,9 +221,12 @@ components/
     controles-player.tsx
     fim-da-aula.test.tsx
     fim-da-aula.tsx
+    legenda-na-tela.tsx
+    legendas-player.test.tsx
     menu-player.tsx
     player-aula.tsx
     use-contagem.ts
+    use-legenda.ts
     use-progresso.test.tsx
     use-progresso.ts
   trilhas/
@@ -299,6 +303,7 @@ lib/
     favoritos.ts
     gamificacao.ts
     grupos.ts
+    legendas.ts
     matriculas-importacao.ts
     matriculas.ts
     membros-gestao.ts
@@ -434,6 +439,12 @@ lib/
     recalcular.ts
     regras.test.ts
     regras.ts
+  legendas/
+    consultas.ts
+    entrega.ts
+    regras.test.ts
+    regras.ts
+    servico.ts
   marca/
     paleta.test.ts
     paleta.ts
@@ -492,6 +503,7 @@ lib/
     eventos.test.ts
     eventos.ts
     gamificacao.ts
+    legendas.ts
     matriculas.ts
     membros.ts
     perfil.test.ts
@@ -631,6 +643,9 @@ proxy.ts
 ### `criadores_desafios_participacoes` — src/lib/db/schema/gamificacao.ts
 `id`, `criador_id`, `desafio_id`, `membro_id`, `concluido_em`, `recompensa_entregue_em`, `recompensa_entregue_por`
 
+### `produtos_modulos_aulas_legendas` — src/lib/db/schema/legendas.ts
+`id`, `criador_id`, `aula_id`, `idioma`, `rotulo`, `nome_original`, `chave`, `texto`, `trechos`, `duracao_seg`, `enviado_por`
+
 ### `produtos_matriculas` — src/lib/db/schema/matriculas.ts
 `id`, `criador_id`, `membro_id`, `produto_id`, `origem`, `status`, `iniciada_em`, `concluida_em`, `expira_em`, `referencia_externa`, `motivo_cancelamento`
 
@@ -705,6 +720,7 @@ proxy.ts
 | Rota | Metodos |
 |------|---------|
 | `/admin/analytics/exportar` | GET |
+| `/api/legendas/[id]` | GET |
 | `/api/notificacoes/contagem` | GET |
 | `/api/progresso` | POST |
 | `/api/video/[id]/chave` | GET |
@@ -731,6 +747,7 @@ proxy.ts
 - `src/lib/actions/favoritos.ts`: `acaoFavoritar()`, `acaoDesfavoritar()`
 - `src/lib/actions/gamificacao.ts`: `acaoSalvarConfigGamificacao()`, `acaoSalvarDesafio()`, `acaoPublicarDesafio()`, `acaoEncerrarDesafio()`, `acaoExcluirDesafio()`, `acaoMarcarRecompensaEntregue()`, `acaoAjustarPontos()`, `acaoParticiparDoDesafio()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
+- `src/lib/actions/legendas.ts`: `acaoEnviarLegenda()`, `acaoRemoverLegenda()`
 - `src/lib/actions/matriculas-importacao.ts`: `acaoImportarMatriculas()`
 - `src/lib/actions/matriculas.ts`: `acaoMatricular()`, `acaoCancelarMatricula()`, `acaoAlterarExpiracao()`, `acaoReativarMatricula()`, `acaoBuscarMembros()`
 - `src/lib/actions/membros-gestao.ts`: `acaoMudarPapel()`, `acaoAlterarSituacaoMembro()`, `acaoRemoverMembro()`, `acaoDefinirGruposDoMembro()`

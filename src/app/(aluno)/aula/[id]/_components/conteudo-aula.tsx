@@ -77,6 +77,8 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
         materiais={d.materiais}
         anotacoes={d.anotacoes}
         abaInicial={typeof busca.aba === "string" ? busca.aba : undefined}
+        legendas={aviso ? [] : d.legendas}
+        chaveLegenda={`li:legenda:${q.usuario.id}`}
         comentarios={
           comentarios && (
             <Comentarios

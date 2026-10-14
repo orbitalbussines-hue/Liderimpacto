@@ -950,3 +950,37 @@ VIDEO_TESTE_REAL=1 npx vitest run --config config/vitest.config.mts tests/video 
 ```
 
 `tests/integracao/video.test.ts` roda no `npm test` (precisa do storage no ar; sem ele, pula com aviso).
+
+## Legendas e transcrição (RN-180, ADR-0013)
+
+```
+admin (navegador) --URL assinada (finalidade LEGENDA, .vtt/.srt até 2 MB)--> bucket arquivos (legendas-envios/)
+  acaoIniciarEnvio -> PUT -> acaoConfirmarEnvio (HEAD) -> acaoEnviarLegenda
+  (servidor lê o bruto com teto -> processarLegenda: decodifica, valida, converte, sanitiza
+   -> grava criadores/<criador>/legendas/<id>.vtt -> transação: linha + bruto descartado + trilha)
+player -> <track src="/api/legendas/<id>"> (modo hidden; o player desenha) e a aba Transcrição (mesmo .vtt)
+```
+
+| Tabela | O que guarda |
+|--------|--------------|
+| `produtos_modulos_aulas_legendas` | Uma viva por (aula, idioma): idioma (BCP-47 simples, CHECK), rótulo, nome do arquivo enviado, chave do `.vtt` normalizado (CHECK `legendas/`), `texto` puro sem tempos, trechos, duração coberta, `enviado_por`. Trocar = soft delete da anterior + linha nova (o `.vtt` antigo fica no storage) |
+
+| Action (`src/lib/actions/legendas.ts`, Zod em `src/lib/validators/legendas.ts`) | Quem | O que faz |
+|--------|------|-----------|
+| `acaoEnviarLegenda({ aulaId, arquivoId, idioma, rotulo, substituir: { legendaId, versao } \| null })` | DONO, ADMIN | Lê o bruto (`LEGENDA`, DISPONIVEL, deste criador), `gravarLegenda`. Mesmo idioma sem `substituir` = recusa ("Use Trocar"); com `substituir`, trava pela versão e herda o idioma da anterior. Duração conferida contra o vídeo vivo (ou a aula) + 10 s. Trilha com metadados, sem o texto |
+| `acaoRemoverLegenda({ legendaId, versao })` | DONO, ADMIN | Soft delete com trava e trilha (a tela confirma com o modal de 3 s) |
+
+| Rota | Conferência | Resposta |
+|------|-------------|----------|
+| `GET /api/legendas/[id]` | sessão do HOST (401) + legenda viva deste criador (404) + `acessoDaAula` (403, na trilha) | `text/vtt; charset=utf-8`, `Cache-Control: private, max-age=300`, `nosniff` |
+
+| Arquivo | O que faz |
+|---------|-----------|
+| `src/lib/legendas/regras.ts` | PURO (tela e servidor): `decodificarLegenda` (UTF-8/BOM, UTF-16 com BOM, Windows-1252), `lerLegenda` (VTT/SRT, erros com a linha; até 20.000 trechos e 1.000 caracteres por trecho), `sanitizarTexto` (texto puro), `gerarVtt`, `textoPuro`, `processarLegenda`, `RE_IDIOMA`; aba Transcrição: `buscarTrechos`, `partesComDestaque`, `trechoAtual` |
+| `src/lib/legendas/servico.ts` | `lerArquivoBruto`, `lerObjetoLimitado`, `gravarLegenda` (também usado por `scripts/seed-demo-legendas.ts`), `removerLegenda` |
+| `src/lib/legendas/consultas.ts` | `legendasDaAula` (editor e `aulaParaPlayer`, só com `pode`), `urlDaLegenda` |
+| `src/lib/legendas/entrega.ts` | `servirLegenda` (o route handler só repassa) |
+
+`listarVideos` (Estúdio) devolve `legendas` = idiomas vivos da aula ("pt-BR · en") ou nulo.
+Demonstração: `npx tsx --conditions=react-server scripts/seed-demo-legendas.ts` (depois do `seed-demo-video.ts`).
+`tests/integracao/legendas.test.ts` roda no `npm test` (precisa do storage no ar; sem ele, pula com aviso).

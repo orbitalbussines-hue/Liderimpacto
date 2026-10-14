@@ -464,6 +464,14 @@ Cada regra segue este formato:
 - **Comportamento esperado**: ninguém recebe aviso de um rascunho; nenhum aviso repetido para a mesma pessoa; toda mudança na trilha de auditoria.
 - **Impacto se descumprida**: aluno avisado de encontro que não existe, ou encontro sumindo da lista de quem já tinha confirmado.
 
+### RN-180 - Legendas e transcrição da aula
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin > Conteúdos > editor da aula (seção Legendas, DONO e ADMIN), Estúdio de vídeo e player do aluno
+- **Descricao**: A equipe envia a legenda da aula em **VTT ou SRT até 2 MB** (UTF-8, ou o "ANSI"/Windows-1252 do Bloco de Notas, convertido), com **idioma** (`pt-BR` padrão; `en`, `es`, `es-419`...) e o **nome no player** ("Português"). Uma legenda por idioma em cada aula: **Trocar** guarda a anterior no histórico (exclusão lógica); **Remover** pede a confirmação de 3 s. O sistema confere a estrutura, os tempos (fim depois do início, inícios em ordem crescente, nada além do fim do vídeo + 10 s), limita 20.000 trechos e 1.000 caracteres por trecho, converte SRT em VTT e **tira toda formatação e tag** (`<i>`, `<b>`, cor, voz, posição): o aluno vê só o texto. O texto puro (sem tempos) fica guardado para busca e para a futura Base de conhecimento. No player, o botão **CC** (ou a tecla **C**) liga e desliga; com mais de um idioma, vira menu. A escolha é lembrada **por pessoa neste navegador**. Com legenda, a página da aula ganha a aba **Transcrição**: os trechos com o tempo, clique leva o vídeo ao ponto, o trecho que toca fica destacado e há busca (sem diferenciar acento). O Estúdio mostra os idiomas de legenda de cada vídeo.
+- **Comportamento esperado**: o `.vtt` só sai para quem pode assistir a aula (mesma regra do vídeo); legenda de outro criador não existe; toda mudança na trilha (sem o conteúdo inteiro).
+- **Impacto se descumprida**: legenda de outra aula (tempos errados), script ou HTML entrando pelo arquivo, transcrição de curso pago vazando para quem não comprou.
+
 <!-- Exemplo de registro: -->
 
 <!--

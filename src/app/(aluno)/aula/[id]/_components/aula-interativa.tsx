@@ -7,6 +7,7 @@ import { Award, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { FaixaCapitulos } from "@/components/curso/faixa-capitulos";
 import { capituloEm, type CapituloPlayer } from "@/components/player/barra-tempo";
 import { PlayerAula, type AulaVizinhaPlayer, type ControlePlayer } from "@/components/player/player-aula";
+import type { LegendaPlayer } from "@/components/player/use-legenda";
 import { Abas } from "@/components/ui/abas";
 import { Aviso } from "@/components/ui/aviso";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { formatarTempo } from "@/lib/validators/catalogo";
 import { AnotacoesAula, type Anotacao } from "./anotacoes-aula";
 import { MateriaisAula, type MaterialAula } from "./materiais-aula";
+import { TranscricaoAula } from "./transcricao-aula";
 
 export interface AulaInterativaProps {
   aula: { id: string; numero: string; titulo: string; descricao: string | null; duracaoSeg: number | null; capitulos: CapituloPlayer[] };
@@ -45,9 +47,13 @@ export interface AulaInterativaProps {
   comentarios?: ReactNode;
   /** `?aba=comentarios` (link das notificações): abre direto nesta aba. */
   abaInicial?: string;
+  /** Legendas (só com o player montável): `<track>` + CC e a aba Transcrição (a primeira). */
+  legendas?: LegendaPlayer[];
+  /** Chave do `localStorage` da escolha de legenda (por pessoa). */
+  chaveLegenda?: string;
 }
 
-type Aba = "descricao" | "materiais" | "comentarios" | "anotacoes";
+type Aba = "descricao" | "transcricao" | "materiais" | "comentarios" | "anotacoes";
 
 /**
  * Coluna principal da aula (client): player, cabeçalho com Anterior / Concluir e avançar, faixa
@@ -64,9 +70,11 @@ export function AulaInterativa(p: AulaInterativaProps) {
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
 
+  const transcricao = p.player ? p.legendas?.[0] : undefined;
   const abas = (
     [
       p.flags.abas.descricao && { valor: "descricao", rotulo: "Descrição" },
+      transcricao && { valor: "transcricao", rotulo: "Transcrição" },
       p.flags.abas.materiais && { valor: "materiais", rotulo: p.materiais.length ? `Materiais (${p.materiais.length})` : "Materiais" },
       p.flags.abas.comentarios && { valor: "comentarios", rotulo: "Comentários" },
       p.flags.abas.anotacoes && p.podeAnotar && { valor: "anotacoes", rotulo: "Anotações" },
@@ -124,6 +132,8 @@ export function AulaInterativa(p: AulaInterativaProps) {
             anterior={p.anterior}
             proxima={p.proxima}
             autoIniciar={p.player.autoIniciar}
+            legendas={p.legendas}
+            chaveLegenda={p.chaveLegenda}
             onTempo={setTempo}
             onGravado={(g) => {
               if (g.concluida && !concluida) {
@@ -209,6 +219,11 @@ export function AulaInterativa(p: AulaInterativaProps) {
             {p.aula.descricao ? <p className="m-0 whitespace-pre-line">{p.aula.descricao}</p> : <p className="m-0 text-muted">Esta aula não tem descrição.</p>}
             {p.flags.abas.materiais && p.materiais.length > 0 && <MateriaisAula materiais={p.materiais} />}
           </div>
+          {transcricao && (
+            <div id="painel-transcricao" role="tabpanel" aria-label="Transcrição" hidden={aba !== "transcricao"}>
+              <TranscricaoAula url={transcricao.url} ativa={aba === "transcricao"} tempo={tempo} onIrPara={irPara} />
+            </div>
+          )}
           <div id="painel-materiais" role="tabpanel" aria-label="Materiais" hidden={aba !== "materiais"}>
             {p.materiais.length ? <MateriaisAula materiais={p.materiais} /> : <EstadoVazio comMoldura titulo="Sem materiais nesta aula" descricao="Quando a equipe anexar PDFs, documentos ou links, eles aparecem aqui." />}
           </div>

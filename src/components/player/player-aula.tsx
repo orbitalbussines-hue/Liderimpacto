@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils";
 import type { Reproducao } from "@/lib/video/provedor";
 import { acaoDoAtalho, atalhoValeNoAlvo, type AcaoAtalho } from "./atalhos";
 import type { CapituloPlayer } from "./barra-tempo";
-import { ControlesPlayer } from "./controles-player";
+import { ControlesPlayer, type MenuAberto } from "./controles-player";
 import { FimDaAula } from "./fim-da-aula";
+import { LegendaNaTela } from "./legenda-na-tela";
+import { gravarPreferenciaLegenda, idDaFaixa, lerPreferenciaLegenda, useLegenda, type LegendaPlayer } from "./use-legenda";
 import { useProgresso, type ProgressoDaBatida } from "./use-progresso";
 
 export interface AulaVizinhaPlayer {
@@ -47,6 +49,10 @@ export interface PlayerAulaProps {
   proxima: AulaVizinhaPlayer | null;
   /** Veio da reprodução automática da aula anterior: já abre tocando. */
   autoIniciar?: boolean;
+  /** Legendas da aula (RN-180); vazio = sem legenda. */
+  legendas?: readonly LegendaPlayer[];
+  /** Chave do `localStorage` da escolha (por pessoa): ligada/desligada e o idioma. */
+  chaveLegenda?: string;
   /** Segundo inteiro atual (muda no máximo 1x/s). */
   onTempo?: (seg: number) => void;
   /** Resposta do servidor a cada batida registrada (conclusão aos 90%). */
@@ -60,6 +66,7 @@ const OUTRA_TELA = /outra tela/i;
 export const hrefAutoplay = (href: string) => `${href}?auto=1`;
 
 const semInscricao = () => () => {};
+const SEM_LEGENDAS: readonly LegendaPlayer[] = [];
 
 type Falha = ErroHls | { tipo: "outraTela"; mensagem: string };
 
@@ -90,7 +97,7 @@ export function PlayerAula(props: PlayerAulaProps) {
   const [volume, setVolume] = useState(1);
   const [mudo, setMudo] = useState(false);
   const [taxa, setTaxa] = useState(1);
-  const [menu, setMenu] = useState<"velocidade" | "qualidade" | null>(null);
+  const [menu, setMenu] = useState<MenuAberto>(null);
   const [telaCheia, setTelaCheia] = useState(false);
   const pip = useSyncExternalStore(semInscricao, () => document.pictureInPictureEnabled === true, () => false);
   const [ativo, setAtivo] = useState(true);
@@ -118,6 +125,23 @@ export function PlayerAula(props: PlayerAulaProps) {
   }, [falha]);
 
   const { niveis, nivel, escolherNivel } = useHls(video, reproducao, renovar, (e) => void aoErroHls(e));
+
+  // Legenda: a escolha desta página vence a lembrada no navegador ("" = desligada).
+  const legendas = props.legendas ?? SEM_LEGENDAS;
+  const chaveLegenda = props.chaveLegenda ?? "legenda";
+  const lembrada = useSyncExternalStore(semInscricao, () => lerPreferenciaLegenda(chaveLegenda), () => null);
+  const [idiomaEscolhido, setIdiomaEscolhido] = useState<string | null>(null);
+  const idioma = idiomaEscolhido ?? lembrada ?? "";
+  const legendaAtiva = idioma ? (legendas.find((l) => l.idioma === idioma) ?? legendas[0] ?? null) : null;
+  const textoLegenda = useLegenda(video, legendaAtiva?.id ?? null);
+  const escolherLegenda = useCallback(
+    (id: string | null) => {
+      const novo = id ? (legendas.find((l) => l.id === id)?.idioma ?? "") : "";
+      setIdiomaEscolhido(novo);
+      gravarPreferenciaLegenda(chaveLegenda, novo);
+    },
+    [chaveLegenda, legendas],
+  );
   useProgresso(video, { aulaId, duracaoSeg, ativo: !!reproducao, aoGravar: (p) => onGravado?.(p) });
 
   /** Abre a sessão de reprodução (token + limite de telas) e liga o HLS; o play sai no `loadedmetadata`. */
@@ -191,6 +215,7 @@ export function PlayerAula(props: PlayerAulaProps) {
       const el = video.current;
       if (a.tipo === "alternar") return alternar();
       if (a.tipo === "telaCheia") return alternarTelaCheia();
+      if (a.tipo === "legendas") return legendas.length ? escolherLegenda(legendaAtiva ? null : legendas[0].id) : undefined;
       if (!el) return;
       if (a.tipo === "mudo") el.muted = !el.muted;
       else if (a.tipo === "volume") {
@@ -199,7 +224,7 @@ export function PlayerAula(props: PlayerAulaProps) {
       } else if (a.tipo === "pular") irPara(el.currentTime + a.seg);
       else if (a.tipo === "porcentagem" && duracao > 0) irPara((duracao * a.valor) / 100);
     },
-    [alternar, alternarTelaCheia, duracao, irPara],
+    [alternar, alternarTelaCheia, duracao, irPara, legendas, legendaAtiva, escolherLegenda],
   );
 
   const mostrarControles = useCallback(() => {
@@ -250,7 +275,7 @@ export function PlayerAula(props: PlayerAulaProps) {
       onPointerMove={mostrarControles}
       onFocusCapture={mostrarControles}
       className={cn(
-        "group/player relative aspect-video w-full overflow-hidden rounded-2xl bg-black text-white outline-none select-none focus-visible:ring-2 focus-visible:ring-fixo-accent/45",
+        "group/player @container relative aspect-video w-full overflow-hidden rounded-2xl bg-black text-white outline-none select-none focus-visible:ring-2 focus-visible:ring-fixo-accent/45",
         "[&:fullscreen]:rounded-none",
         !controlesVisiveis && "cursor-none",
       )}
@@ -303,9 +328,15 @@ export function PlayerAula(props: PlayerAulaProps) {
           setMudo(e.currentTarget.muted);
         }}
         onRateChange={(e) => setTaxa(e.currentTarget.playbackRate)}
-      />
+      >
+        {/* Mesma origem (rota do app, com o cookie). Quem liga e desenha é o `useLegenda`. */}
+        {legendas.map((l) => (
+          <track key={l.id} id={idDaFaixa(l.id)} kind="subtitles" src={l.url} srcLang={l.idioma} label={l.rotulo} />
+        ))}
+      </video>
 
       <MarcaDagua texto={marcaDagua} />
+      <LegendaNaTela texto={falha ? "" : textoLegenda} elevada={!!reproducao && (!tocando || ativo || menu !== null)} />
 
       {(abrindo || (esperando && tocando)) && !falha && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center" role="status">
@@ -395,6 +426,9 @@ export function PlayerAula(props: PlayerAulaProps) {
           proxima={proxima}
           menu={menu}
           onMenu={setMenu}
+          legendas={legendas}
+          legendaAtiva={legendaAtiva?.id ?? null}
+          onLegenda={escolherLegenda}
           onAlternar={alternar}
           onBuscar={irPara}
           onVolume={(v) => {

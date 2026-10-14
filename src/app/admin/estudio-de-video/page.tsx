@@ -21,9 +21,10 @@ export const metadata: Metadata = { title: "Estúdio de vídeo" };
 const POR_PAGINA = 20;
 const COLUNAS: Coluna[] = [
   { titulo: "Aula" },
-  { titulo: "Situação", largura: 160 },
+  { titulo: "Situação", largura: 130 },
   { titulo: "Duração", largura: 90 },
-  { titulo: "Resoluções", largura: 130 },
+  { titulo: "Resoluções", largura: 120 },
+  { titulo: "Legenda", largura: 80 },
   { titulo: "Original", largura: 90 },
   { titulo: "Tentativas", largura: 90 },
   { titulo: "Enviado em", largura: 140 },
@@ -109,6 +110,7 @@ async function Estudio({ searchParams }: { searchParams: Busca }) {
       },
       { tipo: "texto", texto: v.duracaoSeg != null ? formatarTempo(v.duracaoSeg) : "—" },
       { tipo: "texto", texto: v.resolucoes.length ? ordenarResolucoes(v.resolucoes).join(" · ") : "—" },
+      { tipo: "texto", texto: v.legendas ?? "—" },
       { tipo: "texto", texto: formatarBytes(v.tamanhoBytes) },
       { tipo: "texto", texto: String(v.tentativas) },
       { tipo: "data", texto: dataHoraCurta(v.enviadoEm) },

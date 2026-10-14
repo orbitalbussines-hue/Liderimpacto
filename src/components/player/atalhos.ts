@@ -1,10 +1,11 @@
 /**
  * Atalhos de teclado do player (puro, testado): espaço/K, J/L (±10 s), ←/→ (±5 s), ↑/↓ volume,
- * F tela cheia, M mudo, 0–9 = 0%–90% do vídeo. Com Ctrl/Alt/Meta não faz nada (atalho do navegador).
+ * F tela cheia, M mudo, C legendas, 0–9 = 0%–90% do vídeo. Com Ctrl/Alt/Meta não faz nada (atalho do navegador).
  */
 
 export type AcaoAtalho =
   | { tipo: "alternar" }
+  | { tipo: "legendas" }
   | { tipo: "pular"; seg: number }
   | { tipo: "volume"; delta: number }
   | { tipo: "telaCheia" }
@@ -29,6 +30,7 @@ const FIXOS: Record<string, AcaoAtalho> = {
   arrowdown: { tipo: "volume", delta: -0.1 },
   f: { tipo: "telaCheia" },
   m: { tipo: "mudo" },
+  c: { tipo: "legendas" },
 };
 
 export function acaoDoAtalho(e: TeclaPressionada): AcaoAtalho | null {

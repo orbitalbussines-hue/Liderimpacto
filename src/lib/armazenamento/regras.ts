@@ -47,6 +47,18 @@ export const ALLOWLIST: Record<FinalidadeArquivo, Regra> = {
       { mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extensoes: ["docx"], material: "DOC" },
     ],
   },
+  // Arquivo BRUTO da legenda (RN-180): só passa pelo servidor para virar o .vtt normalizado de
+  // `produtos_modulos_aulas_legendas` e é descartado em seguida (ADR-0013). A tela manda o MIME
+  // da extensão (o `type` do navegador para .srt varia).
+  LEGENDA: {
+    maxBytes: 2 * MB,
+    descricao: "VTT ou SRT até 2 MB",
+    pasta: "legendas-envios",
+    tipos: [
+      { mime: "text/vtt", extensoes: ["vtt"] },
+      { mime: "application/x-subrip", extensoes: ["srt"] },
+    ],
+  },
   // Comunidade (passo 8, RN-131): limites menores, qualquer membro envia.
   COMUNIDADE_IMAGEM: {
     maxBytes: 5 * MB,

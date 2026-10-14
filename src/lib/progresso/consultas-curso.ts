@@ -18,6 +18,7 @@ import {
   type Capitulo,
 } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
+import { legendasDaAula, urlDaLegenda } from "@/lib/legendas/consultas";
 import { matriculaAtiva } from "@/lib/matriculas/consultas";
 import { motivoDoBloqueio, type MotivoBloqueio } from "@/lib/video/acesso";
 import { PLAYER_PADRAO, type PlayerConfig } from "@/lib/vitrine/config";
@@ -341,7 +342,7 @@ export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Da
   const vizinha = (x: LinhaEstrutura | undefined): AulaVizinha | null => (x ? { id: x.id, numero: c.numeros.get(x.id)!, titulo: x.titulo, href: hrefDaAula(x.id) } : null);
   const aberta = (x: LinhaEstrutura) => c.motivos.get(x.id) === null;
   const membro = q.membro.id;
-  const [video, materiais, anotacoes, favorito] = await Promise.all([
+  const [video, materiais, anotacoes, favorito, legendas] = await Promise.all([
     db.select({ id: vid.id, situacao: vid.situacao }).from(vid).where(and(eq(vid.aula_id, aulaId), eq(vid.criador_id, q.criador.id), vivos(vid))).then((r) => r[0] ?? null),
     pode
       ? db
@@ -359,6 +360,8 @@ export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Da
           .orderBy(asc(nota.tempo_seg), asc(nota.created_at))
       : Promise.resolve([]),
     estaNaLista(q, { aulaId }),
+    // Legendas só com `pode` (a rota do .vtt confere de novo com `acessoDaAula`).
+    pode ? legendasDaAula(q.criador.id, aulaId) : Promise.resolve([]),
   ]);
   const faltam = c.progresso.total - c.progresso.concluidas;
   const flags: FlagsPlayer = {
@@ -379,6 +382,8 @@ export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Da
     /** Só com `pode`: o player chama `acaoIniciarReproducao({ aulaId })` quando `situacao` = PRONTO. */
     video: video as { id: string; situacao: SituacaoVideo } | null,
     materiais: materiais as MaterialDoPlayer[],
+    /** `<track>` do player e aba Transcrição (RN-180). */
+    legendas: legendas.map((l) => ({ id: l.id, idioma: l.idioma, rotulo: l.rotulo, url: urlDaLegenda(l.id) })),
     anotacoes: anotacoes.map((n) => ({ id: n.id, tempoSeg: n.tempoSeg, texto: n.texto, versao: n.versao.toISOString() })),
     progresso: {
       percentual: l.percentual,

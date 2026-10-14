@@ -2,7 +2,7 @@ import "server-only";
 import { type ConnectionOptions, Queue } from "bullmq";
 import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { produtos, produtos_modulos, produtos_modulos_aulas, produtos_modulos_aulas_videos as videos } from "@/lib/db/schema";
+import { produtos, produtos_modulos, produtos_modulos_aulas, produtos_modulos_aulas_legendas as legendas, produtos_modulos_aulas_videos as videos } from "@/lib/db/schema";
 import type { SituacaoVideo } from "@/lib/db/schema/_enums";
 import { vivos } from "@/lib/db/soft-delete";
 import { NOME_FILA_VIDEO, NOME_FILA_VIDEO_DLQ, conexaoRedis, prefixoFila, type JobVideo } from "./fila";
@@ -60,6 +60,8 @@ export async function listarVideos(criadorId: string, f: FiltrosEstudio) {
       modulo: produtos_modulos.titulo,
       produtoId: produtos.id,
       produto: produtos.titulo,
+      /** Idiomas das legendas vivas da aula ("pt-BR · en"); nulo = sem legenda (RN-180). */
+      legendas: sql<string | null>`(select string_agg(${legendas.idioma}, ' · ' order by ${legendas.idioma} <> 'pt-BR', ${legendas.idioma}) from ${legendas} where ${legendas.aula_id} = ${produtos_modulos_aulas.id} and ${legendas.criador_id} = ${videos.criador_id} and ${legendas.is_deleted} = false)`,
     })
     .from(videos)
     .innerJoin(produtos_modulos_aulas, NA_AULA)

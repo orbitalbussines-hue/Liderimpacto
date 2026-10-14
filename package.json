@@ -23,6 +23,7 @@
     "prepare": "node scripts/ativar-hooks.mjs",
     "db:seed": "tsx --conditions=react-server scripts/seed.ts",
     "seed:demo": "tsx --conditions=react-server scripts/seed-demo.ts",
+    "seed:demo:legendas": "tsx --conditions=react-server scripts/seed-demo-legendas.ts",
     "sessao:demo": "tsx --conditions=react-server scripts/sessao-demo.ts",
     "armazenamento:preparar": "tsx --conditions=react-server scripts/armazenamento-preparar.ts",
     "worker:video": "tsx --conditions=react-server scripts/worker-video.ts",
