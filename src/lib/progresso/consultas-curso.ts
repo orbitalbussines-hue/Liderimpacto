@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { avaliacaoQueTrava, avaliacoesDoProduto, type AvaliacaoDoCurso } from "@/lib/avaliacoes/estrutura";
 import { db } from "@/lib/db";
 import type { ConclusaoAula, SituacaoVideo, StatusProduto, TipoMaterial, TipoProduto } from "@/lib/db/schema/_enums";
 import {
@@ -49,6 +50,20 @@ export interface AulaDoCurso {
   liberaEm: Date | null;
   /** Para o texto "Conclua a aula 1.2 antes" (motivo PRE_REQUISITO). */
   preRequisito: { id: string; numero: string; titulo: string } | null;
+  /** Para o texto "Seja aprovado em <título>" (motivo AVALIACAO, RN-125). */
+  avaliacaoPendente: { id: string; titulo: string } | null;
+}
+
+/** Avaliação PUBLICADA do módulo (ou do curso) com a situação de quem pede. */
+export interface AvaliacaoNoCurso {
+  id: string;
+  titulo: string;
+  tipo: AvaliacaoDoCurso["tipo"];
+  aprovada: boolean;
+  melhorNota: number | null;
+  liberaProximoModulo: boolean;
+  obrigatoriaParaCertificado: boolean;
+  href: string;
 }
 
 export interface ModuloDoCurso {
@@ -60,6 +75,8 @@ export interface ModuloDoCurso {
   duracaoSeg: number;
   estado: EstadoModuloAluno;
   aulas: AulaDoCurso[];
+  /** Avaliações publicadas deste módulo (passo 7). */
+  avaliacoes: AvaliacaoNoCurso[];
 }
 
 export interface ProximaAula {
@@ -82,6 +99,7 @@ async function estruturaDoProduto(q: QuemPede, produtoId: string) {
       moduloId: produtos_modulos.id,
       moduloTitulo: produtos_modulos.titulo,
       moduloStatus: produtos_modulos.status,
+      moduloOrdem: produtos_modulos.ordem,
       id: produtos_modulos_aulas.id,
       titulo: produtos_modulos_aulas.titulo,
       duracaoSeg: produtos_modulos_aulas.duracao_seg,
@@ -114,7 +132,18 @@ async function estruturaDoProduto(q: QuemPede, produtoId: string) {
 type LinhaEstrutura = Awaited<ReturnType<typeof estruturaDoProduto>>[number];
 
 /** Estados de módulos e aulas + progresso do curso + próxima aula (regra única de trava). */
-function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boolean, linhas: LinhaEstrutura[], agora: Date) {
+const paraAvaliacaoNoCurso = (a: AvaliacaoDoCurso): AvaliacaoNoCurso => ({
+  id: a.id,
+  titulo: a.titulo,
+  tipo: a.tipo,
+  aprovada: a.aprovada,
+  melhorNota: a.melhorNota,
+  liberaProximoModulo: a.liberaProximoModulo,
+  obrigatoriaParaCertificado: a.obrigatoriaParaCertificado,
+  href: `/avaliacoes/${a.id}`,
+});
+
+function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boolean, linhas: LinhaEstrutura[], agora: Date, avaliacoes: readonly AvaliacaoDoCurso[]) {
   const numeros = new Map<string, string>();
   const modulos: { id: string; titulo: string; linhas: LinhaEstrutura[] }[] = [];
   for (const l of linhas) {
@@ -129,7 +158,13 @@ function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boo
     const pre = l.preRequisitoId ? publicadas.get(l.preRequisitoId) : undefined;
     return motivoDoBloqueio(
       { papel: q.membro.papel, matriculaAtiva: matriculado },
-      { liberaEm: l.liberaEm, statusProduto, statusModulo: l.moduloStatus, preRequisitoCumprido: !pre || pre.concluida },
+      {
+        liberaEm: l.liberaEm,
+        statusProduto,
+        statusModulo: l.moduloStatus,
+        preRequisitoCumprido: !pre || pre.concluida,
+        avaliacaoPendente: !!avaliacaoQueTrava(avaliacoes, l.moduloOrdem),
+      },
       agora,
     );
   };
@@ -165,6 +200,7 @@ function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boo
       motivoBloqueio: m,
       liberaEm: l.liberaEm,
       preRequisito: pre ? { id: pre.id, numero: numeros.get(pre.id)!, titulo: pre.titulo } : null,
+      avaliacaoPendente: m === "AVALIACAO" ? (({ id, titulo }) => ({ id, titulo }))(avaliacaoQueTrava(avaliacoes, l.moduloOrdem)!) : null,
     };
   };
   const listaModulos: ModuloDoCurso[] = modulos.map((m, i) => {
@@ -177,6 +213,7 @@ function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boo
       duracaoSeg: aulas.reduce((s, a) => s + (a.duracaoSeg ?? 0), 0),
       estado: aulas.every((a) => a.concluida) ? "concluido" : aulas.every((a) => a.estado === "bloqueada") ? "bloqueado" : "andamento",
       aulas,
+      avaliacoes: avaliacoes.filter((a) => a.moduloId === m.id).map(paraAvaliacaoNoCurso),
     };
   });
   const contaveis = [...publicadas.values()];
@@ -221,8 +258,13 @@ const matriculadoEm = async (q: QuemPede, produtoId: string, agora: Date) =>
 export async function cursoDoAluno(q: QuemPede, slug: string, agora = new Date()) {
   const p = await produtoVisivel(q, { slug });
   if (!p) return null;
-  const [linhas, matriculado, favorito] = await Promise.all([estruturaDoProduto(q, p.id), matriculadoEm(q, p.id, agora), estaNaLista(q, { produtoId: p.id })]);
-  const c = montarCurso(q, p.status, matriculado, linhas, agora);
+  const [linhas, matriculado, favorito, avaliacoes] = await Promise.all([
+    estruturaDoProduto(q, p.id),
+    matriculadoEm(q, p.id, agora),
+    estaNaLista(q, { produtoId: p.id }),
+    avaliacoesDoProduto(q.criador.id, p.id, q.membro.id),
+  ]);
+  const c = montarCurso(q, p.status, matriculado, linhas, agora, avaliacoes);
   const aulaIds = linhas.filter((l) => l.moduloStatus === "PUBLICADO").map((l) => l.id);
   const [{ materiais }] = aulaIds.length
     ? await db.select({ materiais: sql<number>`count(*)::int` }).from(mat).where(and(inArray(mat.aula_id, aulaIds), eq(mat.criador_id, q.criador.id), vivos(mat)))
@@ -235,6 +277,8 @@ export async function cursoDoAluno(q: QuemPede, slug: string, agora = new Date()
     modulos: c.modulos,
     progresso: c.progresso,
     proxima: c.proxima,
+    /** Avaliações publicadas do CURSO (sem módulo), ex.: prova final. As de módulo estão em `modulos[].avaliacoes`. */
+    avaliacoesDoCurso: avaliacoes.filter((a) => a.moduloId === null).map(paraAvaliacaoNoCurso),
     totais: { aulas: c.progresso.total, duracaoSeg: c.modulos.reduce((s, m) => s + m.duracaoSeg, 0), materiais },
   };
 }
@@ -276,14 +320,15 @@ export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Da
   if (!base) return null;
   const p = await produtoVisivel(q, { id: base.produtoId });
   if (!p) return null;
-  const [linhas, matriculado, autoplay] = await Promise.all([
+  const [linhas, matriculado, autoplay, avaliacoes] = await Promise.all([
     estruturaDoProduto(q, p.id),
     matriculadoEm(q, p.id, agora),
     db.select({ v: usuarios.reproducao_automatica }).from(usuarios).where(eq(usuarios.id, q.usuario.id)).then((r) => r[0]?.v ?? true),
+    avaliacoesDoProduto(q.criador.id, p.id, q.membro.id),
   ]);
   const l = linhas.find((x) => x.id === aulaId);
   if (!l) return null; // módulo oculto, para o aluno
-  const c = montarCurso(q, p.status, matriculado, linhas, agora);
+  const c = montarCurso(q, p.status, matriculado, linhas, agora, avaliacoes);
   const motivo = c.motivos.get(aulaId) ?? null;
   const pode = motivo === null;
   const indice = linhas.indexOf(l);

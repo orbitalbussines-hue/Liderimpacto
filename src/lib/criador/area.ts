@@ -33,6 +33,11 @@ export function dominioDaPlataforma(): string {
   return dominio;
 }
 
+/** Origem real da plataforma (protocolo + porta): BETTER_AUTH_URL; sem ela, https://<dominio>. */
+export function urlDaPlataforma(): string {
+  return process.env.BETTER_AUTH_URL ?? `https://${dominioDaPlataforma()}`;
+}
+
 /** `null` = host que nao e area nenhuma (slug invalido, criador inexistente ou SUSPENSO) -> 404. */
 export async function alvoDosCabecalhos(h: Headers | null | undefined): Promise<AlvoDoHost | null> {
   const area = criadorDoHost(h?.get("host"), dominioDaPlataforma());

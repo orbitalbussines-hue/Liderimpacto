@@ -34,6 +34,8 @@ export interface ContextoBloqueio {
   produto: { titulo: string; slug: string };
   liberaEm: Date | null;
   preRequisito: { id: string; numero: string; titulo: string } | null;
+  /** Avaliação do módulo anterior que trava esta aula (motivo AVALIACAO, RN-125). */
+  avaliacaoPendente?: { id: string; titulo: string } | null;
 }
 
 export function avisoDeBloqueio(motivo: MotivoBloqueio, c: ContextoBloqueio): AvisoAula {
@@ -62,6 +64,15 @@ export function avisoDeBloqueio(motivo: MotivoBloqueio, c: ContextoBloqueio): Av
             acao: { rotulo: `Ir para a aula ${c.preRequisito.numero}`, href: `/aula/${c.preRequisito.id}` },
           }
         : { icone: "cadeado", titulo: "Conclua a aula anterior primeiro", descricao: "Esta aula abre depois que você concluir a aula exigida.", acao: curso };
+    case "AVALIACAO":
+      return c.avaliacaoPendente
+        ? {
+            icone: "cadeado",
+            titulo: "Seja aprovado na avaliação do módulo anterior",
+            descricao: `Esta aula abre depois da sua aprovação em “${c.avaliacaoPendente.titulo}”.`,
+            acao: { rotulo: "Ir para a avaliação", href: `/avaliacoes/${c.avaliacaoPendente.id}` },
+          }
+        : { icone: "cadeado", titulo: "Seja aprovado na avaliação do módulo anterior", descricao: "Esta aula abre depois da sua aprovação na avaliação exigida.", acao: curso };
     default:
       return { icone: "cadeado", titulo: "Aula indisponível", descricao: "Esta aula não está disponível para você agora." };
   }

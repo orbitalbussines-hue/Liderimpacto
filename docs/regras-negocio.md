@@ -252,6 +252,66 @@ Cada regra segue este formato:
 - **Comportamento esperado**: variação com seta e texto; período anterior zerado mostra "novo" (nunca % infinito); os dois zerados, "Sem movimento". "Acontecendo agora" mostra só nome, título e número da aula — nunca e-mail, token ou IP. Receita e avaliação média só quando existirem (vendas, passo 7+): nada inventado. Os agregados podem ficar até ~1 min atrasados (cache); "Acontecendo agora" é ao vivo.
 - **Impacto se descumprida**: decisão tomada com número errado, dado de um criador no painel de outro, e-mail de aluno exposto na tela.
 
+> **RN-123 a RN-129 (passo 7): PADRÕES definidos pela Bah! Tech aguardando o cliente** (SISTEMA.md §11:
+> "política de certificados e nota mínima" é pendência do cliente). Os valores marcados como
+> padrão são configuráveis por avaliação/modelo; trocar o padrão = mudar o default da coluna e esta RN.
+
+### RN-123 - Avaliações (cadastro) — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Avaliações
+- **Descricao**: Avaliação pertence a um curso e, opcionalmente, a um módulo do MESMO curso. Tipos: Quiz, Prova e Simulado (Formulário fica de fora até ser pedido). Configurável por avaliação: nota mínima (**padrão 70%**, 0–100), tentativas (**padrão 3**, 0 = ilimitado, até 50), tempo limite (**padrão sem limite**, 1–600 min), obrigatória para o certificado (padrão não), libera o próximo módulo (só avaliação de módulo; padrão não), embaralhar questões e opções (padrão não) e exige as aulas concluídas (**padrão sim**: só abre quando todas as aulas publicadas do módulo — ou do curso, se a avaliação for do curso — estiverem concluídas). Situação Rascunho ou Publicada. Questões: Única (uma correta), Múltipla (várias corretas), Verdadeiro ou falso; enunciado, 2 a 8 opções sem texto repetido, peso 1–100 (**padrão 1**) e explicação opcional.
+- **Comportamento esperado**: só DONO e ADMIN mexem; nasce em rascunho; publicar exige ao menos 1 questão e publicada não fica sem questão; questões em ordem 1..n reordenável com trava; avaliação numa trilha não pode ser removida (tire da trilha antes); toda escrita com trava de colisão e trilha antes → depois. Rascunho não aparece para o aluno.
+- **Impacto se descumprida**: aluno respondendo avaliação vazia ou incompleta, avaliação de um curso travando outro.
+
+### RN-124 - Tentativas e correção — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Área do aluno › Avaliações
+- **Descricao**: A correção é SEMPRE no servidor. Única e V/F: certa se marcou a opção correta. **Múltipla: certa só se marcou exatamente o conjunto correto (sem ponto parcial)**. Nota = soma dos pesos das certas ÷ soma dos pesos × 100, com 1 casa (meio para cima). Aprovado = nota ≥ nota mínima. Vale a MELHOR nota. Uma tentativa aberta por vez (iniciar de novo retoma a aberta). Respostas salvas a cada clique. Tempo limite contado pelo servidor desde o início: resposta depois do prazo não é gravada e a tentativa fecha com o que já tinha ("tempo esgotado"). Esgotou as tentativas sem aprovar: a equipe pode conceder de 1 a 10 tentativas extras com motivo. Gabarito e explicação: **Quiz e Simulado mostram logo depois de finalizar; Prova só mostra quando o aluno foi aprovado ou não tem mais tentativas** (certa/errada aparece sempre). A equipe pode fazer tentativa de prévia sem limite (não entra nas estatísticas).
+- **Comportamento esperado**: o gabarito nunca vai para a tela antes da correção; dois cliques em "Iniciar" abrem uma tentativa só; finalizar duas vezes devolve o mesmo resultado; cada início, correção e concessão vai para a trilha.
+- **Impacto se descumprida**: aluno lendo o gabarito no navegador, nota calculada pelo cliente, prova com tempo burlável.
+
+### RN-125 - Avaliação que libera o próximo módulo — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Curso / Player / Avaliações
+- **Descricao**: Avaliação PUBLICADA de um módulo publicado com "libera o próximo módulo" trava, para o ALUNO, TODOS os módulos seguintes do curso até ele ser aprovado nela. Mesma regra única de `motivoDoBloqueio` (motivo AVALIACAO): vale para vídeo, chave, progresso, materiais, curso e player. Equipe nunca é travada. Avaliação em rascunho ou em módulo oculto não trava.
+- **Comportamento esperado**: a aula travada mostra "Seja aprovado em (avaliação)"; a avaliação do módulo travado também não abre ("Seja aprovado na avaliação anterior").
+- **Impacto se descumprida**: aluno pulando a avaliação de liberação, ou travado para sempre por avaliação que ele nem consegue ver.
+
+### RN-126 - Trilhas — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Área do aluno › Trilhas / Admin
+- **Descricao**: Trilha do criador: título, descrição, tag, capa, situação e etapas ordenadas — um curso ou uma avaliação (aula avulsa fica de fora até ser pedida) —, cada uma com "exige a anterior" (**padrão sim**). Etapa concluída: curso = matrícula concluída; avaliação = aprovada. **O aluno vê a trilha publicada se tiver matrícula valendo em ao menos 1 curso dela**; etapas de curso sem matrícula aparecem com "Matricule-se".
+- **Comportamento esperado**: cada etapa mostra concluída / em andamento / disponível / bloqueada com o motivo (etapa anterior, matrícula, aulas pendentes, tentativas esgotadas); botão Iniciar / Continuar / Rever e o próximo passo. Publicar exige ao menos 1 etapa; publicada não fica vazia; o mesmo curso/avaliação não entra duas vezes; ordem com trava; curso ou avaliação de outra área é recusado.
+- **Impacto se descumprida**: aluno vendo trilha de cursos que não comprou, etapa liberada fora de ordem.
+
+### RN-127 - Modelo do certificado — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Admin › Certificados
+- **Descricao**: Um modelo padrão do criador e, opcionalmente, um por curso (o do curso vale sobre o padrão). Campos: título (**padrão "Certificado de conclusão"**), texto com as variáveis {nome}, {curso}, {carga_horaria} e {data} ({nome} obrigatória; **padrão "Certificamos que {nome} concluiu o curso {curso}, com carga horária de {carga_horaria}, em {data}."**), nome e cargo de quem assina (padrão: nome do criador, "Responsável") e cor (padrão: cor do curso, senão do criador, senão o dourado; sempre ajustada para leitura no papel claro). Logo em texto (nome do criador) até existir o logo oficial. Carga horária = soma da duração das aulas publicadas do curso **arredondada à hora cheia, mínimo 1 hora**. Data = conclusão da matrícula, por extenso, horário de Brasília.
+- **Comportamento esperado**: só DONO e ADMIN editam; mudar o modelo vale para os PDFs gerados depois (os já gerados ficam no histórico); trava e trilha.
+- **Impacto se descumprida**: certificado com texto quebrado ou carga errada.
+
+### RN-128 - Emissão do certificado — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Certificados
+- **Descricao**: Emitido AUTOMATICAMENTE quando a matrícula está concluída (todas as aulas publicadas, RN-118) e não cancelada E o aluno foi aprovado em todas as avaliações publicadas marcadas "obrigatória para o certificado" do curso. Um certificado por aluno e curso. Código de verificação de 10 caracteres sem letras/números ambíguos (sem 0, O, 1, I), aleatório, único na plataforma. O PDF (A4 paisagem, com QR e o endereço `https://(área).(plataforma)/certificado/(código)`) é gerado em segundo plano: cada geração é uma VERSÃO (v1, v2…) com histórico completo; pedir de novo gera a próxima versão mesmo sem mudança; o download é sempre a última versão pronta.
+- **Comportamento esperado**: concluir a última aula ou ser aprovado na última obrigatória emite na hora (duas conclusões ao mesmo tempo = um certificado); a tela de certificados também emite quem ficou elegível sem evento; certificado não é emitido antes das condições; emissão e cada versão vão para a trilha.
+- **Impacto se descumprida**: certificado para quem não concluiu, certificados duplicados, PDF diferente do registrado.
+
+### RN-129 - Revogação e verificação pública
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-14
+- **Modulo**: Certificados / Página pública
+- **Descricao**: DONO e ADMIN revogam com motivo (modal block). A verificação pública (sem login, no endereço da área) mostra só o que o certificado impresso já mostra: nome, curso, carga horária, datas, criador e situação (Válido ou Revogado). Nunca e-mail, motivo da revogação ou dados da conta. Revogado: não baixa PDF, não gera versão nova e não é reemitido. Código de outra área = "não encontrado".
+- **Comportamento esperado**: revogar usa trava de colisão e vai para a trilha (antes → depois); a página pública passa a dizer "revogado" na hora.
+- **Impacto se descumprida**: certificado cancelado ainda "válido" para quem confere, vazamento de dados pessoais na página pública.
+
 <!-- Exemplo de registro: -->
 
 <!--

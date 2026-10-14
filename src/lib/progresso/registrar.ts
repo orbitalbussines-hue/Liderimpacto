@@ -1,6 +1,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { registrarAuditoria } from "@/lib/audit/registrar";
+import { verificarEmissao } from "@/lib/certificados/emissao";
 import { db } from "@/lib/db";
 import type { ConclusaoAula } from "@/lib/db/schema/_enums";
 import { DURACAO_MAXIMA_PROGRESSO_SEG } from "@/lib/db/schema/progresso";
@@ -187,11 +188,11 @@ export async function concluirManualmente(e: EntradaConclusaoManual): Promise<Pr
 
 /**
  * Matrícula do produto da aula ganha `concluida_em` quando TODAS as aulas vivas de módulos
- * publicados estão concluídas pelo membro (base do certificado, passo 7). Atualização de
+ * publicados estão concluídas pelo membro e confere a emissão do certificado (passo 7). Atualização de
  * sistema: não mexe em `updated_at` (não envelhece a trava da tela de matrículas).
  */
 async function concluirMatriculaSeCompleta(criadorId: string, membroId: string, aulaId: string): Promise<void> {
-  await db.execute(sql`
+  const { rows } = await db.execute<{ produto_id: string }>(sql`
     update produtos_matriculas pm set concluida_em = now()
     where pm.criador_id = ${criadorId}::uuid and pm.membro_id = ${membroId}::uuid and pm.is_deleted = false and pm.concluida_em is null
       and pm.produto_id = (select mo.produto_id from produtos_modulos_aulas a join produtos_modulos mo on mo.id = a.modulo_id where a.id = ${aulaId}::uuid)
@@ -200,5 +201,8 @@ async function concluirMatriculaSeCompleta(criadorId: string, membroId: string, 
         where mo.produto_id = pm.produto_id and mo.status = 'PUBLICADO' and mo.is_deleted = false and a.is_deleted = false
           and not exists (select 1 from ${P} pr where pr.aula_id = a.id and pr.membro_id = ${membroId}::uuid and pr.concluida and pr.is_deleted = false)
       )
+    returning pm.produto_id
   `);
+  // Passo 7: matrícula concluída é uma das condições do certificado (RN-128).
+  for (const r of rows) await verificarEmissao(criadorId, membroId, r.produto_id);
 }

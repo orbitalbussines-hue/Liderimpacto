@@ -1,7 +1,7 @@
 import {
   Activity, Award, Building2, Calendar, ClipboardList, Database, DollarSign, Download, FileText,
   Filter, FolderPlus, Globe, House, Inbox, LayoutGrid, LayoutTemplate, Link2, Mail, MessageSquare,
-  Monitor, PanelsTopLeft, Percent, Palette, Plus, Rocket, Send, Settings, ShieldCheck, Smartphone,
+  Monitor, PanelsTopLeft, Percent, Palette, Plus, Rocket, Route, Send, Settings, ShieldCheck, Smartphone,
   Sparkles, Tag, Trophy, Upload, Users, Video, Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -136,6 +136,7 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
           { acaoPrincipal: novo("Nova avaliação") }
         )
       ),
+      item("trilhas", "Trilhas", Route, 2, { tipo: "proprio" }),
       item(
         "desafios", "Desafios", Rocket, 2,
         tabela(

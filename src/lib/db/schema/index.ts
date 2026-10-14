@@ -11,4 +11,7 @@ export * from "./videos";
 export * from "./matriculas";
 export * from "./progresso";
 export * from "./favoritos";
+export * from "./avaliacoes";
+export * from "./certificados";
+export * from "./trilhas";
 export * from "./auditoria";

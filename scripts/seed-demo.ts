@@ -9,7 +9,8 @@
  * `npm run sessao:demo`), 3 produtos publicados com módulos, aulas (duração preenchida, sem vídeo),
  * capítulos, materiais LINK, capas geradas com FFmpeg e enviadas ao storage, matrícula do aluno
  * nos 2 cursos, progresso variado, favoritos e visualizações para o Top 10, e mais 7 alunos com
- * atividade e conclusões para o painel do admin (`seed-demo-painel.ts`).
+ * atividade e conclusões para o painel do admin (`seed-demo-painel.ts`), e o passo 7 (2 avaliações,
+ * 1 trilha e 1 certificado com PDF da Ana: `seed-demo-passo7.ts`).
  */
 import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -39,6 +40,7 @@ import type { Capitulo } from "@/lib/db/schema/produtos";
 import { vivos } from "@/lib/db/soft-delete";
 import { matricular } from "@/lib/matriculas/servico";
 import { semearPainel } from "./seed-demo-painel";
+import { semearPasso7 } from "./seed-demo-passo7";
 
 // ---------------------------------------------------------------- travas de ambiente
 function exigirAmbienteDeDesenvolvimento(): void {
@@ -445,6 +447,7 @@ async function principal() {
   await prepararAluno(criador.id, aluno, cursos, aulas);
   await semearVisualizacoes(criador.id, dono.usuarioId, aulas);
   await semearPainel(criador.id, garantirPessoa, aluno, cursos, aulas);
+  await semearPasso7(criador.id, dono, aluno, cursos, aulas);
 
   const ids = (slug: string) => aulas.filter((a) => a.produtoSlug === slug).map((a) => `    ${a.id}  ${a.titulo}`).join("\n");
   console.log(`Criador demo: ${criador.id} (abra http://demo.localhost:3011)`);

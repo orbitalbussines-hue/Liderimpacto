@@ -8,8 +8,9 @@ import type { PapelCriador, StatusModulo, StatusProduto } from "@/lib/db/schema/
  *
  * - Equipe (DONO, ADMIN; SUPER_ADMIN conta como DONO): sempre (confere o vídeo no admin).
  * - ALUNO: produto PUBLICADO ou NÃO LISTADO + módulo PUBLICADO + matrícula valendo agora no
- *   produto (ATIVA e não expirada) + aula liberada (`liberaEm` nula ou já passada) + aula
- *   pré-requisito concluída (quando houver e ainda existir publicada).
+ *   produto (ATIVA e não expirada) + aula liberada (`liberaEm` nula ou já passada) + aprovado nas
+ *   avaliações que liberam o módulo (passo 7, RN-125) + aula pré-requisito concluída (quando
+ *   houver e ainda existir publicada).
  */
 export interface QuemAssiste {
   /** Papel efetivo no criador do host (`papelEfetivo`); nulo = sem vínculo. */
@@ -25,20 +26,26 @@ export interface AulaAssistida {
   statusModulo: StatusModulo;
   /** Sem pré-requisito, pré-requisito removido/oculto, ou concluído por quem pede. */
   preRequisitoCumprido: boolean;
+  /**
+   * Há avaliação PUBLICADA com "libera o próximo módulo" num módulo publicado ANTERIOR ao desta
+   * aula, ainda não aprovada por quem pede (`avaliacaoPendenteSql`, src/lib/avaliacoes/sql.ts).
+   */
+  avaliacaoPendente: boolean;
 }
 
 /**
  * Por que a aula está fechada para quem pede (na ordem em que a tela explica):
  * INDISPONIVEL (sem vínculo, produto em rascunho ou módulo oculto) → MATRICULA → LIBERACAO →
- * PRE_REQUISITO. `null` = pode assistir.
+ * AVALIACAO (módulo anterior com avaliação não aprovada) → PRE_REQUISITO. `null` = pode assistir.
  */
-export type MotivoBloqueio = "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "PRE_REQUISITO";
+export type MotivoBloqueio = "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "AVALIACAO" | "PRE_REQUISITO";
 
 export function motivoDoBloqueio(quem: QuemAssiste, aula: AulaAssistida, agora: Date = new Date()): MotivoBloqueio | null {
   if (quem.papel === "DONO" || quem.papel === "ADMIN") return null;
   if (quem.papel !== "ALUNO" || aula.statusProduto === "RASCUNHO" || aula.statusModulo !== "PUBLICADO") return "INDISPONIVEL";
   if (!quem.matriculaAtiva) return "MATRICULA";
   if (aula.liberaEm && aula.liberaEm.getTime() > agora.getTime()) return "LIBERACAO";
+  if (aula.avaliacaoPendente) return "AVALIACAO";
   if (!aula.preRequisitoCumprido) return "PRE_REQUISITO";
   return null;
 }

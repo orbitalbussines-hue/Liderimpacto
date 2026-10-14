@@ -5,7 +5,8 @@ import type { Transacao } from "@/lib/db";
 import { MSG_COLISAO } from "@/lib/db/soft-delete";
 
 /**
- * Ordem de irmaos (modulos de um produto, aulas de um modulo). O banco tem UNICO (pai, ordem)
+ * Ordem de irmaos (modulos de um produto, aulas de um modulo, questoes de uma avaliacao, itens de
+ * uma trilha). O banco tem UNICO (pai, ordem)
  * entre os vivos, sem DEFERRABLE (indice parcial): reordenar em DUAS fases na mesma transacao —
  * afasta todos (+1.000.000) e grava 1..n. Sempre 1..n, sem buraco nem repeticao.
  * PRE-REQUISITO: quem chama ja travou a linha do PAI (`for update`); criar, remover e reordenar
@@ -13,9 +14,16 @@ import { MSG_COLISAO } from "@/lib/db/soft-delete";
  * Nomes de tabela/coluna sao constantes daqui (nunca entrada do usuario).
  */
 
-export type Irmaos = { tabela: "produtos_modulos"; pai: "produto_id" } | { tabela: "produtos_modulos_aulas"; pai: "modulo_id" };
+export type Irmaos =
+  | { tabela: "produtos_modulos"; pai: "produto_id" }
+  | { tabela: "produtos_modulos_aulas"; pai: "modulo_id" }
+  | { tabela: "produtos_avaliacoes_questoes"; pai: "avaliacao_id" }
+  | { tabela: "criadores_trilhas_itens"; pai: "trilha_id" };
 export const MODULOS: Irmaos = { tabela: "produtos_modulos", pai: "produto_id" };
 export const AULAS: Irmaos = { tabela: "produtos_modulos_aulas", pai: "modulo_id" };
+/** Passo 7: questões de uma avaliação e itens de uma trilha seguem a mesma ordem 1..n. */
+export const QUESTOES: Irmaos = { tabela: "produtos_avaliacoes_questoes", pai: "avaliacao_id" };
+export const ITENS_TRILHA: Irmaos = { tabela: "criadores_trilhas_itens", pai: "trilha_id" };
 
 const AFASTAMENTO = 1_000_000;
 

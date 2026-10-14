@@ -15,11 +15,12 @@ import { ROTULO_TIPO_PRODUTO } from "@/lib/catalogo/regras";
 import { cursosDoAluno } from "@/lib/matriculas/consultas";
 import { comImagens, continuarAssistindo, cursoDoAluno, mentorias, minhaLista, novidades, type ItemCartao } from "@/lib/progresso/consultas";
 import { top10 } from "@/lib/progresso/top10";
+import { trilhasParaVitrine } from "@/lib/trilhas/consultas";
 
 /**
  * VITRINE do aluno (README tela 2): destaque + fileiras padrão. Cada bloco num <Suspense> com o
  * próprio esqueleto (cacheComponents: tudo que lê sessão fica dentro de Suspense). Fileira sem
- * itens não aparece (SISTEMA.md §6). "Trilhas para você" entra com as trilhas (passo 7).
+ * itens não aparece (SISTEMA.md §6). "Trilhas para você" = trilhas publicadas que o membro vê (passo 7).
  * Destaque: enquanto o construtor (passo 9) não existe, é o curso da aula do "Continuar"
  * (senão o da matrícula mais recente; equipe sem matrícula: o curso novo mais recente).
  */
@@ -72,6 +73,10 @@ async function FileiraNovidades({ q }: { q: Quem }) {
   return <Fileira titulo="Novidades na plataforma" variante="novo" itens={await paraFileira(q.criador.id, await novidades(q))} />;
 }
 
+async function FileiraTrilhas({ q }: { q: Quem }) {
+  return <Fileira titulo="Trilhas para você" itens={await paraFileira(q.criador.id, await trilhasParaVitrine(q))} />;
+}
+
 async function FileiraMentorias({ q }: { q: Quem }) {
   return <Fileira titulo="Mentorias gravadas" itens={await paraFileira(q.criador.id, await mentorias(q))} />;
 }
@@ -113,6 +118,9 @@ async function Vitrine() {
       </Suspense>
       <Suspense fallback={<EsqueletoFileira rotulo="Carregando novidades" />}>
         <FileiraNovidades q={q} />
+      </Suspense>
+      <Suspense fallback={<EsqueletoFileira rotulo="Carregando trilhas" />}>
+        <FileiraTrilhas q={q} />
       </Suspense>
       <Suspense fallback={<EsqueletoFileira rotulo="Carregando mentorias" />}>
         <FileiraMentorias q={q} />

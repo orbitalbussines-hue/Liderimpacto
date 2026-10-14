@@ -5,6 +5,7 @@ import type { PapelCriador } from "@/lib/db/schema/_enums";
 import { produtos, produtos_modulos, produtos_modulos_aulas } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
 import { matriculaAtiva } from "@/lib/matriculas/consultas";
+import { avaliacaoPendenteSql } from "@/lib/avaliacoes/sql";
 import { preRequisitoCumpridoSql } from "@/lib/progresso/sql";
 import { motivoDoBloqueio, type MotivoBloqueio } from "./acesso";
 
@@ -27,6 +28,7 @@ export async function acessoDaAula(
       statusProduto: produtos.status,
       produtoId: produtos.id,
       preRequisitoCumprido: preRequisitoCumpridoSql(produtos_modulos_aulas.pre_requisito_aula_id, quem.membroId),
+      avaliacaoPendente: avaliacaoPendenteSql(produtos_modulos.id, quem.membroId),
     })
     .from(produtos_modulos_aulas)
     .innerJoin(produtos_modulos, eq(produtos_modulos.id, produtos_modulos_aulas.modulo_id))

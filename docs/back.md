@@ -212,7 +212,7 @@ Imagens saem como `imagemChave`; `comImagens(criadorId, itens)` assina e devolve
 | `minhaLista(q)`; `estaNaLista(q, { produtoId } ou { aulaId })` | `(ItemCartao & { favoritadoEm: Date })[]`; `boolean` |
 | `mentorias(q, limite = 10)` | `(ItemCartao & { matriculado: boolean })[]` |
 | `progressoDosCursos(q, produtoIds)`; `progressoDoCurso(q, produtoId)` | `Map<produtoId, { concluidas, total, percentual }>`; o objeto |
-| `numerosDoPerfil(q)` | `{ aulasConcluidas, segundosAssistidos, cursosConcluidos, certificados: 0, pontos: 0 }` |
+| `numerosDoPerfil(q)` | `{ aulasConcluidas, segundosAssistidos, cursosConcluidos, certificados /* passo 7: emitidos */, pontos: 0 }` |
 | `preferenciasDoAluno(usuarioId)` | `{ reproducaoAutomatica, lembretes }` |
 | `cursoDoAluno(q, slug)` | `null` (404) ou o objeto abaixo |
 | `aulaParaPlayer(q, aulaId)` | `null` (404) ou o objeto abaixo |
@@ -229,7 +229,7 @@ cursoDoAluno → {
 ModuloDoCurso = { id, numero: "01", titulo, totalAulas, duracaoSeg, estado: "concluido" | "andamento" | "bloqueado", aulas: AulaDoCurso[] }
 AulaDoCurso = { id, numero: "1.2", titulo, duracaoSeg, thumbChave, href,
   estado: "bloqueada" | "concluida" | "atual" | "pendente", concluida, percentual,
-  motivoBloqueio: null | "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "PRE_REQUISITO",
+  motivoBloqueio: null | "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "AVALIACAO" | "PRE_REQUISITO", // AVALIACAO: passo 7
   liberaEm: Date | null, preRequisito: { id, numero, titulo } | null }
 
 aulaParaPlayer → {
@@ -256,6 +256,7 @@ aulaParaPlayer → {
 | `acaoFavoritar`, `acaoDesfavoritar({ produtoId } ou { aulaId })`: `{ favorito }` | `src/lib/actions/favoritos.ts` | membro com vínculo | criar, atualizar, excluir | RN-119 |
 | `acaoCriarAnotacao({ aulaId, tempoSeg, texto })`: `{ id, versao }`; `acaoEditarAnotacao({ anotacaoId, versao, texto, tempoSeg? })`: `{ versao }`; `acaoRemoverAnotacao({ anotacaoId, versao })` | `src/lib/actions/anotacoes.ts` | o próprio membro (criar: quem `podeAssistir`) | criar, atualizar, excluir | RN-120 |
 | `acaoSalvarPreferencias({ reproducaoAutomatica?, lembretes? })`: as duas | `src/lib/actions/preferencias.ts` | a própria sessão | atualizar (antes e depois) | RN-121 |
+| `acaoSalvarPerfil({ nome, whatsapp, empresaCargo, versao })`: dados pessoais de "Meu perfil" (WhatsApp BR por regex; vazio vira nulo; e-mail não muda aqui) | `src/lib/actions/perfil.ts` | a própria sessão (nenhum id no corpo) | atualizar (antes e depois), trava pelo `updated_at` | RN-121 |
 | `acaoLinkDoMaterial({ materialId })`: `{ url }` (5 min) | `src/lib/actions/aulas.ts` | equipe; ALUNO se `podeAssistir` a aula | não (leitura) | RN-114 |
 
 ## Painel do admin (passo 6)
@@ -284,6 +285,132 @@ Regras puras em `regras.ts` (testadas): `variacao` (base zero = "novo", os dois 
 em Brasília), `fraseDoEvento`. Cache (`cache.ts`): `"use cache"` + `cacheLife("minutes")` +
 `cacheTag("painel:<criador>")`, chamado só DEPOIS de `membroDaPagina(EQUIPE)` em cada bloco.
 Tela: `src/app/admin/page.tsx` + `_components/` (um `<Suspense>` com esqueleto por bloco).
+
+## Avaliações, certificados e trilhas (passo 7)
+
+ADR-0008, RN-123 a RN-129 (padrões aguardando o cliente). Migração `0006_avaliacoes_certificados_trilhas`.
+Nenhuma variável de ambiente nova (o worker usa `DATABASE_URL`, `S3_*`, `REDIS_URL`,
+`VIDEO_FILA_PREFIXO` e `PLATAFORMA_DOMINIO`). Pacotes novos: `pdf-lib`, `@pdf-lib/fontkit`,
+`@fontsource/newsreader`, `@fontsource/plus-jakarta-sans` (fontes OFL, WOFF lido pelo worker).
+
+| Tabela | Para quê |
+|--------|----------|
+| `produtos_avaliacoes` | avaliação do produto (módulo opcional, FK composta (módulo, produto, criador)): tipo QUIZ/PROVA/SIMULADO, `nota_minima` (70), `tentativas_max` (3; 0 = ilimitado), `tempo_limite_min`, `obrigatoria_para_certificado`, `libera_proximo_modulo` (CHECK: só com módulo), `embaralhar`, `exige_aulas_concluidas` (true), status RASCUNHO/PUBLICADA, `publicada_em` |
+| `produtos_avaliacoes_questoes` | ordem 1..n (único entre vivos), tipo UNICA/MULTIPLA/VERDADEIRO_FALSO, `enunciado`, `opcoes` jsonb `{ id: "a".."h", texto }[]` (2–8), **`gabarito` jsonb (ids) separado**, `peso` 1–100, `explicacao` |
+| `produtos_avaliacoes_tentativas` | `numero`, `iniciada_em`, `prazo_em`, `finalizada_em`/`finalizada_por` (ALUNO/TEMPO), `ordem` (sorteio congelado), `respostas` jsonb `{ questaoId: ids[] }`, `nota` numeric(4,1), `aprovada`, `correcao` congelada. Único parcial: UMA aberta por (membro, avaliação) |
+| `produtos_avaliacoes_concessoes` | tentativas extras (1–10) com motivo |
+| `criadores_certificados_modelos` | modelo padrão (`produto_id` nulo, um vivo por criador) ou do curso (um vivo por produto): título, texto com variáveis, assinatura, cor |
+| `produtos_certificados` | um vivo por (membro, produto) — idempotência; `codigo` único em todas as linhas (CHECK do alfabeto), `matricula_id`, situação EMITIDO/REVOGADO (+ `revogado_em`, `motivo_revogacao`) |
+| `produtos_certificados_versoes` | v1, v2… (única por certificado), situação PENDENTE/PRONTA/FALHOU, `dados` congelados (`DadosCertificado`), `arquivo_id` (PDF em `arquivos`, finalidade CERTIFICADO), `gerada_em`, `erro` legível |
+| `criadores_trilhas` | título, descrição, tag, capa (`arquivos`), status RASCUNHO/PUBLICADA, `publicada_em` |
+| `criadores_trilhas_itens` | ordem 1..n, tipo PRODUTO/AVALIACAO (CHECK com o alvo), `exige_anterior` (true); o mesmo alvo uma vez por trilha |
+
+Também: `arquivos.finalidade` aceita `CERTIFICADO` (só o worker grava; o envio do navegador
+continua IMAGEM/MATERIAL), `produtos_modulos` ganhou UNIQUE (id, produto_id, criador_id) e a capa de
+trilha conta como uso em `arquivoParaUsar`. `motivoDoBloqueio` ganhou `AVALIACAO` (RN-125).
+
+### Serviços (`src/lib/avaliacoes/`, `src/lib/certificados/`, `src/lib/trilhas/`)
+
+```ts
+// avaliacoes/situacao.ts — base de tudo (uma ida ao banco por lista)
+type QuemAvalia = { criadorId: string; membroId: string | null; papel: PapelCriador | null };
+situacoesDoMembro(quem, { avaliacaoIds?, somentePublicadas?, condicao? }, agora?, exec?): Promise<SituacaoAvaliacao[]>
+disponibilidade(quem, avaliacaoId, agora?): Promise<SituacaoAvaliacao | null>      // null = não existe neste criador
+SituacaoAvaliacao = { id, titulo, tipo, status, instrucoes, notaMinima, tentativasMax, tempoLimiteMin, embaralhar,
+  exigeAulasConcluidas, obrigatoriaParaCertificado, liberaProximoModulo,
+  produto: { id, titulo, slug, status }, modulo: { id, titulo, ordem, status } | null, questoes,
+  matriculaValendo, moduloTravado, aulasPendentes, finalizadas, extras, aberta: { id, prazoEm } | null,
+  aprovada, melhorNota: number | null, restantes: number | null /* null = ilimitado ou equipe */,
+  motivo: null | "INDISPONIVEL" | "MATRICULA" | "MODULO_BLOQUEADO" | "AULAS_PENDENTES" | "TENTATIVAS_ESGOTADAS" }
+
+// avaliacoes/tentativas.ts — QuemFaz = QuemAvalia & { membroId: string; usuarioId: string }
+iniciarTentativa(quem, avaliacaoId, agora?): Promise<{ tentativaId; retomada: boolean }>   // retoma a aberta
+responder(quem, { tentativaId, questaoId, opcoes: string[] }, agora?): Promise<{ situacao: "salva" } | { situacao: "encerrada"; tentativaId }>
+finalizarTentativa(quem, tentativaId, "ALUNO" | "TEMPO", agora?): Promise<{ tentativaId; nota; aprovada; finalizadaPor }>  // idempotente; aprovou -> verificarEmissao
+finalizarVencidas(quem, agora?, avaliacaoIds?): Promise<number>
+concederTentativa({ criadorId, autorId, avaliacaoId, membroId, quantidade, motivo }): Promise<{ concessaoId }>
+
+// avaliacoes/regras.ts (puro, testado): corrigir, questaoCorreta, notaComUmaCasa, aprovou, montarOrdem,
+// tentativasRestantes, revelaGabarito(tipo, aprovado, restantes), motivoDaAvaliacao, TEXTO_MOTIVO_AVALIACAO,
+// cardDaAvaliacao, metaDaAvaliacao, formatarNota, segundosRestantes, ROTULO_TIPO_AVALIACAO, ROTULO_TIPO_QUESTAO
+// avaliacoes/sql.ts: aprovadoSql, avaliacaoPendenteSql (usado por acessoDaAula)
+// avaliacoes/estrutura.ts: avaliacoesDoProduto(criadorId, produtoId, membroId), avaliacaoQueTrava(lista, moduloOrdem)
+
+// certificados/emissao.ts
+elegivel(criadorId, membroId, produtoId, exec?): Promise<{ matriculaId; concluidaEm } | null>
+emitir(criadorId, membroId, produtoId, autorId?): Promise<{ certificadoId; novo } | null>        // idempotente; v1 na fila
+verificarEmissao(criadorId, membroId, produtoId): Promise<{ certificadoId; novo } | null>       // nunca lança
+gerarNovaVersao(criadorId, certificadoId, autorId): Promise<{ versaoId; versao; enfileirado }>
+revogar({ criadorId, certificadoId, versao: Date, motivo, autorId }): Promise<{ versao: string }>
+dadosDaVersao(tx, criadorId, { produtoId, membroId, codigo, concluidaEm }): Promise<DadosCertificado>
+// certificados/regras.ts (puro): gerarCodigo, normalizarCodigo, codigoLegivel, RE_CODIGO, MODELO_PADRAO,
+// preencherTexto, cargaHorariaTexto, dataPorExtenso, urlDeVerificacao, corDoCertificado, nomeDoPdf
+// certificados/pdf.ts (SÓ worker/testes/seed — nunca importar numa tela): gerarPdfCertificado(dados): Promise<Uint8Array>
+// certificados/worker.ts: processarVersao(versaoId): "pronta" | "ja-pronta" | "ignorada"; marcarFalhaDaVersao; versoesPendentes
+// certificados/fila.ts: fila "certificados" (prefixo VIDEO_FILA_PREFIXO), { versaoId }, jobId = versaoId, 3 tentativas, DLQ "certificados-dlq"
+```
+
+### Leituras para as telas
+
+Todas recebem `q: QuemPede` (o `membroDaPagina(...)` inteiro) e `agora` opcional; criador do HOST.
+
+| Função | Retorno |
+|--------|---------|
+| `avaliacoesDoAluno(q)` (`avaliacoes/consultas.ts`) — tela 6 | `CardAvaliacao[]`: `{ id, titulo, tipo, tipoRotulo, curso: { id, titulo, slug }, modulo: { id, titulo } \| null, meta: "10 questões · 15 min · nota mínima 70%", questoes, tempoLimiteMin, notaMinima, situacao: "CONCLUIDA" \| "EM_ANDAMENTO" \| "DISPONIVEL" \| "BLOQUEADA", rotulo: "Concluída · 92%" \| "Em andamento" \| "Disponível" \| "Disponível · melhor nota 40%" \| "Bloqueada · <motivo>", cta: "Ver resultado" \| "Continuar" \| "Iniciar" \| "Tentar de novo" \| null, motivo, aprovada, melhorNota, tentativasRestantes, tentativaAbertaId, obrigatoriaParaCertificado, href: "/avaliacoes/<id>" }`. Aluno: só cursos com matrícula valendo; equipe: todas as publicadas |
+| `avaliacaoDoAluno(q, avaliacaoId)` — entrada da avaliação | `null` (404: rascunho, curso em rascunho, módulo oculto, outro criador) ou `CardAvaliacao & { instrucoes, embaralhar, aulasPendentes, tentativas: { id, numero, iniciadaEm, finalizadaEm, finalizadaPor, nota, aprovada }[] }` (sem matrícula: aparece com `motivo: "MATRICULA"`) |
+| `tentativaParaResponder(q, tentativaId)` — responder | `null` (não é do membro) \| `{ situacao: "encerrada", tentativaId }` (prazo/finalizada: ir ao resultado) \| `{ situacao: "aberta", avaliacao: { id, titulo, tipo, instrucoes, notaMinima, tempoLimiteMin }, tentativa: { id, numero, iniciadaEm, prazoEm, segundosRestantes: number \| null }, questoes: { id, numero, tipo, enunciado, peso, opcoes: { id, texto }[] /* ordem sorteada, SEM gabarito */, resposta: string[] }[] }` |
+| `resultadoDaTentativa(q, tentativaId)` — resultado | `null` ou `{ avaliacao: { id, titulo, tipo, notaMinima, curso: { titulo, slug } }, tentativa: { id, numero, nota, aprovada, finalizadaPor, iniciadaEm, finalizadaEm, duracaoSeg, acertos, total }, melhorNota, aprovadaAlgumaVez, tentativasRestantes, revelaGabarito, podeTentarDeNovo, questoes: { id, numero, tipo, enunciado, peso, correta, opcoes: { id, texto, marcada, correta: boolean \| null }, explicacao: string \| null }[] }`. `correta` por opção e `explicacao` = `null` quando `revelaGabarito` é falso |
+| `cursoDoAluno` / `aulaParaPlayer` (passo 5, atualizadas) | `AulaDoCurso.motivoBloqueio` pode ser `"AVALIACAO"` com `avaliacaoPendente: { id, titulo } \| null`; `ModuloDoCurso.avaliacoes: AvaliacaoNoCurso[]` (`{ id, titulo, tipo, aprovada, melhorNota, liberaProximoModulo, obrigatoriaParaCertificado, href }`); `cursoDoAluno().avaliacoesDoCurso` (as sem módulo) |
+| `avaliacoesDoAdmin(criadorId, { busca?, produtoId?, status? })` (`avaliacoes/admin.ts`) | `{ resumo: { total, publicadas, tentativas, aprovacaoMedia: 0..1 \| null }, linhas: { id, titulo, tipo, tipoRotulo, status, notaMinima, obrigatoriaParaCertificado, liberaProximoModulo, versao, produto: { id, titulo }, modulo, questoes, tentativas, alunos, aprovados, taxaAprovacao: 0..1 \| null, notaMedia /* média da melhor nota de cada aluno */ }[] }` — só ALUNO conta |
+| `avaliacaoParaEditar(criadorId, avaliacaoId)` | `null` ou `{ avaliacao: { id, versao, produto, moduloId, status, publicadaEm, campos /* = camposAvaliacaoSchema */ }, modulos: { id, titulo, ordem, status }[], questoes: { id, ordem, versao, questao /* = questaoSchema: opções com correta */ }[] }` |
+| `alunosDaAvaliacao(criadorId, avaliacaoId)` | `null` ou `{ membroId, nome, email, imagem, finalizadas, emAndamento, melhorNota, aprovada, ultimaEm, extras, tentativasRestantes, podeConceder }[]` |
+| `certificadosDoAluno(q)` (`certificados/consultas.ts`) — tela 9 | `{ emitidos: { id, codigo, codigoLegivel, curso: { id, titulo, slug }, situacao, emitidoEm, revogadoEm, nome, titulo, texto, cargaHoraria: "9 horas", urlVerificacao, pdf: { versao, situacao } \| null }[], bloqueados: { curso, percentual, aulasRestantes, avaliacoesPendentes: { id, titulo, href }[] }[] }` (emite antes quem já está elegível) |
+| `numerosDoPerfil(q)` (passo 5) | `certificados` = emitidos não revogados |
+| `urlDoPdf(criadorId, certificadoId)` / `urlDoPdfPorCodigo(criadorId, codigo)` | `{ url /* 5 min, attachment */, versao }` da última PRONTA, ou `null` (revogado, sem PDF pronto, outro criador) |
+| `verificarPublico(criadorId, codigo)` — página `/certificado/[codigo]` (sem sessão) | `null` (404) ou `{ situacao: "VALIDO" \| "REVOGADO", codigo, codigoLegivel, nome, curso, cargaHoraria, concluidoEm, emitidoEm, revogadoEm, criador, temPdf }` — nada além disso |
+| `certificadosDoAdmin(criadorId, { busca? /* nome, e-mail ou código */, produtoId?, situacao?, pagina, porPagina })` | `{ resumo: { emitidos, revogados, ultimos30, pdfPendentes }, total, linhas: { id, codigo, codigoLegivel, situacao, emitidoEm, revogadoEm, motivoRevogacao, versao /* trava da revogação */, aluno: { nome, email, imagem }, curso: { id, titulo }, pdf }[] }` |
+| `versoesDoCertificado(criadorId, certificadoId)` | `{ versao, situacao, geradaEm, erro, pedidaEm, tamanhoBytes }[]` (mais nova primeiro) |
+| `modeloDeCertificado(criadorId, produtoId \| null)`; `produtosComModelo(criadorId, ids)` | `{ produtoId, versao /* null = criar */, origem: "PROPRIO" \| "PADRAO_DO_CRIADOR" \| "EMBUTIDO", titulo, texto, assinaturaNome, assinaturaCargo, cor }`; `Set<produtoId>` |
+| `trilhasDoAluno(q)`, `trilhaDoAluno(q, id)` (`trilhas/consultas.ts`) — tela 7 | `TrilhaDoAluno = { id, titulo, descricao, tag, capaChave, etapas, concluidas, percentual, textoEtapas: "3 de 5 etapas", duracaoSeg, cta: "Iniciar" \| "Continuar" \| "Rever", proximoPasso: { itemId, titulo, href, estado, textoMotivo } \| null, itens: { id, numero, tipo, titulo, subtitulo, href, exigeAnterior, estado: "concluido" \| "andamento" \| "disponivel" \| "bloqueado", motivo, textoMotivo: "Conclua a etapa anterior" \| "Matricule-se" \| ..., percentual, duracaoSeg }[] }` |
+| `trilhasParaVitrine(q, limite = 10)` | `(ItemCartao & { progresso })[]` com `tipo: "TRILHA"`, `href: "/trilhas/<id>"`, imagem = capa (use `comImagens`) |
+| `trilhasDoAdmin(criadorId)`; `trilhaParaEditar(criadorId, id)` | `{ id, titulo, tag, status, publicadaEm, versao, capaChave, itens }[]`; `null` ou `{ trilha: { id, versao, status, publicadaEm, capaChave, campos }, itens: { id, ordem, tipo, exigeAnterior, versao, produtoId, avaliacaoId, titulo, statusAlvo }[], opcoes: { produtos, avaliacoes } }` |
+
+### Actions (todas `executar()` → `Resultado`; criador do HOST; Zod `strictObject` em `src/lib/validators/avaliacoes.ts`)
+
+| Action | Arquivo | Quem | Entrada → `dados` | Audita |
+|--------|---------|------|-------------------|--------|
+| `acaoCriarAvaliacao` | `actions/avaliacoes.ts` | DONO, ADMIN | `{ produtoId, campos }` → `{ id, versao }` | criar |
+| `acaoSalvarAvaliacao` | idem | DONO, ADMIN | `{ avaliacaoId, versao, campos }` → `{ versao }` | atualizar (só o que mudou) |
+| `acaoAlterarSituacaoAvaliacao` | idem | DONO, ADMIN | `{ avaliacaoId, versao, status }` → `{ versao }` (publicar exige ≥ 1 questão) | publicar |
+| `acaoRemoverAvaliacao` | idem | DONO, ADMIN | `{ avaliacaoId, versao }` → `null` (recusa se está numa trilha; modal block) | excluir |
+| `acaoCriarQuestao` / `acaoSalvarQuestao` | idem | DONO, ADMIN | `{ avaliacaoId, questao }` → `{ id, versao }` / `{ questaoId, versao, questao }` → `{ versao }` | criar / atualizar |
+| `acaoRemoverQuestao` / `acaoReordenarQuestoes` | idem | DONO, ADMIN | `{ questaoId, versao }` → `null` / `{ avaliacaoId, itens: { id, versao }[] }` → `{ versao }` | excluir / reordenar |
+| `acaoConcederTentativa` | idem | DONO, ADMIN | `{ avaliacaoId, membroId, quantidade = 1, motivo }` → `{ concessaoId }` | criar |
+| `acaoIniciarTentativa` | `actions/avaliacoes-aluno.ts` | membro com vínculo (a própria) | `{ avaliacaoId }` → `{ tentativaId, retomada }` | criar |
+| `acaoResponder` | idem | idem | `{ tentativaId, questaoId, opcoes: ("a".."h")[] }` → `{ situacao: "salva" } \| { situacao: "encerrada", tentativaId }` | não (autosave) |
+| `acaoFinalizarTentativa` | idem | idem | `{ tentativaId }` → `{ tentativaId, nota, aprovada, finalizadaPor }` | atualizar |
+| `acaoSalvarModeloCertificado` | `actions/certificados.ts` | DONO, ADMIN | `{ produtoId \| null, versao \| null, titulo, texto, assinaturaNome, assinaturaCargo?, cor? }` → `{ versao }` | criar / atualizar |
+| `acaoGerarNovaVersaoCertificado` | idem | DONO, ADMIN | `{ certificadoId }` → `{ versaoId, versao, enfileirado }` | criar |
+| `acaoRevogarCertificado` | idem | DONO, ADMIN | `{ certificadoId, versao, motivo }` → `{ versao }` (modal block) | atualizar |
+| `acaoBaixarCertificado` | idem | ALUNO (o próprio), DONO, ADMIN | `{ certificadoId }` → `{ url, versao }` | não (leitura) |
+| `acaoCriarTrilha` / `acaoSalvarTrilha` | `actions/trilhas.ts` | DONO, ADMIN | `{ titulo, descricao?, tag? }` → `{ id, versao }` / `{ trilhaId, versao, campos }` → `{ versao }` | criar / atualizar |
+| `acaoDefinirCapaTrilha` | idem | DONO, ADMIN | `{ trilhaId, versao, arquivoId \| null }` → `{ versao }` (arquivo IMAGEM já confirmado) | atualizar |
+| `acaoAlterarSituacaoTrilha` / `acaoRemoverTrilha` | idem | DONO, ADMIN | `{ trilhaId, versao, status }` / `{ trilhaId, versao }` | publicar / excluir |
+| `acaoAdicionarItemTrilha` | idem | DONO, ADMIN | `{ trilhaId, tipo: "PRODUTO", produtoId, exigeAnterior? }` ou `{ trilhaId, tipo: "AVALIACAO", avaliacaoId, exigeAnterior? }` → `{ id, versao }` | criar |
+| `acaoSalvarItemTrilha` / `acaoRemoverItemTrilha` / `acaoReordenarItensTrilha` | idem | DONO, ADMIN | `{ itemId, versao, exigeAnterior }` / `{ itemId, versao }` / `{ trilhaId, itens }` | atualizar / excluir / reordenar |
+
+Rota pública `GET /certificado/[codigo]/pdf` (botão "Baixar PDF" da verificação, sem sessão): criador do
+HOST + `urlDoPdfPorCodigo` → 302 para o link assinado de 5 min; revogado, sem PDF pronto ou de outro
+criador = 404. `no-store` e `X-Robots-Tag: noindex`.
+
+### Worker dos certificados
+
+```bash
+npm run worker:certificados   # outro terminal/container; reenfileira as versões PENDENTES ao subir
+```
+
+`emitir`/`gerarNovaVersao` enfileiram `{ versaoId }` DEPOIS do commit (`enfileirado: false` = fila fora
+do ar: a versão fica PENDENTE até o worker subir). Sem worker rodando, os PDFs ficam "Gerando…".
 
 ## Variáveis de ambiente (passo 3)
 

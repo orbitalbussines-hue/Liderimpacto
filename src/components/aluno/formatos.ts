@@ -25,10 +25,15 @@ export function mesAno(data: Date): string {
 /** Primeiro nome ("Ana Demo" -> "Ana"). */
 export const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] ?? nome;
 
-export type MotivoBloqueioAula = "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "PRE_REQUISITO";
+export type MotivoBloqueioAula = "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "AVALIACAO" | "PRE_REQUISITO";
 
 /** Texto curto do cadeado da aula (página do curso e playlist). */
-export function textoDoBloqueio(a: { motivoBloqueio: MotivoBloqueioAula | null; liberaEm: Date | null; preRequisito: { numero: string } | null }): string | null {
+export function textoDoBloqueio(a: {
+  motivoBloqueio: MotivoBloqueioAula | null;
+  liberaEm: Date | null;
+  preRequisito: { numero: string } | null;
+  avaliacaoPendente?: { titulo: string } | null;
+}): string | null {
   switch (a.motivoBloqueio) {
     case null:
       return null;
@@ -38,6 +43,8 @@ export function textoDoBloqueio(a: { motivoBloqueio: MotivoBloqueioAula | null; 
       return a.preRequisito ? `Conclua a aula ${a.preRequisito.numero}` : "Conclua a aula anterior";
     case "MATRICULA":
       return "Matricule-se";
+    case "AVALIACAO":
+      return a.avaliacaoPendente ? `Seja aprovado em ${a.avaliacaoPendente.titulo}` : "Aprovação na avaliação pendente";
     default:
       return "Indisponível";
   }

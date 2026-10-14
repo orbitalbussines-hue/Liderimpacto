@@ -8,6 +8,7 @@ import {
   arquivos,
   criadores_membros_favoritos as fav,
   produtos,
+  produtos_certificados,
   produtos_matriculas,
   produtos_modulos,
   produtos_modulos_aulas,
@@ -33,7 +34,8 @@ export { comImagens, estaNaLista, type QuemPede } from "./visao";
 /** Cartão de fileira (forma do `ItemFileira` de src/components/vitrine/tipos.ts, com a imagem ainda como chave). */
 export interface ItemCartao {
   id: string;
-  tipo: "AULA" | "PRODUTO";
+  /** TRILHA: fileira "Trilhas para você" (`trilhasParaVitrine`, src/lib/trilhas/consultas.ts). */
+  tipo: "AULA" | "PRODUTO" | "TRILHA";
   titulo: string;
   subtitulo: string;
   imagemChave: string | null;
@@ -234,7 +236,7 @@ export async function progressoDoCurso(q: QuemPede, produtoId: string): Promise<
   return (await progressoDosCursos(q, [produtoId])).get(produtoId) ?? { concluidas: 0, total: 0, percentual: 0 };
 }
 
-/** Números do perfil. Certificados chegam no passo 7 e pontos no 11 (zero até lá). */
+/** Números do perfil. Pontos chegam no passo 11 (zero até lá). */
 export async function numerosDoPerfil(q: QuemPede) {
   if (!q.membro.id) return { aulasConcluidas: 0, segundosAssistidos: 0, cursosConcluidos: 0, certificados: 0, pontos: 0 };
   const [p] = await db
@@ -249,7 +251,12 @@ export async function numerosDoPerfil(q: QuemPede) {
     .select({ n: sql<number>`count(*)::int` })
     .from(produtos_matriculas)
     .where(and(eq(produtos_matriculas.membro_id, q.membro.id), eq(produtos_matriculas.criador_id, q.criador.id), vivos(produtos_matriculas), isNotNull(produtos_matriculas.concluida_em)));
-  return { aulasConcluidas: p?.aulasConcluidas ?? 0, segundosAssistidos: p?.segundosAssistidos ?? 0, cursosConcluidos: c?.n ?? 0, certificados: 0, pontos: 0 };
+  // Passo 7: certificados EMITIDOS (revogado não conta).
+  const [cert] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(produtos_certificados)
+    .where(and(eq(produtos_certificados.membro_id, q.membro.id), eq(produtos_certificados.criador_id, q.criador.id), vivos(produtos_certificados), eq(produtos_certificados.situacao, "EMITIDO")));
+  return { aulasConcluidas: p?.aulasConcluidas ?? 0, segundosAssistidos: p?.segundosAssistidos ?? 0, cursosConcluidos: c?.n ?? 0, certificados: cert?.n ?? 0, pontos: 0 };
 }
 
 /** Preferências da pessoa (Perfil e player). */

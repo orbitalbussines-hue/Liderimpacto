@@ -50,7 +50,7 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
   const poster = await urlDeImagemOuNula(q.criador.id, d.aula.thumbChave);
   const atualNaPlaylist = d.playlist.flatMap((m) => m.aulas).find((a) => a.id === d.aula.id);
   const aviso = d.motivoBloqueio
-    ? avisoDeBloqueio(d.motivoBloqueio, { produto: d.produto, liberaEm: atualNaPlaylist?.liberaEm ?? null, preRequisito: atualNaPlaylist?.preRequisito ?? null })
+    ? avisoDeBloqueio(d.motivoBloqueio, { produto: d.produto, liberaEm: atualNaPlaylist?.liberaEm ?? null, preRequisito: atualNaPlaylist?.preRequisito ?? null, avaliacaoPendente: atualNaPlaylist?.avaliacaoPendente ?? null })
     : avisoDoVideo(d.video);
   const escopo = d.produto.id;
 

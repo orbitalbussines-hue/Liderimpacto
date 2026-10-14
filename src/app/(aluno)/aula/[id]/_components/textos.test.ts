@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { avisoDeBloqueio, avisoDoVideo, dataDeLiberacao, eyebrowDaAula } from "./textos";
 
 const produto = { titulo: "Líder de Impacto", slug: "lider-de-impacto" };
+const avaliacaoPendenteAviso = (avaliacaoPendente: { id: string; titulo: string } | null) =>
+  avisoDeBloqueio("AVALIACAO", { produto, liberaEm: null, preRequisito: null, avaliacaoPendente });
 
 describe("avisoDeBloqueio", () => {
   it("matrícula: explica e leva ao curso", () => {
@@ -20,6 +22,14 @@ describe("avisoDeBloqueio", () => {
     const a = avisoDeBloqueio("PRE_REQUISITO", { produto, liberaEm: null, preRequisito: { id: "abc", numero: "3.5", titulo: "O que são os riscos" } });
     expect(a.descricao).toContain("3.5 · O que são os riscos");
     expect(a.acao).toEqual({ rotulo: "Ir para a aula 3.5", href: "/aula/abc" });
+  });
+
+  it("avaliação: nomeia a avaliação pendente e linka para ela (RN-125)", () => {
+    const a = avaliacaoPendenteAviso({ id: "av1", titulo: "Quiz do módulo 1" });
+    expect(a.titulo).toMatch(/Seja aprovado/);
+    expect(a.descricao).toContain("“Quiz do módulo 1”");
+    expect(a.acao).toEqual({ rotulo: "Ir para a avaliação", href: "/avaliacoes/av1" });
+    expect(avaliacaoPendenteAviso(null).acao).toEqual({ rotulo: "Ver o curso", href: "/cursos/lider-de-impacto" });
   });
 
   it("indisponível: sem ação", () => {

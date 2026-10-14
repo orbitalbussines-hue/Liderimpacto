@@ -43,6 +43,13 @@
       "when": 1791981440358,
       "tag": "0005_painel_atividades",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791983623184,
+      "tag": "0006_avaliacoes_certificados_trilhas",
+      "breakpoints": true
     }
   ]
 }

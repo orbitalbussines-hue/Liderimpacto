@@ -85,6 +85,8 @@ export const produtos_modulos = pgTable(
       .onUpdate("restrict"),
     uniqueIndex("uq_produtos_modulos_ordem_vivo").on(t.produto_id, t.ordem).where(sql`is_deleted = false`),
     unique("uq_produtos_modulos_id_criador").on(t.id, t.criador_id),
+    // Alvo da FK de produtos_avaliacoes (passo 7): o módulo da avaliação é do MESMO produto.
+    unique("uq_produtos_modulos_id_produto_criador").on(t.id, t.produto_id, t.criador_id),
     check("ck_produtos_modulos_ordem", sql`ordem >= 1`),
     check("ck_produtos_modulos_status", sql.raw(`status in (${listaSql(STATUS_MODULO)})`)),
   ],

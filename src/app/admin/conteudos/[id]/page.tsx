@@ -99,6 +99,20 @@ async function Editor({ params }: { params: Params }) {
             </CartaoTitulo>
             <CapasProduto produtoId={produto.id} titulo={produto.titulo} versao={versao} capa3x4={capa3x4} capa16x9={capa16x9} />
           </Cartao>
+          <Cartao padding={20} como="section" aria-label="Avaliações deste curso">
+            <CartaoTitulo tamanho={15} como="h2">
+              Avaliações deste curso
+            </CartaoTitulo>
+            <p className="m-0 mt-1 text-[13px] text-muted">Quizzes, provas e simulados do curso ou de um módulo.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href={`/admin/avaliacoes?curso=${produto.id}`} className={buttonVariants({ variant: "contorno", size: "36" })}>
+                Ver avaliações
+              </Link>
+              <Link href={`/admin/avaliacoes/nova?curso=${produto.id}`} className={buttonVariants({ variant: "fantasma", size: "36" })}>
+                Nova avaliação
+              </Link>
+            </div>
+          </Cartao>
         </aside>
       </div>
     </>

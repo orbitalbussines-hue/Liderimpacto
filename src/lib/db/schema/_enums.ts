@@ -77,3 +77,40 @@ export type StatusMatricula = (typeof STATUS_MATRICULA)[number];
 /** Como a aula foi concluida (passo 5): ASSISTIU = cruzou 90% assistido de verdade; MANUAL = botao "Concluir e avancar". */
 export const CONCLUSOES_AULA = ["ASSISTIU", "MANUAL"] as const;
 export type ConclusaoAula = (typeof CONCLUSOES_AULA)[number];
+
+/**
+ * Arquivos que o SISTEMA grava (não vêm de envio do navegador): a coluna `arquivos.finalidade`
+ * aceita as de envio + estas. CERTIFICADO = PDF gerado pelo worker (passo 7, ADR-0008).
+ * `FinalidadeArquivo` continua sendo só a de envio (allowlist das telas).
+ */
+export const FINALIDADES_ARQUIVO_GRAVADAS = [...FINALIDADES_ARQUIVO, "CERTIFICADO"] as const;
+export type FinalidadeArquivoGravada = (typeof FINALIDADES_ARQUIVO_GRAVADAS)[number];
+
+/** Avaliação (passo 7). FORMULARIO (SISTEMA.md §4) fica de fora: YAGNI (RN-123). */
+export const TIPOS_AVALIACAO = ["QUIZ", "PROVA", "SIMULADO"] as const;
+export type TipoAvaliacao = (typeof TIPOS_AVALIACAO)[number];
+
+export const STATUS_AVALIACAO = ["RASCUNHO", "PUBLICADA"] as const;
+export type StatusAvaliacao = (typeof STATUS_AVALIACAO)[number];
+
+/** UNICA = uma correta; MULTIPLA = várias corretas (pontua só o conjunto exato); VERDADEIRO_FALSO. */
+export const TIPOS_QUESTAO = ["UNICA", "MULTIPLA", "VERDADEIRO_FALSO"] as const;
+export type TipoQuestao = (typeof TIPOS_QUESTAO)[number];
+
+/** Quem fechou a tentativa: o aluno ("Finalizar") ou o prazo (tempo limite, conferido no servidor). */
+export const FINALIZACOES_TENTATIVA = ["ALUNO", "TEMPO"] as const;
+export type FinalizacaoTentativa = (typeof FINALIZACOES_TENTATIVA)[number];
+
+export const SITUACOES_CERTIFICADO = ["EMITIDO", "REVOGADO"] as const;
+export type SituacaoCertificado = (typeof SITUACOES_CERTIFICADO)[number];
+
+/** Versão do PDF do certificado: PENDENTE = na fila; PRONTA = no storage; FALHOU = esgotou as tentativas. */
+export const SITUACOES_VERSAO_CERTIFICADO = ["PENDENTE", "PRONTA", "FALHOU"] as const;
+export type SituacaoVersaoCertificado = (typeof SITUACOES_VERSAO_CERTIFICADO)[number];
+
+export const STATUS_TRILHA = ["RASCUNHO", "PUBLICADA"] as const;
+export type StatusTrilha = (typeof STATUS_TRILHA)[number];
+
+/** Item da trilha. Aula avulsa fica de fora: YAGNI (RN-126). */
+export const TIPOS_ITEM_TRILHA = ["PRODUTO", "AVALIACAO"] as const;
+export type TipoItemTrilha = (typeof TIPOS_ITEM_TRILHA)[number];
