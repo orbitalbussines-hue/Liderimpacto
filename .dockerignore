@@ -1,0 +1,22 @@
+# Contexto das imagens (deploy/docker/*.Dockerfile). Segredo NUNCA entra no contexto.
+.env
+.env.*
+env.txt
+*.pem
+.git
+.github
+.githooks
+.claude
+.agents
+.lixo-quarentena
+node_modules
+.next
+coverage
+reference
+deploy
+docs
+tests
+templates
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*

@@ -30,6 +30,10 @@ function imagensDoStorage(): { remotePatterns: PadraoRemoto[]; dangerouslyAllowL
 }
 
 const nextConfig: NextConfig = {
+  // Imagem Docker enxuta (deploy/docker/app.Dockerfile): `.next/standalone/server.js`, sem o
+  // node_modules inteiro. Nao muda o `next dev`. O config e serializado no BUILD: o `images` acima
+  // usa o S3_ENDPOINT publico passado como build-arg (ADR-0015).
+  output: "standalone",
   // APRESENTACAO=1 esconde o indicador "N" do next dev (demo ao cliente); erros continuam aparecendo.
   ...(process.env.APRESENTACAO === "1" ? { devIndicators: false as const } : {}),
   cacheComponents: true,

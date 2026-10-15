@@ -115,6 +115,7 @@ Código, comentário, documentação, UI, mensagem de erro e commit em **PT-BR**
 | Eventos ao vivo (link só de 15 min antes até o fim, decidido no servidor; público TODOS/PRODUTO/GRUPOS numa regra só; presença; lembrete por job atrasado na fila `eventos`) | `src/lib/eventos/` (`regras.ts` puro, `sql.ts` = `vePublicoSql`/`veEventoSql`/`veDesafioSql`, `consultas.ts`, `presenca.ts`, `admin.ts` = leituras da equipe, `tela.ts` puro, `agenda-ics.ts` puro + `rota-agenda.ts`, `fila.ts` + `lembrete.ts` = lembrete no 2º Worker de `worker:certificados`); actions em `actions/eventos.ts`; avisos em `notificacoes/gerar.ts` — ADR-0011, RN-142, RN-143, RN-160 |
 | Gamificação (razão de pontos append-only e idempotente, ranking/nível/progresso de desafio CALCULADOS, recálculo `npm run gamificacao:recalcular -- <slug>`) | `src/lib/gamificacao/` (`padroes.ts`, `regras.ts` puro, `pontos.ts` = `concederPontos`/`registrarConquista`/`ajustarPontos`, `ranking.ts`, `desafios.ts`, `recalcular.ts`, `admin.ts` = telas da equipe, `conquistas.ts` = tela do aluno); actions em `src/lib/actions/gamificacao.ts`; ganchos depois do commit em progresso, matrícula concluída, avaliação aprovada e publicação — ADR-0012, RN-144 a RN-147 |
 | Base de conhecimento e assistente do professor (Claude; busca full-text em português sem acento, trechos com assinatura idempotente, fila `conhecimento` no 3º Worker de `worker:certificados`, recuperação filtrada pelo acesso ANTES do modelo, limite diário no banco, streaming NDJSON em `POST /api/assistente`, `npm run conhecimento:reindexar -- <slug>`) | `src/lib/conhecimento/` (`regras.ts` puro, `indexar.ts`, `fila.ts`, `pedir.ts`, `busca.ts` = `recuperarTrechos`, `consultas.ts`) e `src/lib/assistente/` (`regras.ts`/`texto.ts` puros, `cliente.ts` = `ClienteIA` + SDK, só servidor, `cliente-falso.ts` para testes, `responder.ts`, `rota.ts`, `conversas.ts`, `config.ts`, `tela.ts`, `admin.ts`); actions em `actions/conhecimento.ts` e `actions/assistente.ts` — ADR-0014, RN-190 a RN-197. Resposta exibida só como texto (nunca `dangerouslySetInnerHTML`); testes NUNCA chamam a API real |
+| Deploy da HML (1 VPS, Docker Compose, Caddy DNS-01 Cloudflare, imagens no GHCR por SHA, migração ANTES da troca, saúde em `GET /api/saude`, backup no R2) | `deploy/hml/` (compose, Caddyfile, `implantar.sh`, `backup.sh`, `restaurar-teste.sh`, `bootstrap.sh`, `env.exemplo`), `deploy/docker/` (imagens app e worker), `scripts/db-migrar.ts`, job `deploy-hml` — ADR-0015, runbook `docs/deploy-hml.md`. Variável nova do app também vai no `deploy/hml/env.exemplo` e no compose |
 | Validadores | `src/lib/validators/<entidade>.ts` |
 | Actions | `src/lib/actions/<entidade>.ts` |
 | Telas | `src/app/(app)/<rota>/page.tsx` + `_components/` |
@@ -158,7 +159,7 @@ npm run lixo           # lista arquivos-lixo na raiz (simulação)
 ## Git
 
 - `develop` recebe o trabalho (deploy HML); `master` só por merge validado (deploy PRD).
-  NUNCA commitar direto na `master`.
+  NUNCA commitar direto na `master`. Seed NUNCA roda no deploy: só à mão (`docs/deploy-hml.md`).
 - Conventional Commits em PT-BR (`docs/git-commits.md`), sem rodapé de coautoria.
 - O pre-commit (`.githooks/pre-commit`) roda o auditor e bloqueia `.env`. Não use
   `--no-verify`. O CI roda tudo de novo.

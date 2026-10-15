@@ -877,6 +877,29 @@ pg_dump "$DATABASE_URL" --no-owner --no-acl --clean --if-exists \
 Backup fica FORA do servidor do banco e o restore e testado em HML. O pipeline de
 deploy ja faz o dump e a copia off-server antes do PRD.
 
+Na HML: `deploy/hml/backup.sh` (cron diario: dump + bucket `lider-arquivos` para o Cloudflare R2,
+retencao 30/90 dias por ciclo de vida do bucket) e `deploy/hml/restaurar-teste.sh` (restaura o
+ultimo dump num Postgres descartavel e compara contagens). Passo a passo em `docs/deploy-hml.md`.
+
+## Deploy da HML (ADR-0015)
+
+Uma VPS com Docker Compose (`deploy/hml/docker-compose.yml`): Caddy (DNS-01 Cloudflare, curinga
+`*.hml`), app (Next standalone), `worker-video`, `worker-certificados`, Postgres, Redis e SeaweedFS
+(rede interna; o storage sai so por `s3.<dominio>` no Caddy). Imagens no GHCR por SHA
+(`deploy/docker/app.Dockerfile`, `worker.Dockerfile`, `deploy/hml/caddy.Dockerfile`), publicadas pelo
+job `deploy-hml`; na VPS, `deploy/hml/implantar.sh <sha>` migra o banco ANTES de trocar a versao.
+
+| Peca | O que faz |
+|------|-----------|
+| `GET /api/saude` (`src/app/api/saude/route.ts`) | `{ ok }` 200/503 (`select 1`), `no-store`, sem detalhe; fora do matcher do `proxy.ts`. Healthcheck do app e conferencia do deploy |
+| `scripts/db-migrar.ts` | Migrator do drizzle-orm (sem drizzle-kit) como dono do banco; com `DB_APP_USUARIO`, reaplica os GRANTs da app e revoga UPDATE/DELETE/TRUNCATE de `auditoria` e `criadores_membros_pontos` |
+| `scripts/worker-saude.mjs` | Healthcheck dos workers: PING no Redis do `REDIS_URL` |
+| `deploy/hml/postgres-init.sh` | So na 1a subida: papeis `lider_migracao` (dono, cria o `unaccent`) e `lider_app` (so DML) |
+
+Variaveis da HML (todas, com como gerar cada segredo): `deploy/hml/env.exemplo`. O `.env` real mora
+so na VPS. `SEED_SUPER_ADMIN_EMAIL`, `SEED_DONO_EMAIL` e `SEED_DONO_NOME` sao passadas so no
+`docker compose run ... npm run db:seed` manual.
+
 ## Video (pipeline HLS self-host)
 
 Decisao em ADR-0005; especificacao em `docs/ARQUITETURA_VPS.md`; numeros em `docs/video-benchmark.md`;

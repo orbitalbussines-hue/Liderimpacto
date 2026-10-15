@@ -6,10 +6,10 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 721 |
+| Arquivos TS/TSX | 722 |
 | Tabelas (Drizzle) | 61 |
 | Server Actions (arquivos) | 35 |
-| Rotas de API | 10 |
+| Rotas de API | 11 |
 | Paginas | 80 |
 | Componentes | 155 |
 
@@ -63,6 +63,7 @@ app/
     legendas/
     notificacoes/
     progresso/
+    saude/
     video/
   certificado/
     [codigo]/
@@ -776,6 +777,7 @@ proxy.ts
 | `/api/legendas/[id]` | GET |
 | `/api/notificacoes/contagem` | GET |
 | `/api/progresso` | POST |
+| `/api/saude` | GET |
 | `/api/video/[id]/chave` | GET |
 | `/api/video/[id]/hls/[...caminho]` | GET |
 | `/api/video/[id]/situacao` | GET |

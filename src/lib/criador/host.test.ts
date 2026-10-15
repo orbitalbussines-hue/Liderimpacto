@@ -29,6 +29,7 @@ describe("criadorDoHost", () => {
     expect(criadorDoHost("ruim-.liderdeimpacto.com.br", PRD)).toBeNull();
     expect(criadorDoHost("a.b.liderdeimpacto.com.br", PRD)).toBeNull();
     expect(criadorDoHost("api.liderdeimpacto.com.br", PRD)).toBeNull();
+    expect(criadorDoHost("s3.hml.liderdeimpacto.com.br", "hml.liderdeimpacto.com.br")).toBeNull();
     expect(criadorDoHost(`${"a".repeat(64)}.liderdeimpacto.com.br`, PRD)).toBeNull();
     expect(criadorDoHost("mal_formado.liderdeimpacto.com.br", PRD)).toBeNull();
     expect(criadorDoHost("", PRD)).toBeNull();

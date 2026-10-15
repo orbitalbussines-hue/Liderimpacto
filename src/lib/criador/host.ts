@@ -11,8 +11,11 @@
 
 /** Subdominio aceito: [a-z0-9-], 1 a 63, sem hifen nas pontas. A mesma regra do CHECK em criadores.slug. */
 export const SLUG_CRIADOR = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
-/** Slugs que nunca viram criador (www e o apex; os demais ficam livres para a plataforma). */
-export const SLUGS_RESERVADOS = ["www", "api", "app", "admin", "plataforma", "mail", "smtp"] as const;
+/**
+ * Slugs que nunca viram criador (www e o apex; os demais ficam livres para a plataforma).
+ * `s3` = host publico do storage na VPS (`s3.<dominio>`, envio direto do navegador; ADR-0015).
+ */
+export const SLUGS_RESERVADOS = ["www", "api", "app", "admin", "plataforma", "mail", "smtp", "s3"] as const;
 
 export type AreaDoHost =
   | { tipo: "plataforma" }

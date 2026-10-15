@@ -42,5 +42,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // Tudo menos os arquivos estaticos do Next e os da pasta public.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp|ico|txt|woff2?)$).*)"],
+  // `api/saude` fica de fora: o healthcheck do contêiner chama por 127.0.0.1, que nao e area nenhuma.
+  matcher: ["/((?!_next/static|_next/image|api/saude$|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp|ico|txt|woff2?)$).*)"],
 };

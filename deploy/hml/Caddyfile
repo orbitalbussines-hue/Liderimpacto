@@ -1,0 +1,54 @@
+# Borda da HML (ADR-0015). Único serviço com porta pública (80/443). HTTP -> HTTPS é automático.
+# Variáveis do ambiente do contêiner (docker-compose.yml):
+#   PLATAFORMA_DOMINIO    hml.liderdeimpacto.com.br  (apex = plataforma; <slug>.apex = criador)
+#   ACME_EMAIL            e-mail que recebe avisos da Let's Encrypt
+#   CLOUDFLARE_API_TOKEN  token SÓ com Zone:DNS:Edit da zona (desafio DNS-01 do certificado curinga)
+# DNS na Cloudflare em modo "DNS only" (nuvem cinza): o cliente fala direto com o Caddy, então o
+# remote_host é o IP real e vira o X-Real-IP que o app lê (src/lib/auth/ip.ts), sobrescrevendo o do cliente.
+{
+	email {$ACME_EMAIL}
+	acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
+}
+
+(cabecalhos) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# A prévia do construtor é um iframe da MESMA origem (ADR-0010): SAMEORIGIN, nunca DENY.
+		X-Frame-Options "SAMEORIGIN"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		-Server
+		-X-Powered-By
+	}
+}
+
+# App: plataforma (apex) e todos os criadores. O certificado curinga cobre *.hml.
+{$PLATAFORMA_DOMINIO}, *.{$PLATAFORMA_DOMINIO} {
+	import cabecalhos
+	# Upload de arquivo NÃO passa aqui (vai direto ao storage, ADR-0004); Server Action tem teto de 1 MB.
+	request_body {
+		max_size 10MB
+	}
+	reverse_proxy app:3000 {
+		header_up X-Real-IP {remote_host}
+		# Resposta em fluxo (NDJSON do assistente, ADR-0014) sai na hora, sem buffer.
+		flush_interval -1
+	}
+}
+
+# Storage S3 (SeaweedFS): o NAVEGADOR sobe direto por URL pré-assinada e o app/worker usam o mesmo
+# endpoint. Só a API S3 é publicada (sem filer/master). CORS restrito = CORS do bucket, aplicado
+# por `npm run armazenamento:preparar` (origens = apex e *.apex). Slug `s3` é reservado (host.ts).
+s3.{$PLATAFORMA_DOMINIO} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+	# Maior PUT único = 50 MB (material); partes do multipart de vídeo = 16 MB.
+	request_body {
+		max_size 64MB
+	}
+	reverse_proxy storage:8333
+}

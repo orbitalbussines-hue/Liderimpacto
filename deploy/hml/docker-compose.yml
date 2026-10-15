@@ -1,0 +1,276 @@
+# HOMOLOGAÇÃO em 1 VPS (ADR-0015). Mora em /opt/lider-impacto na VPS, copiado pelo deploy a cada
+# versão junto com Caddyfile, postgres-init.sh, implantar.sh, backup.sh e restaurar-teste.sh.
+# Variáveis: /opt/lider-impacto/.env (criado pelo Paulo a partir de env.exemplo; nunca no git).
+# IMAGEM_TAG vem do implantar.sh (SHA do commit). Não rode `docker compose up` à mão sem ela:
+#   ./implantar.sh <sha>      (deploy e rollback)
+#
+# Só o Caddy publica porta (80/443). Postgres, Redis e SeaweedFS ficam na rede `dados`, interna:
+# sem porta no host e sem saída para a internet.
+name: lider-hml
+
+x-logs: &logs
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+x-endurecido: &endurecido
+  restart: unless-stopped
+  logging: *logs
+  init: true
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+
+x-s3: &s3
+  S3_ENDPOINT: ${S3_ENDPOINT:?}
+  S3_REGIAO: us-east-1
+  S3_CHAVE: ${S3_CHAVE:?}
+  S3_SEGREDO: ${S3_SEGREDO:?}
+  S3_FORCAR_CAMINHO: "true"
+  S3_BUCKET_ARQUIVOS: lider-arquivos
+  S3_BUCKET_VIDEOS_ORIGINAIS: lider-videos-originais
+  S3_BUCKET_HLS: lider-hls
+
+x-fila: &fila
+  REDIS_URL: redis://:${REDIS_SENHA:?}@redis:6379
+  VIDEO_FILA_PREFIXO: li
+
+x-plataforma: &plataforma
+  PLATAFORMA_DOMINIO: ${PLATAFORMA_DOMINIO:?}
+  BETTER_AUTH_URL: ${BETTER_AUTH_URL:?}
+
+x-banco-app: &banco-app
+  DATABASE_URL: postgres://lider_app:${DB_APP_SENHA:?}@db:5432/${DB_NOME:?}
+
+x-app-env: &app-env
+  <<: [*s3, *fila, *plataforma, *banco-app]
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
+  VIDEO_CHAVE_MESTRA: ${VIDEO_CHAVE_MESTRA:?}
+  VIDEO_SEGREDO_TOKEN: ${VIDEO_SEGREDO_TOKEN:?}
+  VIDEO_LIMITE_SESSOES: ${VIDEO_LIMITE_SESSOES:-2}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  ANTHROPIC_WORKSPACE_ID: ${ANTHROPIC_WORKSPACE_ID:-}
+  ANTHROPIC_MODELO: ${ANTHROPIC_MODELO:-}
+  ASSISTENTE_TETO_DIARIO_CRIADOR: ${ASSISTENTE_TETO_DIARIO_CRIADOR:-500}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORTA: ${SMTP_PORTA:-465}
+  SMTP_USUARIO: ${SMTP_USUARIO:-}
+  SMTP_SENHA: ${SMTP_SENHA:-}
+  EMAIL_REMETENTE: ${EMAIL_REMETENTE:-}
+
+x-depende-dados: &depende-dados
+  db: { condition: service_healthy }
+  redis: { condition: service_healthy }
+  storage: { condition: service_healthy }
+
+x-saude-worker: &saude-worker
+  test: ["CMD", "node", "scripts/worker-saude.mjs"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 20s
+
+services:
+  caddy:
+    image: ghcr.io/orbitalbussines-hue/liderimpacto-caddy:${IMAGEM_TAG:?}
+    restart: unless-stopped
+    logging: *logs
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PLATAFORMA_DOMINIO: ${PLATAFORMA_DOMINIO:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+      # Só o Caddy recebe este token (DNS-01). Nenhum outro serviço o vê.
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_dados:/data
+      - caddy_config:/config
+    networks: [borda, dados]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      retries: 5
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256m }
+
+  app:
+    <<: *endurecido
+    image: ghcr.io/orbitalbussines-hue/liderimpacto-app:${IMAGEM_TAG:?}
+    environment:
+      <<: *app-env
+    depends_on: *depende-dados
+    networks: [borda, dados]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/saude').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits: { cpus: "1.5", memory: 1536m }
+
+  # FFmpeg: concorrência 1 (CONCORRENCIA_WORKER) e prioridade baixa (setPriority no processar.ts).
+  # O teto de CPU garante sobra para o site mesmo durante um transcode longo.
+  worker-video:
+    <<: *endurecido
+    image: ghcr.io/orbitalbussines-hue/liderimpacto-worker:${IMAGEM_TAG:?}
+    command: ["node", "--conditions=react-server", "--import", "tsx", "scripts/worker-video.ts"]
+    environment:
+      <<: [*s3, *fila, *banco-app]
+      VIDEO_CHAVE_MESTRA: ${VIDEO_CHAVE_MESTRA:?}
+    depends_on: *depende-dados
+    networks: [borda, dados]
+    healthcheck: *saude-worker
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits: { cpus: "1.25", memory: 2g }
+
+  # Filas leves: certificados (PDF), eventos (lembrete) e conhecimento (reindexação do assistente).
+  worker-certificados:
+    <<: *endurecido
+    image: ghcr.io/orbitalbussines-hue/liderimpacto-worker:${IMAGEM_TAG:?}
+    command: ["node", "--conditions=react-server", "--import", "tsx", "scripts/worker-certificados.ts"]
+    environment:
+      <<: [*s3, *fila, *plataforma, *banco-app]
+    depends_on: *depende-dados
+    networks: [borda, dados]
+    healthcheck: *saude-worker
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 768m }
+
+  db:
+    image: postgres:16.15
+    restart: unless-stopped
+    logging: *logs
+    shm_size: 256m
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_SUPERUSUARIO_SENHA:?}
+      POSTGRES_DB: postgres
+      # Lidas só pelo postgres-init.sh, na PRIMEIRA subida (volume vazio).
+      DB_NOME: ${DB_NOME:?}
+      DB_MIGRACAO_SENHA: ${DB_MIGRACAO_SENHA:?}
+      DB_APP_SENHA: ${DB_APP_SENHA:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-papeis.sh:ro
+    networks: [dados]
+    healthcheck:
+      # TCP: durante o init o servidor temporário só ouve no socket (não fica "pronto" antes da hora).
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
+      interval: 5s
+      retries: 20
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 1g }
+
+  # Fila BullMQ: AOF ligado (job não vive só em memória) e noeviction (exigência do BullMQ).
+  redis:
+    image: redis:7.4.11
+    restart: unless-stopped
+    logging: *logs
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "300mb", "--maxmemory-policy", "noeviction", "--requirepass", "${REDIS_SENHA:?}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_SENHA:?}
+    volumes:
+      - redisdata:/data
+    networks: [dados]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      retries: 20
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 384m }
+
+  # Object storage S3 (SeaweedFS, igual ao dev). Só a API S3 (8333) e só dentro da rede; o mundo
+  # chega por s3.<domínio> no Caddy. A credencial vem do .env e vira o s3.json em /tmp na subida.
+  storage:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    logging: *logs
+    environment:
+      S3_CHAVE: ${S3_CHAVE:?}
+      S3_SEGREDO: ${S3_SEGREDO:?}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        umask 077 &&
+        printf '{"identities":[{"name":"lider-app","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","List","Tagging","Write"]}]}'
+        "$$S3_CHAVE" "$$S3_SEGREDO" > /tmp/s3.json &&
+        exec weed server -dir=/data -volume.max=0 -master.volumeSizeLimitMB=1024
+        -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    volumes:
+      - seaweeddata:/data
+    networks: [dados]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz || exit 1"]
+      interval: 5s
+      retries: 30
+      start_period: 15s
+    deploy:
+      resources:
+        limits: { cpus: "0.75", memory: 768m }
+
+  # ---- Ferramentas (profile: só sobem com `docker compose run`) -------------------------------
+  # Migrações Drizzle como DONO do banco + GRANTs da app. O implantar.sh roda ANTES do app novo.
+  migrar:
+    profiles: [ferramentas]
+    image: ghcr.io/orbitalbussines-hue/liderimpacto-worker:${IMAGEM_TAG:?}
+    command: ["node", "--import", "tsx", "scripts/db-migrar.ts"]
+    environment:
+      DATABASE_URL: postgres://lider_migracao:${DB_MIGRACAO_SENHA:?}@db:5432/${DB_NOME:?}
+      DB_APP_USUARIO: lider_app
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [dados]
+    logging: *logs
+
+  # Scripts do repositório com o ambiente do app: `armazenamento:preparar` (no deploy) e
+  # `db:seed` (primeiro acesso do SUPER_ADMIN e do DONO; MANUAL, ver docs/deploy-hml.md).
+  ferramentas:
+    profiles: [ferramentas]
+    image: ghcr.io/orbitalbussines-hue/liderimpacto-worker:${IMAGEM_TAG:?}
+    command: ["npm", "run", "armazenamento:preparar"]
+    environment:
+      <<: *app-env
+    depends_on: *depende-dados
+    networks: [borda, dados]
+    logging: *logs
+
+  # rclone para o backup (backup.sh): R2 (destino, fora da VPS) e o SeaweedFS local (origem).
+  backup:
+    profiles: [ferramentas]
+    image: rclone/rclone:1.75.2
+    environment:
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ENDPOINT: ${R2_ENDPOINT:-}
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${R2_BACKUP_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${R2_BACKUP_SECRET_ACCESS_KEY:-}
+      # O token só enxerga o bucket de backup: não tenta listar/criar bucket.
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
+      RCLONE_CONFIG_SW_TYPE: s3
+      RCLONE_CONFIG_SW_PROVIDER: SeaweedFS
+      RCLONE_CONFIG_SW_ENDPOINT: http://storage:8333
+      RCLONE_CONFIG_SW_ACCESS_KEY_ID: ${S3_CHAVE:?}
+      RCLONE_CONFIG_SW_SECRET_ACCESS_KEY: ${S3_SEGREDO:?}
+    networks: [borda, dados]
+    logging: *logs
+
+networks:
+  borda: {}
+  dados:
+    internal: true
+
+volumes:
+  pgdata:
+  redisdata:
+  seaweeddata:
+  caddy_dados:
+  caddy_config:

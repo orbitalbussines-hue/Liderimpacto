@@ -11,6 +11,8 @@
 # Secrets necessarios (Settings > Secrets and variables > Actions, por
 # Environment `hml` e `prd`):
 #   HML_SSH_HOST / HML_SSH_USER / HML_SSH_KEY / HML_KNOWN_HOSTS / HML_APP_DIR
+#     (HML = imagens Docker no GHCR + docker compose na VPS, ADR-0015 / docs/deploy-hml.md.
+#      O GHCR usa o GITHUB_TOKEN do proprio job: nenhum secret a mais.)
 #   PRD_SSH_HOST / PRD_SSH_USER / PRD_SSH_KEY / PRD_KNOWN_HOSTS / PRD_APP_DIR
 #   PRD_DATABASE_URL   (string de conexao usada no pg_dump antes do deploy PRD)
 #   PRD_BACKUP_DEST    (destino do backup FORA do servidor do banco)
@@ -59,7 +61,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: "24.12.0"  # mesma do dev e das imagens: o npm 11.19+ recusa este lockfile
           cache: npm
 
       - name: Instalar dependencias
@@ -95,37 +97,119 @@ jobs:
         run: npm run build
 
   # ---------------------------------------------------------------------------
-  # 2) Deploy HML — somente push na develop
+  # 2) Deploy HML — somente push na develop (ADR-0015, runbook docs/deploy-hml.md)
+  #
+  #   1. constrói as 3 imagens (app, worker, caddy) e publica no GHCR com tag = SHA do commit
+  #   2. copia deploy/hml/* para a VPS (compose, Caddyfile, scripts)
+  #   3. na VPS: login no GHCR com o token TEMPORÁRIO deste job -> implantar.sh <sha>
+  #      (pull -> banco/borda -> MIGRAÇÃO -> buckets -> app/workers com healthcheck) -> logout
+  #   4. confere de fora (DNS + TLS + app + banco): GET https://<domínio>/api/saude = 200
   # ---------------------------------------------------------------------------
   deploy-hml:
     name: Deploy HML (Homologacao)
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    # Liga só depois da VPS pronta: variável de repositório HML_ATIVO=true (runbook, passo do GitHub).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && vars.HML_ATIVO == 'true'
     runs-on: ubuntu-latest
     environment: hml
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRO: ghcr.io/orbitalbussines-hue/liderimpacto
+      # Não é segredo: o host público do storage entra no build do app (next.config.ts, images).
+      S3_ENDPOINT_PUBLICO: https://s3.hml.liderdeimpacto.com.br
+      URL_SAUDE: https://hml.liderdeimpacto.com.br/api/saude
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR (publicar)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Imagem do app
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/app.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRO }}-app:${{ github.sha }}
+          build-args: |
+            S3_ENDPOINT=${{ env.S3_ENDPOINT_PUBLICO }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+
+      - name: Imagem dos workers e ferramentas
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/worker.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRO }}-worker:${{ github.sha }}
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,scope=worker,mode=max
+
+      - name: Imagem do Caddy (DNS-01 Cloudflare)
+        uses: docker/build-push-action@v6
+        with:
+          context: deploy/hml
+          file: deploy/hml/caddy.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRO }}-caddy:${{ github.sha }}
+          cache-from: type=gha,scope=caddy
+          cache-to: type=gha,scope=caddy,mode=max
+
       - name: Configurar SSH
+        env:
+          SSH_KEY: ${{ secrets.HML_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.HML_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.HML_SSH_KEY }}" > ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          echo "${{ secrets.HML_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Deploy na VPS HML
+      - name: Copiar arquivos de deploy para a VPS
+        env:
+          DESTINO: ${{ secrets.HML_SSH_USER }}@${{ secrets.HML_SSH_HOST }}
+          PASTA: ${{ secrets.HML_APP_DIR }}
         run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.HML_SSH_USER }}@${{ secrets.HML_SSH_HOST }}" \
-            "set -e; \
-             cd '${{ secrets.HML_APP_DIR }}'; \
-             git fetch --all; \
-             git reset --hard origin/develop; \
-             npm ci; \
-             npm run build; \
-             npm run db:migrate --if-present; \
-             pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js"
+          chmod +x deploy/hml/*.sh
+          scp -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes -p \
+            deploy/hml/docker-compose.yml deploy/hml/Caddyfile deploy/hml/postgres-init.sh \
+            deploy/hml/implantar.sh deploy/hml/backup.sh deploy/hml/restaurar-teste.sh \
+            "$DESTINO:$PASTA/"
+
+      - name: Implantar na VPS (migração antes da versão nova)
+        env:
+          DESTINO: ${{ secrets.HML_SSH_USER }}@${{ secrets.HML_SSH_HOST }}
+          PASTA: ${{ secrets.HML_APP_DIR }}
+          TOKEN_GHCR: ${{ secrets.GITHUB_TOKEN }}
+          ATOR: ${{ github.actor }}
+        run: |
+          # O token do job (só leitura de pacote na VPS, expira no fim do job) entra pelo stdin:
+          # não aparece em argumento, log nem arquivo do repositório; logout no fim, mesmo com falha.
+          printf '%s' "$TOKEN_GHCR" | ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "$DESTINO" \
+            "docker login ghcr.io -u '$ATOR' --password-stdin >/dev/null && \
+             { cd '$PASTA' && ./implantar.sh '${{ github.sha }}'; s=\$?; docker logout ghcr.io >/dev/null; exit \$s; }"
+
+      - name: Conferir saude por fora (DNS + TLS + app + banco)
+        run: |
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors --max-time 10 "$URL_SAUDE"
+          echo
 
   # ---------------------------------------------------------------------------
   # 3) Deploy PRD — somente branch master, com BACKUP do banco ANTES
+  #    ESQUELETO herdado da base (git + pm2). Antes do 1º deploy de PRD, migrar para o modelo da
+  #    HML (imagens do GHCR + implantar.sh) com as mudanças do ADR-0015 ("O que muda em produção").
   # ---------------------------------------------------------------------------
   deploy-prd:
     name: Deploy PRD (Producao)

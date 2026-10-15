@@ -7,7 +7,7 @@ export const slugSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .refine(slugValido, "Endereço inválido: use só letras minúsculas, números e hífen (sem hífen nas pontas). www, admin, api, app e plataforma são reservados.");
+  .refine(slugValido, "Endereço inválido: use só letras minúsculas, números e hífen (sem hífen nas pontas). www, admin, api, app, s3 e plataforma são reservados.");
 
 export const corOpcionalSchema = z.union([z.literal(""), z.string().regex(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i, "Cor inválida: use #RGB ou #RRGGBB.")]);
 
