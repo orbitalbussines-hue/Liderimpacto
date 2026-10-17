@@ -65,6 +65,15 @@ jobs:
       BETTER_AUTH_SECRET: segredo-de-ci-so-para-compilar-e-testar-0123456789
       BETTER_AUTH_URL: https://ci.invalido
       PLATAFORMA_DOMINIO: ci.invalido
+      # Storage de mentira: URL assinada se monta offline (testes de anexo); sem servidor na porta 9
+      # o /healthz falha e os testes de ida e volta real se pulam sozinhos.
+      S3_ENDPOINT: http://127.0.0.1:9
+      S3_REGIAO: us-east-1
+      S3_CHAVE: ci
+      S3_SEGREDO: ci-segredo-so-para-assinar
+      S3_BUCKET_ARQUIVOS: lider-arquivos
+      S3_BUCKET_VIDEOS_ORIGINAIS: lider-videos-originais
+      S3_BUCKET_HLS: lider-hls
     steps:
       - name: Checkout
         uses: actions/checkout@v4
