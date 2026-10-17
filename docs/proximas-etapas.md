@@ -3,20 +3,19 @@
 Lista viva do que falta depois da entrada em produção (17/10/2026, `https://lideresdeimpacto.com.br`).
 Concluiu um item? Risque aqui e registre a decisão no ADR/RN correspondente.
 
-## 1. E-mails com a marca (transacionais)
+## 1. ~~E-mails com a marca (transacionais)~~ (feito em 17/10/2026)
 
-Hoje os e-mails do sistema (definir senha, primeiro acesso, avisos de segurança) saem em texto puro
-pelo SMTP da Hostinger (`nao-responda@lideresdeimpacto.com.br`). Chegam na caixa de entrada, mas sem
-identidade visual.
+~~Modelo HTML único com a marca da área, multipart html + texto, saudação pelo primeiro nome e
+prévia em `/componentes/emails`.~~ Como ficou: `docs/back.md` (E-mails do sistema) e
+`docs/components.md` (E-mails do sistema).
 
-- Modelo HTML responsivo único (`src/lib/email/`), com logo, cor da marca do criador do host
-  (cascata plataforma → criador, a mesma da área do aluno), botão de ação e rodapé com endereço da área.
-- Sempre com a versão em texto junto (multipart): cliente de e-mail que bloqueia HTML e filtro de spam.
-- Tabelas e CSS inline (Gmail/Outlook ignoram `<style>` e flexbox); imagens com `alt`; nada de link
-  encurtado; link do botão = o mesmo endereço escrito por extenso.
-- Saudação pelo primeiro nome (hoje a conta do SUPER_ADMIN se chama "Equipe da plataforma": trocar o
-  nome no perfil).
-- Prévia em `/componentes` e teste de renderização (Gmail, Outlook, celular) antes de publicar.
+Falta, fora do código:
+
+- Teste de renderização real (Gmail web e app, Outlook desktop, Apple Mail/iPhone) com um envio
+  pelo SMTP de produção para caixas da equipe.
+- Conta do SUPER_ADMIN ainda se chama "Equipe da plataforma" (a saudação sai "Olá, Equipe,"):
+  trocar o nome no perfil.
+- Logo oficial: quando chegar, hospedar em https e passar `logoUrl` na marca.
 
 ## 2. E-mail marketing (Campanhas e Automações)
 

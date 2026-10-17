@@ -8,6 +8,8 @@ import { db } from "@/lib/db";
 import { usuarios, usuarios_contas } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
 import { emailConfigurado, enviarEmail } from "@/lib/email/enviar";
+import { emailDefinirSenha } from "@/lib/email/mensagens";
+import { marcaDaArea } from "@/lib/email/modelo";
 import { auth, URL_PLATAFORMA } from "./auth";
 import { depoisDaResposta } from "./depois";
 import { guardarSenhaAnterior, hashAtualDaConta } from "./historico-senha";
@@ -120,11 +122,7 @@ export async function solicitarRedefinicao(email: string, ip: string, cabecalhos
     registroId: u.id,
     detalhes: `Pedido de link para definir senha por e-mail · IP ${ip} · ${agenteDe(cabecalhos)}`,
   });
-  await enviarEmail({
-    para: alvoEmail,
-    assunto: `${criador?.nome ?? "Líder de Impacto"} · definir senha`,
-    texto: `Olá, ${u.nome}.\n\nPara definir sua senha, acesse (válido por ${VALIDADE_LINK_EMAIL_MIN} minutos):\n${link.url}\n\nSe você não pediu, ignore este e-mail.`,
-  });
+  await enviarEmail({ para: alvoEmail, ...emailDefinirSenha(marcaDaArea(criador, URL_PLATAFORMA), u.nome, link.url, VALIDADE_LINK_EMAIL_MIN) });
 }
 
 /** Teto do passo 2, cobrado ANTES de qualquer trabalho (a tela e publica). */

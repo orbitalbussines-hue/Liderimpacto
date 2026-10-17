@@ -47,3 +47,4 @@ next-env.d.ts
 # Arquivos locais com chaves/tokens (nunca versionar)
 env.txt
 *API*.txt
+/*.txt

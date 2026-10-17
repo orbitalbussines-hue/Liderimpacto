@@ -52,7 +52,7 @@ export async function acaoCadastrarMembro(entrada: unknown) {
 
     if (!vinculo.identidadeNova) return { link: null, emailEnviado: false, aviso: MSG_CONTA_EXISTENTE };
     const link = await linkDePrimeiroAcesso(vinculo.usuarioId, criador, usuario.id, "Primeiro acesso (cadastro de membro)");
-    const emailEnviado = await enviarPrimeiroAcesso(e.email, e.nome, criador.nome, link);
+    const emailEnviado = await enviarPrimeiroAcesso(e.email, e.nome, criador, link);
     return { link, emailEnviado, aviso: null };
   });
 }

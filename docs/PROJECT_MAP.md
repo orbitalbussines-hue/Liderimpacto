@@ -6,11 +6,11 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 723 |
+| Arquivos TS/TSX | 730 |
 | Tabelas (Drizzle) | 61 |
 | Server Actions (arquivos) | 35 |
-| Rotas de API | 11 |
-| Paginas | 80 |
+| Rotas de API | 12 |
+| Paginas | 81 |
 | Componentes | 155 |
 
 ## Arvore (profundidade 3)
@@ -71,6 +71,7 @@ app/
     _components/
     admin/
     aluno/
+    emails/
     page.tsx
   conta/
     seguranca/
@@ -91,9 +92,11 @@ app/
   recuperar-senha/
     form-recuperar.tsx
     page.tsx
+  apple-icon.png
   favicon.ico
   forbidden.tsx
   globals.css
+  icon.png
   layout.tsx
 components/
   admin/
@@ -450,6 +453,9 @@ lib/
     soft-delete.ts
   email/
     enviar.ts
+    mensagens.ts
+    modelo.test.ts
+    modelo.ts
   eventos/
     admin.ts
     agenda-ics.test.ts
@@ -783,6 +789,7 @@ proxy.ts
 | `/api/video/[id]/hls/[...caminho]` | GET |
 | `/api/video/[id]/situacao` | GET |
 | `/certificado/[codigo]/pdf` | GET |
+| `/componentes/emails/bruto` | — |
 | `/eventos/[id]/agenda.ics` | GET |
 
 ## Server Actions
@@ -897,6 +904,7 @@ proxy.ts
 - `src/app/certificado/[codigo]/page.tsx`
 - `src/app/componentes/admin/page.tsx`
 - `src/app/componentes/aluno/page.tsx`
+- `src/app/componentes/emails/page.tsx`
 - `src/app/componentes/page.tsx`
 - `src/app/conta/seguranca/page.tsx`
 - `src/app/login/page.tsx`

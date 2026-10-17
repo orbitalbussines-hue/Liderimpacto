@@ -77,6 +77,25 @@ certificado). Para o curso, envolva o trecho em `<div data-marca="<id>">` e colo
 Com escopo o CSS sai sempre, mesmo no dourado, para o curso poder ser dourado dentro de um
 criador vinho. O painel admin não usa cor de marca. Demonstração em `/componentes/aluno`.
 
+## E-mails do sistema
+
+E-mail não é componente React: é HTML de e-mail (tabelas, CSS inline, 600 px), montado por
+`montarEmail` em `src/lib/email/modelo.ts`. Os textos de cada e-mail ficam em
+`src/lib/email/mensagens.ts` (`emailDefinirSenha`, `emailPrimeiroAcesso`, `emailAvisoSeguranca`).
+
+- Visual: fundo `#f5f4ef`, cartão branco com borda, filete de 40 px na cor da marca, título em
+  Georgia, corpo em Arial 16/26, wordmark em texto (nome da área) e `logoUrl` opcional (https).
+  Sem emoji, sem gradiente, sem imagem obrigatória. `color-scheme: light` e cor de fundo explícita
+  em todo bloco com texto (modo escuro do Gmail/Apple Mail não deixa texto escuro sobre transparente).
+- Marca: `marcaDaArea(criador | null, URL_PLATAFORMA)` — cascata plataforma (dourado, "Líder de
+  Impacto") → criador do host. Botão = accent do tema claro de `gerarPaleta` com a tinta de maior
+  contraste; tom médio que não chega a 4,5:1 escurece até o branco chegar (`coresDoBotao`).
+- Todo e-mail com botão traz o mesmo link por extenso ("Se o botão não funcionar…") e rodapé com
+  o motivo do envio, nome e endereço da área.
+- Prévia: `/componentes/emails` (marca da plataforma, criador de cor clara e escura; HTML e
+  versão texto). HTML cru para print: `/componentes/emails/bruto?email=&marca=` (`&formato=texto`).
+  As duas dão 404 em produção.
+
 ## Compostos da área do aluno
 
 Montados só com as primitivas acima. Client: `MenuAluno`, `TabBarAluno`, `Fileira`, `AcordeaoModulos`.

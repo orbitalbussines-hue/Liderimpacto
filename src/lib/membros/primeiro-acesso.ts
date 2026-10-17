@@ -1,6 +1,10 @@
 import "server-only";
+import { URL_PLATAFORMA } from "@/lib/auth/auth";
 import { gerarLinkDeSenha } from "@/lib/auth/recuperacao";
+import type { CriadorDaRequisicao } from "@/lib/criador/area";
 import { emailConfigurado, enviarEmail } from "@/lib/email/enviar";
+import { emailPrimeiroAcesso } from "@/lib/email/mensagens";
+import { marcaDaArea } from "@/lib/email/modelo";
 
 /**
  * Link de PRIMEIRO ACESSO para uma conta criada NESTA mesma action (identidade nova, vinculo
@@ -30,14 +34,10 @@ export async function linkDePrimeiroAcesso(
 }
 
 /** Com SMTP configurado, manda o link tambem por e-mail. Falha de envio nao desfaz o cadastro. */
-export async function enviarPrimeiroAcesso(para: string, nome: string, area: string, link: LinkNaTela): Promise<boolean> {
+export async function enviarPrimeiroAcesso(para: string, nome: string, criador: CriadorDaRequisicao, link: LinkNaTela): Promise<boolean> {
   if (!emailConfigurado()) return false;
   try {
-    return await enviarEmail({
-      para,
-      assunto: `${area} · seu primeiro acesso`,
-      texto: `Olá, ${nome}.\n\nSeu acesso a ${area} foi criado. Para definir sua senha, acesse (válido até ${new Date(link.expiraEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}):\n${link.url}\n\nSe você não esperava este e-mail, ignore-o.`,
-    });
+    return await enviarEmail({ para, ...emailPrimeiroAcesso(marcaDaArea(criador, URL_PLATAFORMA), nome, link.url, new Date(link.expiraEm)) });
   } catch (erro) {
     // O corpo leva o token: so o tipo do erro vai para o log.
     console.error("[email] falha ao enviar o primeiro acesso:", erro instanceof Error ? erro.name : "erro");

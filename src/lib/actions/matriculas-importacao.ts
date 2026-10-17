@@ -144,7 +144,7 @@ export async function acaoImportarMatriculas(entrada: unknown) {
     for (const n of novos.values()) {
       const link = await linkDePrimeiroAcesso(n.usuarioId, criador, usuario.id, "Primeiro acesso (importação CSV de matrículas)");
       links.push({ ...link, nome: n.nome, email: n.email });
-      if (await enviarPrimeiroAcesso(n.email, n.nome, criador.nome, link)) emailsEnviados++;
+      if (await enviarPrimeiroAcesso(n.email, n.nome, criador, link)) emailsEnviados++;
     }
     return { ...contagem, contasNovas: novos.size, reaproveitados, jaMembros, gruposCriados, invalidas, links, emailsEnviados };
   });

@@ -814,6 +814,20 @@ Reprocessar na tela = `acaoReprocessarVideo` (só FALHOU/PROCESSANDO: `podeRepro
 | `listarTrilha(criadorId, { pessoa?, acao?, tabela?, periodo?: { de, ate }, somenteExclusoes?, cursor?, limite })` (`src/lib/audit/consultas.ts`) | Logs (só DONO) | período = `?de=&ate=` (`lerIntervaloExplicito`; sem ele = desde o início), `created_at` entre a meia-noite de Brasília de `de` e a do dia seguinte a `ate` (exclusivo); keyset `(created_at, id) desc`, devolve `proximo` (`"<ms>_<uuid>"`). Sai só `detalhes` passado por `detalheSeguro` (`src/lib/audit/regras.ts`) + `titulo` (primeiro trecho entre aspas); `dados_*` nunca são selecionados — RN-140 |
 | `entidadesDaTrilha(criadorId)` | Logs | tabelas que já aparecem na trilha do criador, com rótulo |
 
+## E-mails do sistema (`src/lib/email/`)
+
+| Arquivo | O quê |
+|---------|-------|
+| `enviar.ts` | `enviarEmail({ para, remetente, assunto, html, texto })`: SMTP da Hostinger só por env; sempre multipart (html + texto). `from` = `"<nome da área>" <endereço do EMAIL_REMETENTE>` (nome sem quebra de linha, aspas nem `<>`). Nunca loga o corpo (leva token) |
+| `modelo.ts` (puro) | `montarEmail(conteudo)` → `{ html, texto }`; `marcaDaArea(criador \| null, URL_PLATAFORMA)`; `urlSegura` (só `https://`, ou `http://` em `localhost`/`*.localhost`; sem credencial na URL; o resto lança); `escaparHtml` em todo texto dinâmico; `coresDoBotao(cor)` |
+| `mensagens.ts` (puro) | `emailDefinirSenha` (validade em minutos), `emailPrimeiroAcesso` (válido até, horário de Brasília), `emailAvisoSeguranca` (o que mudou + quando, botão para `/conta/seguranca` da área) |
+
+Quem envia: `solicitarRedefinicao` (`auth/recuperacao.ts`, marca do host do pedido),
+`enviarPrimeiroAcesso` (`membros/primeiro-acesso.ts`, recebe o `CriadorDaRequisicao` da action) e
+`avisarDono` (`auth/aviso.ts`, lê o host com `alvoAtual()` ANTES de adiar o envio; fora de requisição
+= plataforma). Saudação pelo primeiro nome de `usuarios.nome`. O token segue só no fragmento
+`#token=`. Prévia em `/componentes/emails` (só dev). Testes: `src/lib/email/modelo.test.ts`.
+
 ## Variáveis de ambiente (passo 3)
 
 | Variável | Dev (docker-compose) | Produção | Para quê |

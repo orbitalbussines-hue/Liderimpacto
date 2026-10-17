@@ -54,6 +54,9 @@ export default function CatalogoComponentes() {
               <Link href="/componentes/admin" className={buttonVariants({ variant: "contorno", size: "40" })}>
                 Compostos do admin
               </Link>
+              <Link href="/componentes/emails" className={buttonVariants({ variant: "contorno", size: "40" })}>
+                E-mails
+              </Link>
             </>
           }
         />

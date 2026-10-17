@@ -1,10 +1,10 @@
 import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
+import type { MensagemPronta } from "./mensagens";
 
-export interface Email {
+/** Sempre multipart (html + texto), montado por `mensagens.ts` / `modelo.ts`. */
+export interface Email extends MensagemPronta {
   para: string;
-  assunto: string;
-  texto: string;
 }
 
 /**
@@ -41,6 +41,10 @@ export async function enviarEmail(e: Email): Promise<boolean> {
     requireTLS: c.porta !== 465,
     auth: { user: c.usuario, pass: c.senha },
   });
-  await transporte.sendMail({ from: c.remetente, to: e.para, subject: e.assunto, text: e.texto });
+  // Nome de exibicao = a area ("Area X" <nao-responda@...>); o endereco e sempre o da env.
+  const endereco = /<([^>]+)>/.exec(c.remetente)?.[1] ?? c.remetente;
+  const nome = e.remetente.replace(/[\r\n"<>]/g, "").trim();
+  const from = nome ? { name: nome, address: endereco } : c.remetente;
+  await transporte.sendMail({ from, to: e.para, subject: e.assunto, text: e.texto, html: e.html });
   return true;
 }
