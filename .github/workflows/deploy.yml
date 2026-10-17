@@ -4,7 +4,7 @@
 #   push em `develop`            -> só o CI (não há HML; mudança grande se valida no compose local)
 #   push/merge em `master`       -> CI -> imagens no GHCR (SHA + `prd`) -> gatilhos do Easypanel:
 #                                   li-ferramentas (BACKUP do banco no R2 -> migração) -> app, workers,
-#                                   backup -> confere https://liderdeimpacto.com.br/api/saude
+#                                   backup -> confere https://lideresdeimpacto.com.br/api/saude
 #   Run workflow com `versao`    -> volta a PRD para aquele SHA (sem rebuild; o backup roda de novo)
 #
 # Por que o auditor roda AQUI: o hook de pre-commit pode ser pulado
@@ -115,7 +115,7 @@ jobs:
   #   2. PRD_ATIVO=true: chama a Deployment Trigger URL de cada serviço (li-ferramentas primeiro:
   #      backup -> migração -> marca da versão; depois app, workers e backup). Auto Deploy DESLIGADO
   #      no Easypanel: nada vai ao ar sem o CI.
-  #   3. confere de fora (DNS + TLS + app + banco): GET https://liderdeimpacto.com.br/api/saude = 200.
+  #   3. confere de fora (DNS + TLS + app + banco): GET https://lideresdeimpacto.com.br/api/saude = 200.
   #      Isto vê o site no ar; a troca de versão se confere na aba Deployments (a anterior segue
   #      atendendo até a nova ficar saudável).
   # O job da HML saiu (ADR-0017): não há HML para receber deploy. Recriar = histórico do git + ADR-0016.
@@ -135,8 +135,8 @@ jobs:
     env:
       REGISTRO: ghcr.io/orbitalbussines-hue/liderimpacto
       # Não é segredo: o host público do storage entra no build do app (next.config.ts, images).
-      S3_ENDPOINT_PUBLICO: ${{ vars.PRD_S3_ENDPOINT || 'https://s3.liderdeimpacto.com.br' }}
-      URL_SAUDE: https://liderdeimpacto.com.br/api/saude
+      S3_ENDPOINT_PUBLICO: ${{ vars.PRD_S3_ENDPOINT || 'https://s3.lideresdeimpacto.com.br' }}
+      URL_SAUDE: https://lideresdeimpacto.com.br/api/saude
     steps:
       - name: Checkout
         uses: actions/checkout@v4

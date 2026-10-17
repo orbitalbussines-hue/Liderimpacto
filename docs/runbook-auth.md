@@ -10,7 +10,7 @@ Só à mão, nunca no entrypoint. Idempotente; não grava senha.
 
 ```bash
 SEED_SUPER_ADMIN_EMAIL=voce@exemplo.com SEED_DONO_EMAIL=dono@exemplo.com SEED_DONO_NOME="Nome do Dono" \
-DATABASE_URL=... BETTER_AUTH_SECRET=... BETTER_AUTH_URL=https://liderdeimpacto.com.br PLATAFORMA_DOMINIO=liderdeimpacto.com.br \
+DATABASE_URL=... BETTER_AUTH_SECRET=... BETTER_AUTH_URL=https://lideresdeimpacto.com.br PLATAFORMA_DOMINIO=lideresdeimpacto.com.br \
 npm run db:seed
 ```
 
@@ -70,10 +70,10 @@ todos os SUPER_ADMIN recadastrarem o TOTP (a semente antiga só abre pela chave 
 
 ## 7. Infra (VPS)
 
-- DNS e certificado **curinga** (`*.liderdeimpacto.com.br`) + o apex.
+- DNS e certificado **curinga** (`*.lideresdeimpacto.com.br`) + o apex.
 - nginx: `proxy_set_header Host $host;` (o host decide o criador) e
   `proxy_set_header X-Real-IP $remote_addr;` (o IP dos tetos sai daqui, `src/lib/auth/ip.ts`).
-- `BETTER_AUTH_URL=https://liderdeimpacto.com.br`, `PLATAFORMA_DOMINIO=liderdeimpacto.com.br`.
+- `BETTER_AUTH_URL=https://lideresdeimpacto.com.br`, `PLATAFORMA_DOMINIO=lideresdeimpacto.com.br`.
 
 ## 8. Dados e sessão de demonstração (SÓ DESENVOLVIMENTO)
 

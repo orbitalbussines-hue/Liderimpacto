@@ -4,7 +4,7 @@
 # só para compilar (o auth.ts recusa subir sem segredo) e o segredo real chega no `docker run`.
 #
 #   docker build -f deploy/docker/app.Dockerfile \
-#     --build-arg S3_ENDPOINT=https://s3.liderdeimpacto.com.br -t liderimpacto-app .
+#     --build-arg S3_ENDPOINT=https://s3.lideresdeimpacto.com.br -t liderimpacto-app .
 #
 # S3_ENDPOINT/S3_BUCKET_ARQUIVOS NÃO são segredo: o next.config.ts os lê no BUILD para liberar o
 # host do storage no otimizador de imagens (o config é serializado no standalone). Mudou o host

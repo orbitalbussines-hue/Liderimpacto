@@ -5,9 +5,9 @@ sem homologação (decisão do Paulo em 17/10, ADR-0017; desenho dos serviços n
 
 | O quê | Endereço |
 |-------|----------|
-| Plataforma (SUPER_ADMIN) | `https://liderdeimpacto.com.br` (e `https://www.liderdeimpacto.com.br`) |
-| Área de cada criador | `https://<slug>.liderdeimpacto.com.br` (Valmer: `lider-de-impacto`) |
-| Storage (envio direto do navegador) | `https://s3.liderdeimpacto.com.br` |
+| Plataforma (SUPER_ADMIN) | `https://lideresdeimpacto.com.br` (e `https://www.lideresdeimpacto.com.br`) |
+| Área de cada criador | `https://<slug>.lideresdeimpacto.com.br` (Valmer: `lider-de-impacto`) |
+| Storage (envio direto do navegador) | `https://s3.lideresdeimpacto.com.br` |
 
 Arquivos de apoio: `deploy/easypanel/servicos.md` (ficha de cada serviço), `deploy/easypanel/env.exemplo`
 (variáveis de cada serviço e como gerar os segredos), `deploy/easypanel/backup.sh` (backups),
@@ -25,7 +25,7 @@ Arquivos de apoio: `deploy/easypanel/servicos.md` (ficha de cada serviço), `dep
 6. app e workers novos só entram no ar depois que o `li-ferramentas` liberou a versão deles (ou seja,
    depois do backup e da migração). Até lá a versão anterior segue atendendo. **Backup falhou = a
    versão nova não entra** (o `li-ferramentas` tenta de novo a cada 5 min);
-7. o CI confere `https://liderdeimpacto.com.br/api/saude`.
+7. o CI confere `https://lideresdeimpacto.com.br/api/saude`.
 
 O "Auto Deploy" do Easypanel fica **desligado**: nada vai ao ar sem o CI verde.
 
@@ -40,9 +40,9 @@ partem daí.
 
 ## Passo 1 — Conferir o DNS atual (antes de mexer em qualquer coisa)
 
-Cloudflare > `liderdeimpacto.com.br` > **DNS** > **Records**. Tire um print da lista inteira e guarde.
+Cloudflare > `lideresdeimpacto.com.br` > **DNS** > **Records**. Tire um print da lista inteira e guarde.
 
-1. **Apex (`liderdeimpacto.com.br`, Name `@`) e `www`**: anote para onde apontam hoje (A/AAAA/CNAME).
+1. **Apex (`lideresdeimpacto.com.br`, Name `@`) e `www`**: anote para onde apontam hoje (A/AAAA/CNAME).
    Se apontam para um site que está no ar (página antiga, construtor de site), combine antes: depois
    do Passo 3 esse site sai do ar nesse endereço.
 2. **E-mail**: registros **MX**, **TXT** com `v=spf1`, `_dmarc`, `*._domainkey` (DKIM) e qualquer
@@ -50,7 +50,7 @@ Cloudflare > `liderdeimpacto.com.br` > **DNS** > **Records**. Tire um print da l
    registro que já exista (um registro com nome próprio sempre ganha do curinga).
 3. **Outros subdomínios** que já existam (`blog`, `loja`...): continuam valendo. Atenção: o app manda
    HSTS com `includeSubDomains` no apex, então os navegadores passam a exigir **HTTPS em todos os
-   subdomínios** de `liderdeimpacto.com.br`. Se algum desses só funciona em `http://`, avise antes.
+   subdomínios** de `lideresdeimpacto.com.br`. Se algum desses só funciona em `http://`, avise antes.
 4. Se apex/`www` tiverem **AAAA** (IPv6) apontando para outro servidor, apague só esses AAAA no
    Passo 3 (senão parte dos acessos vai para o lugar antigo).
 
@@ -58,9 +58,9 @@ Cloudflare > `liderdeimpacto.com.br` > **DNS** > **Records**. Tire um print da l
 
 Cloudflare > ícone do perfil > **My Profile** > **API Tokens** > **Create Token** > **Create Custom Token**:
 
-- **Token name**: `easypanel-traefik-liderdeimpacto`
+- **Token name**: `easypanel-traefik-lideresdeimpacto`
 - **Permissions** (duas linhas): `Zone` · `Zone` · `Read` e `Zone` · `DNS` · `Edit`
-- **Zone Resources**: `Include` · `Specific zone` · `liderdeimpacto.com.br`
+- **Zone Resources**: `Include` · `Specific zone` · `lideresdeimpacto.com.br`
 - **Client IP Address Filtering** (recomendado): `Is in` · o IP da VPS
 - **TTL**: sem data de fim
 
@@ -68,7 +68,7 @@ Continue > Create Token > **copie o token** (aparece uma vez) e guarde no gerenc
 
 ## Passo 3 — Registros DNS da produção
 
-Cloudflare > `liderdeimpacto.com.br` > **DNS** > **Records**. Para cada linha: se já existe, **Edit**;
+Cloudflare > `lideresdeimpacto.com.br` > **DNS** > **Records**. Para cada linha: se já existe, **Edit**;
 se não, **Add record**. Sem tocar nos registros de e-mail do Passo 1.
 
 | Type | Name | IPv4 | Proxy status |
@@ -83,8 +83,8 @@ Por que nuvem cinza: o certificado é o curinga do Traefik (Passo 4), o app prec
 quem acessa (bloqueio de login por IP) e o suporte do Easypanel manda usar "DNS only" quando o
 certificado não renova. **Não mude o modo SSL/TLS da zona.**
 
-Confira (PowerShell): `Resolve-DnsName liderdeimpacto.com.br`, `Resolve-DnsName teste.liderdeimpacto.com.br`
-e `Resolve-DnsName s3.liderdeimpacto.com.br` → IP da VPS. `Resolve-DnsName -Type MX liderdeimpacto.com.br`
+Confira (PowerShell): `Resolve-DnsName lideresdeimpacto.com.br`, `Resolve-DnsName teste.lideresdeimpacto.com.br`
+e `Resolve-DnsName s3.lideresdeimpacto.com.br` → IP da VPS. `Resolve-DnsName -Type MX lideresdeimpacto.com.br`
 → igual ao print do Passo 1.
 
 ## Passo 4 — Resolver curinga no Traefik do Easypanel
@@ -109,7 +109,7 @@ O nome do resolver nos domínios é `cloudflare`, em minúsculas.
    (`redis://default:<senha>@lideranca_li-redis:6379`): é o `REDIS_URL` de `li-app` e dos dois
    workers. Console do `li-redis`: `redis-cli -a '<senha>' CONFIG GET maxmemory-policy` tem que
    responder `noeviction` (a fila exige; é o padrão do Redis).
-3. **`li-storage`** > Domains: Host `s3.liderdeimpacto.com.br`, Path `/`, **HTTPS** ligado, Port
+3. **`li-storage`** > Domains: Host `s3.lideresdeimpacto.com.br`, Path `/`, **HTTPS** ligado, Port
    **8333**, Certificate resolver `cloudflare` (troque se ainda estiver com outro host). Resources: CPU 1,
    memória 1024. Deploy.
 
@@ -184,8 +184,8 @@ Aba **Deployments**: **Auto Deploy desligado**.
    Erro no storage = o certificado do `s3` ainda está saindo: ele tenta de novo em 5 min sozinho.
 2. **`li-app`** — imagem `app`. Environment: bloco `[li-app]` (o `REDIS_URL` é a URL interna do
    Passo 5). Command vazio. **Domains** (três, todos HTTPS, Port `3000`, resolver `cloudflare`):
-   `liderdeimpacto.com.br`; `www.liderdeimpacto.com.br`; `liderdeimpacto.com.br` de novo com
-   **Wildcard domain** ligado (cobre `<slug>.liderdeimpacto.com.br`). Resources 2 / 3072. Deploy.
+   `lideresdeimpacto.com.br`; `www.lideresdeimpacto.com.br`; `lideresdeimpacto.com.br` de novo com
+   **Wildcard domain** ligado (cobre `<slug>.lideresdeimpacto.com.br`). Resources 2 / 3072. Deploy.
 3. **`li-worker-certificados`** — imagem `worker`, bloco `[li-worker-certificados]`, Command vazio,
    Resources 0,5 / 768. Deploy.
 4. **`li-worker-video`** — imagem `worker`, bloco `[li-worker-video]`, **Command**
@@ -198,13 +198,13 @@ Aba **Deployments**: **Auto Deploy desligado**.
 O curinga `*` (do `li-app`) e o `s3` (do `li-storage`) são de serviços diferentes. PowerShell:
 
 ```powershell
-curl.exe -s https://s3.liderdeimpacto.com.br/
+curl.exe -s https://s3.lideresdeimpacto.com.br/
 ```
 
 - Veio um XML com `AccessDenied` (ou `<Error>`): é o storage. Certo.
 - Veio a página do app ou 404: o curinga engoliu o `s3`. Plano B: registro DNS `arquivos` (A, IP da
-  VPS, DNS only), domínio do `li-storage` = `arquivos.liderdeimpacto.com.br`, `S3_ENDPOINT` =
-  `https://arquivos.liderdeimpacto.com.br` em `li-ferramentas`, `li-app` e nos dois workers, variável
+  VPS, DNS only), domínio do `li-storage` = `arquivos.lideresdeimpacto.com.br`, `S3_ENDPOINT` =
+  `https://arquivos.lideresdeimpacto.com.br` em `li-ferramentas`, `li-app` e nos dois workers, variável
   do GitHub `PRD_S3_ENDPOINT` com o mesmo endereço, e me peça para reservar o slug `arquivos`.
 
 ## Passo 12 — GitHub: secrets e ligar o deploy
@@ -227,7 +227,7 @@ curl.exe -s https://s3.liderdeimpacto.com.br/
 ## Passo 13 — Primeiro deploy pelo CI
 
 **Actions** > CI/CD > a última execução na `master` > **Re-run all jobs**. O job "Deploy PRD" agora
-dispara os gatilhos e termina com `{"ok":true}` de `https://liderdeimpacto.com.br/api/saude`. Nas
+dispara os gatilhos e termina com `{"ok":true}` de `https://lideresdeimpacto.com.br/api/saude`. Nas
 abas **Deployments** dos serviços aparece o deploy novo. O primeiro certificado curinga leva 1 a 2 min.
 
 ## Passo 14 — Criar o SUPER_ADMIN e o criador do Valmer (uma vez)
@@ -244,8 +244,8 @@ DATABASE_URL="$DATABASE_URL_APP" SEED_SUPER_ADMIN_EMAIL=seu-email-real \
 ```
 
 Saída: o criador **Líder de Impacto** (`lider-de-impacto`), um link do SUPER_ADMIN
-(`https://liderdeimpacto.com.br/primeiro-acesso#token=...`) e um do DONO
-(`https://lider-de-impacto.liderdeimpacto.com.br/...`).
+(`https://lideresdeimpacto.com.br/primeiro-acesso#token=...`) e um do DONO
+(`https://lider-de-impacto.lideresdeimpacto.com.br/...`).
 
 1. Abra o SEU link, defina a senha e cadastre o 2º fator (obrigatório para o SUPER_ADMIN).
 2. Mande o link do Valmer **só para ele**, por canal privado.
@@ -253,13 +253,13 @@ Saída: o criador **Líder de Impacto** (`lider-de-impacto`), um link do SUPER_A
 
 ## Passo 15 — Checklist
 
-- [ ] `https://liderdeimpacto.com.br/api/saude` → `{"ok":true}`; cadeado válido no navegador
-- [ ] `http://liderdeimpacto.com.br` redireciona para `https://`; `https://www...` abre a plataforma
+- [ ] `https://lideresdeimpacto.com.br/api/saude` → `{"ok":true}`; cadeado válido no navegador
+- [ ] `http://lideresdeimpacto.com.br` redireciona para `https://`; `https://www...` abre a plataforma
 - [ ] E-mail do domínio funcionando (mande e receba uma mensagem); MX igual ao print do Passo 1
 - [ ] Login do SUPER_ADMIN com 2º fator; `/plataforma` lista o criador
 - [ ] `/conta/seguranca` mostra a sessão com o **seu IP público** (não um 10.x / 172.x)
-- [ ] `https://lider-de-impacto.liderdeimpacto.com.br` abre o login da área do Valmer
-- [ ] `https://nao-existe.liderdeimpacto.com.br` → 404
+- [ ] `https://lider-de-impacto.lideresdeimpacto.com.br` abre o login da área do Valmer
+- [ ] `https://nao-existe.lideresdeimpacto.com.br` → 404
 - [ ] Admin do criador: criar curso, módulo, aula; subir capa (imagem aparece)
 - [ ] Subir um vídeo curto: "Processando" → "Pronto" em minutos; toca no player
 - [ ] Legenda `.vtt`; material PDF baixa

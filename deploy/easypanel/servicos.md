@@ -22,9 +22,9 @@ tag `prd` anda a cada deploy (o CI publica também a tag do SHA, usada para volt
 |---|---|---|---|---|---|
 | `li-db` | Postgres do Easypanel, `postgres:16.15`, banco `lider_impacto` | — | do próprio serviço | nenhum (nunca Expose) | 2 / 4096 MB |
 | `li-redis` | Redis do Easypanel, `redis:7.4` | — | do próprio serviço | nenhum | 0,5 / 768 MB |
-| `li-storage` | App, Source **Dockerfile** = conteúdo de `storage.Dockerfile` | — | `/data` | `s3.liderdeimpacto.com.br` → porta **8333** | 1 / 1024 MB |
+| `li-storage` | App, Source **Dockerfile** = conteúdo de `storage.Dockerfile` | — | `/data` | `s3.lideresdeimpacto.com.br` → porta **8333** | 1 / 1024 MB |
 | `li-ferramentas` | App, Docker Image `...-worker:prd` | `ferramentas` | — | nenhum | 0,5 / 768 MB |
-| `li-app` | App, Docker Image `...-app:prd` | — (padrão da imagem: `node server.js`) | — | `liderdeimpacto.com.br`, `www.liderdeimpacto.com.br` e `liderdeimpacto.com.br` com **Wildcard** → porta **3000** | 2 / 3072 MB |
+| `li-app` | App, Docker Image `...-app:prd` | — (padrão da imagem: `node server.js`) | — | `lideresdeimpacto.com.br`, `www.lideresdeimpacto.com.br` e `lideresdeimpacto.com.br` com **Wildcard** → porta **3000** | 2 / 3072 MB |
 | `li-worker-certificados` | App, Docker Image `...-worker:prd` | — (padrão da imagem) | — | nenhum | 0,5 / 768 MB |
 | `li-worker-video` | App, Docker Image `...-worker:prd` | `node --conditions=react-server --import tsx scripts/worker-video.ts` | — | nenhum | **3** / 3072 MB |
 | `li-backup` | App, Docker Image `...-backup:prd` | — (padrão: `backup agendar`) | — | nenhum | 0,5 / 1024 MB |
@@ -48,15 +48,15 @@ subida para esperar o backup + migração).
 - **li-redis** — já criado. URL interna na aba Credentials = `REDIS_URL`. A fila precisa de
   `maxmemory-policy noeviction` (padrão do Redis; o runbook confere).
 - **li-storage** — já criado. SeaweedFS 4.48 (igual ao dev). Credencial S3 em `S3_CHAVE`/`S3_SEGREDO`;
-  o app usa a mesma. HTTPS no domínio `s3.liderdeimpacto.com.br`, resolver `cloudflare`.
+  o app usa a mesma. HTTPS no domínio `s3.lideresdeimpacto.com.br`, resolver `cloudflare`.
 - **li-ferramentas** — a cada deploy (`deploy/easypanel/ferramentas.sh`): **backup do banco no R2**
   (`banco/pre-deploy/`) → migração como DONO (com trava) → marca da versão no banco → buckets + CORS →
   fica parado. Backup falhou = não migra, não libera a versão nova, tenta de novo em 5 min (a versão
   anterior segue no ar). Healthy só depois disso (`SAUDE_ARQUIVO`). Seu Shell é onde se roda o seed
   do primeiro acesso. Tem a senha do dono e o token do R2.
 - **li-app** — Next standalone, ouve `0.0.0.0:3000`. Três domínios (HTTPS, resolver `cloudflare`):
-  `liderdeimpacto.com.br`, `www.liderdeimpacto.com.br` (abre a mesma plataforma) e
-  `liderdeimpacto.com.br` com **Wildcard domain** (cobre `<slug>.liderdeimpacto.com.br`). Saúde
+  `lideresdeimpacto.com.br`, `www.lideresdeimpacto.com.br` (abre a mesma plataforma) e
+  `lideresdeimpacto.com.br` com **Wildcard domain** (cobre `<slug>.lideresdeimpacto.com.br`). Saúde
   `/api/saude`: 503 até o banco estar migrado E a marca desta versão gravada (ou seja, depois do
   backup); a versão anterior segue no ar até lá.
 - **li-worker-certificados** — filas certificados, eventos e conhecimento. Espera a marca da versão.

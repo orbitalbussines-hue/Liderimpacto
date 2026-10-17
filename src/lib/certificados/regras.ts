@@ -58,8 +58,8 @@ export const dataPorExtenso = (d: Date) => POR_EXTENSO.format(d);
 
 /**
  * URL pública de verificação (QR do PDF): origem da área do criador + /certificado/<codigo>.
- * `urlPlataforma` = `urlDaPlataforma()` — produção https://liderdeimpacto.com.br vira
- * https://<slug>.liderdeimpacto.com.br; dev http://localhost:3011 vira http://<slug>.localhost:3011.
+ * `urlPlataforma` = `urlDaPlataforma()` — produção https://lideresdeimpacto.com.br vira
+ * https://<slug>.lideresdeimpacto.com.br; dev http://localhost:3011 vira http://<slug>.localhost:3011.
  */
 export const urlDeVerificacao = (urlPlataforma: string, slugCriador: string, codigo: string) =>
   `${urlDaArea(urlPlataforma, slugCriador)}/certificado/${codigo}`;

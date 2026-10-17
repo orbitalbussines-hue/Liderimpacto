@@ -72,7 +72,7 @@ Cada regra segue este formato:
 - **Definida por**: Paulo (Bah! Tech)
 - **Data**: 2026-10-13
 - **Modulo**: Autenticação / Criadores
-- **Descricao**: Cada criador tem área própria em `<slug>.liderdeimpacto.com.br`. A pessoa tem UMA conta (e-mail e senha) que vale em qualquer criador em que tenha vínculo ativo; cada área tem a sua sessão (cookie por host, ADR-0003).
+- **Descricao**: Cada criador tem área própria em `<slug>.lideresdeimpacto.com.br`. A pessoa tem UMA conta (e-mail e senha) que vale em qualquer criador em que tenha vínculo ativo; cada área tem a sua sessão (cookie por host, ADR-0003).
 - **Comportamento esperado**: login num criador exige vínculo ATIVO nele (ou SUPER_ADMIN). Sem vínculo, recusa com a MESMA mensagem de senha errada. Criador SUSPENSO ou inexistente: 404. O apex é só da plataforma (SUPER_ADMIN).
 - **Impacto se descumprida**: aluno de um criador vendo conteúdo ou dados de outro.
 

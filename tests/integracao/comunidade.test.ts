@@ -107,14 +107,14 @@ describe("canais e visibilidade", () => {
 describe("publicações", () => {
   it("texto puro: HTML fica literal no banco e no feed; links saem de segmentosDeTexto", async () => {
     const x = await cenario();
-    const texto = '<img src=x onerror="alert(1)"> veja https://liderdeimpacto.com.br/aula.';
+    const texto = '<img src=x onerror="alert(1)"> veja https://lideresdeimpacto.com.br/aula.';
     const { id } = await pub.publicar(x.pAluno, post(x.geral.id, texto));
     const [l] = await db.select().from(s.criadores_canais_posts).where(eq(s.criadores_canais_posts.id, id));
     expect(l.texto).toBe(texto);
     const [p] = (await con.feedDaComunidade(quem(x.cr.id, x.aluno)))!.itens;
     expect(p).toMatchObject({ texto, autor: { iniciais: "PT", equipe: false }, podeEditar: true, podeRemover: true, podeModerar: false });
     expect(regras.segmentosDeTexto(p.texto).filter((g) => g.tipo === "link")).toEqual([
-      { tipo: "link", valor: "https://liderdeimpacto.com.br/aula", href: "https://liderdeimpacto.com.br/aula" },
+      { tipo: "link", valor: "https://lideresdeimpacto.com.br/aula", href: "https://lideresdeimpacto.com.br/aula" },
     ]);
   });
 

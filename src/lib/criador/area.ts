@@ -29,7 +29,7 @@ export interface Acesso {
 
 export function dominioDaPlataforma(): string {
   const dominio = process.env.PLATAFORMA_DOMINIO;
-  if (!dominio) throw new Error("PLATAFORMA_DOMINIO ausente (produção: liderdeimpacto.com.br; dev: localhost).");
+  if (!dominio) throw new Error("PLATAFORMA_DOMINIO ausente (produção: lideresdeimpacto.com.br; dev: localhost).");
   return dominio;
 }
 

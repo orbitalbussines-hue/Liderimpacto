@@ -8,8 +8,8 @@ const BASE = {
   inicioEm: new Date("2026-10-21T22:30:00.000Z"),
   fimEm: new Date("2026-10-21T23:30:00.000Z"),
   cancelado: false,
-  url: "https://demo.liderdeimpacto.com.br/eventos/00000000-0000-4000-8000-000000000001",
-  host: "demo.liderdeimpacto.com.br",
+  url: "https://demo.lideresdeimpacto.com.br/eventos/00000000-0000-4000-8000-000000000001",
+  host: "demo.lideresdeimpacto.com.br",
 };
 
 describe("gerarIcs", () => {
@@ -23,7 +23,7 @@ describe("gerarIcs", () => {
     expect(desdobrado).toContain("DTSTART:20261021T223000Z");
     expect(desdobrado).toContain("DTEND:20261021T233000Z");
     expect(desdobrado).toContain("DTSTAMP:20261014T120000Z");
-    expect(desdobrado).toContain(`UID:evento-${BASE.id}@demo.liderdeimpacto.com.br`);
+    expect(desdobrado).toContain(`UID:evento-${BASE.id}@demo.lideresdeimpacto.com.br`);
     expect(desdobrado).toContain("STATUS:CONFIRMED");
   });
 

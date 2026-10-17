@@ -9,8 +9,8 @@
 O ADR-0015 desenhou a HML numa VPS crua (Docker Compose + Caddy + deploy por SSH). O Paulo mudou o
 plano: a HML vai para o **Easypanel que já roda na VPS da página de vendas do Valmer** (Hostinger
 KVM 8: 8 vCPU, 32 GB de RAM, 400 GB NVMe). Outro projeto vive ali e não pode cair nem ficar lento.
-Domínios: `hml.liderdeimpacto.com.br`, `<slug>.hml.liderdeimpacto.com.br` (criadores) e
-`s3.hml.liderdeimpacto.com.br` (storage). DNS na Cloudflare.
+Domínios: `hml.lideresdeimpacto.com.br`, `<slug>.hml.lideresdeimpacto.com.br` (criadores) e
+`s3.hml.lideresdeimpacto.com.br` (storage). DNS na Cloudflare.
 
 O que a documentação oficial do Easypanel confirma (consultada em 16/10/2026) e pesou na decisão:
 

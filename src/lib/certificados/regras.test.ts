@@ -32,7 +32,7 @@ describe("texto, carga e data", () => {
   });
   it("data em Brasília por extenso e URL pública", () => {
     expect(dataPorExtenso(new Date("2026-10-15T02:00:00Z"))).toBe("14 de outubro de 2026");
-    expect(urlDeVerificacao("https://liderdeimpacto.com.br", "lider", "K7M2X9QP4H")).toBe("https://lider.liderdeimpacto.com.br/certificado/K7M2X9QP4H");
+    expect(urlDeVerificacao("https://lideresdeimpacto.com.br", "lider", "K7M2X9QP4H")).toBe("https://lider.lideresdeimpacto.com.br/certificado/K7M2X9QP4H");
     expect(urlDeVerificacao("http://localhost:3011", "demo", "K7M2X9QP4H")).toBe("http://demo.localhost:3011/certificado/K7M2X9QP4H");
   });
   it("cor: modelo → curso → criador → dourado, legível no papel claro", () => {

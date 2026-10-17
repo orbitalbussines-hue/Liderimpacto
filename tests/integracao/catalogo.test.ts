@@ -240,7 +240,7 @@ describe("aula", () => {
     expect(await est.acaoRemoverAula({ aulaId: a1.id, versao: await versaoDe(s.produtos_modulos_aulas, a1.id) })).toMatchObject({ ok: false, erro: expect.stringMatching(/pré-requisito de "Aula"/) });
 
     // Materiais: link https, arquivo PDF; http e javascript: recusados; renomear com trava; remover descarta o arquivo.
-    ok(await aulas.acaoAdicionarMaterial({ aulaId: a1.id, nome: "Site", url: "https://liderdeimpacto.com.br/guia" }));
+    ok(await aulas.acaoAdicionarMaterial({ aulaId: a1.id, nome: "Site", url: "https://lideresdeimpacto.com.br/guia" }));
     for (const url of ["http://exemplo.com", "javascript:alert(1)", "https://"]) {
       expect(await aulas.acaoAdicionarMaterial({ aulaId: a1.id, nome: "Ruim", url })).toMatchObject({ ok: false });
     }

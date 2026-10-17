@@ -11,9 +11,9 @@ Ambiente de homologação em **uma VPS** (decisão e porquês no ADR-0015). Ende
 
 | O quê | Endereço |
 |-------|----------|
-| Plataforma (SUPER_ADMIN) | `https://hml.liderdeimpacto.com.br` |
-| Área de cada criador | `https://<slug>.hml.liderdeimpacto.com.br` (Valmer: `lider-de-impacto`) |
-| Storage (envio direto do navegador) | `https://s3.hml.liderdeimpacto.com.br` |
+| Plataforma (SUPER_ADMIN) | `https://hml.lideresdeimpacto.com.br` |
+| Área de cada criador | `https://<slug>.hml.lideresdeimpacto.com.br` (Valmer: `lider-de-impacto`) |
+| Storage (envio direto do navegador) | `https://s3.hml.lideresdeimpacto.com.br` |
 
 Arquivos: `deploy/hml/` (compose, Caddyfile, scripts), `deploy/docker/` (imagens),
 `.github/workflows/deploy.yml` (job `deploy-hml`). Variáveis: `deploy/hml/env.exemplo`.
@@ -39,7 +39,7 @@ algumas horas para transcodificar (aceitável para teste). Se for subir muito v�
 4. copia `deploy/hml/*` para `/opt/lider-impacto` na VPS e roda `./implantar.sh <sha>`, que:
    baixa as imagens → garante banco/Redis/storage/Caddy → **migra o banco** → prepara os buckets →
    troca app e workers e espera ficarem saudáveis → guarda a versão anterior para rollback;
-5. confere de fora `https://hml.liderdeimpacto.com.br/api/saude`. Não respondeu 200 = job vermelho.
+5. confere de fora `https://hml.lideresdeimpacto.com.br/api/saude`. Não respondeu 200 = job vermelho.
 
 ---
 
@@ -65,14 +65,14 @@ chave privada por chat ou e-mail.
 
 ## Passo 3 — Levar o DNS do domínio para a Cloudflare
 
-1. Crie conta em `dash.cloudflare.com` > **Add a domain** > `liderdeimpacto.com.br` > plano **Free**.
+1. Crie conta em `dash.cloudflare.com` > **Add a domain** > `lideresdeimpacto.com.br` > plano **Free**.
 2. A Cloudflare copia os registros atuais. **Confira** antes de seguir, principalmente os de e-mail
    (`MX`, `TXT` de SPF/DKIM) e o do site atual: o que faltar aqui para de funcionar na troca.
 3. Ela mostra **dois nameservers** (ex.: `ana.ns.cloudflare.com`, `bob.ns.cloudflare.com`).
 4. Troque os nameservers onde o domínio está registrado:
    - **registro.br**: entre em `registro.br` > o domínio > **DNS** > "Alterar servidores DNS" > ponha
      os dois da Cloudflare (apague os antigos) > salvar.
-   - **Hostinger** (se comprou o domínio lá): hPanel > Domínios > `liderdeimpacto.com.br` >
+   - **Hostinger** (se comprou o domínio lá): hPanel > Domínios > `lideresdeimpacto.com.br` >
      **DNS / Nameservers** > "Alterar nameservers" > os dois da Cloudflare.
 5. Espere a Cloudflare mostrar o domínio como **Active** (minutos a algumas horas).
 
@@ -85,7 +85,7 @@ Cloudflare > ícone do perfil > **My Profile** > **API Tokens** > **Create Token
 **Edit zone DNS** > Use template:
 
 - **Permissions**: `Zone` · `DNS` · `Edit` (só esta linha)
-- **Zone Resources**: `Include` · `Specific zone` · `liderdeimpacto.com.br`
+- **Zone Resources**: `Include` · `Specific zone` · `lideresdeimpacto.com.br`
 - **Client IP Address Filtering** (recomendado): `Is in` · o IP da VPS
 - **TTL**: sem data de fim
 
@@ -103,7 +103,7 @@ Cloudflare > o domínio > **DNS** > **Records** > Add record (duas vezes):
 
 Nuvem cinza é obrigatório: o plano grátis não faz proxy de `*.hml` (curinga de 2º nível) e o
 certificado é emitido pelo próprio Caddy. O `*.hml` já cobre `s3.hml` e todos os criadores.
-Confira (PowerShell): `Resolve-DnsName teste.hml.liderdeimpacto.com.br` → IP da VPS.
+Confira (PowerShell): `Resolve-DnsName teste.hml.lideresdeimpacto.com.br` → IP da VPS.
 
 ## Passo 6 — Preparar a VPS (bootstrap, uma vez)
 
@@ -177,7 +177,7 @@ os pushes de antes da VPS não falharem.
 
 Depois faça um push na `develop` (ou um commit vazio). Acompanhe em **Actions** > CI/CD > job
 "Deploy HML". O primeiro leva mais tempo: baixa as imagens base e o Caddy emite o certificado curinga
-(≈ 1–2 min; o script espera). Terminou verde = `https://hml.liderdeimpacto.com.br/api/saude` responde
+(≈ 1–2 min; o script espera). Terminou verde = `https://hml.lideresdeimpacto.com.br/api/saude` responde
 `{"ok":true}`.
 
 ## Passo 10 — Criar o SUPER_ADMIN e o criador do Valmer (uma vez)
@@ -203,15 +203,15 @@ Saída: o criador **Líder de Impacto** (`lider-de-impacto`), um link para o SUP
 2. Mande o link do Valmer **só para ele**, por canal privado.
 3. Rodar de novo é seguro (não duplica) e gera links novos, invalidando os anteriores.
 
-Outros criadores: entre em `https://hml.liderdeimpacto.com.br/plataforma` > novo criador.
+Outros criadores: entre em `https://hml.lideresdeimpacto.com.br/plataforma` > novo criador.
 
 ## Passo 11 — Checklist de teste
 
-- [ ] `https://hml.liderdeimpacto.com.br/api/saude` → `{"ok":true}`; cadeado válido no navegador
+- [ ] `https://hml.lideresdeimpacto.com.br/api/saude` → `{"ok":true}`; cadeado válido no navegador
 - [ ] `http://hml...` redireciona para `https://`
 - [ ] Login do SUPER_ADMIN com 2º fator; `/plataforma` lista o criador
-- [ ] `https://lider-de-impacto.hml.liderdeimpacto.com.br` abre o login da área do Valmer
-- [ ] `https://nao-existe.hml.liderdeimpacto.com.br` → 404
+- [ ] `https://lider-de-impacto.hml.lideresdeimpacto.com.br` abre o login da área do Valmer
+- [ ] `https://nao-existe.hml.lideresdeimpacto.com.br` → 404
 - [ ] Admin do criador: criar curso, módulo, aula; subir capa (imagem aparece)
 - [ ] Subir um vídeo curto na aula: "Processando" → "Pronto" em minutos; toca no player
 - [ ] Subir legenda `.vtt`; material PDF baixa

@@ -10,7 +10,7 @@ A regra da base (`CLAUDE.md` da estrutura base, "Git Flow" e "Infraestrutura") m
 deploy em HML → validação → merge na `master` → deploy em PRD, com HML réplica de PRD. O ADR-0016
 montou a HML no Easypanel da VPS Hostinger KVM 8. Em 17/10 o Paulo decidiu **não ter HML**: o projeto
 `lideranca` do Easypanel foi recriado do zero e vira **produção**, nos domínios definitivos
-(`liderdeimpacto.com.br`, `www`, `<slug>.liderdeimpacto.com.br`, `s3.liderdeimpacto.com.br`). Já
+(`lideresdeimpacto.com.br`, `www`, `<slug>.lideresdeimpacto.com.br`, `s3.lideresdeimpacto.com.br`). Já
 existem `li-db` (Postgres 16.15, banco `lider_impacto`), `li-redis` (Redis pronto do Easypanel) e
 `li-storage` (SeaweedFS). A página de vendas sai desse projeto e volta depois em outro.
 
@@ -27,7 +27,7 @@ parte (CI obrigatório, imagem testada, saúde por versão do schema, voltar ver
 2. **Pipeline de PRD**: push/merge na `master` → CI → imagens no GHCR (tag do SHA + tag móvel `prd`,
    `VERSAO_IMAGEM` = SHA gravada nas imagens) → gatilhos do Easypanel (`li-ferramentas` primeiro,
    depois `li-app`, `li-worker-video`, `li-worker-certificados`, `li-backup`) → conferência de
-   `https://liderdeimpacto.com.br/api/saude`. Environment `prd` com os secrets
+   `https://lideresdeimpacto.com.br/api/saude`. Environment `prd` com os secrets
    `EASYPANEL_DEPLOY_WEBHOOK_*`; a variável `PRD_ATIVO=true` liga os gatilhos (sem ela, só publica as
    imagens e avisa); `PRD_S3_ENDPOINT` troca o host público do storage do build.
 3. **Backup ANTES de cada deploy (regra absoluta da base), feito de dentro da VPS**: o CI não alcança

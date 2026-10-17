@@ -1,6 +1,6 @@
 # Borda da HML (ADR-0015). Único serviço com porta pública (80/443). HTTP -> HTTPS é automático.
 # Variáveis do ambiente do contêiner (docker-compose.yml):
-#   PLATAFORMA_DOMINIO    hml.liderdeimpacto.com.br  (apex = plataforma; <slug>.apex = criador)
+#   PLATAFORMA_DOMINIO    hml.lideresdeimpacto.com.br  (apex = plataforma; <slug>.apex = criador)
 #   ACME_EMAIL            e-mail que recebe avisos da Let's Encrypt
 #   CLOUDFLARE_API_TOKEN  token SÓ com Zone:DNS:Edit da zona (desafio DNS-01 do certificado curinga)
 # DNS na Cloudflare em modo "DNS only" (nuvem cinza): o cliente fala direto com o Caddy, então o

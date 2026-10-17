@@ -25,7 +25,7 @@ servidor, não tem migração antes da troca nem verificação de saúde.
 2. **Redes**: só o Caddy publica porta (80/443). Postgres, Redis e SeaweedFS ficam numa rede
    `internal` (sem porta no host, sem saída para a internet). Redis com senha, AOF e `noeviction`.
 3. **Borda = Caddy** com o módulo `caddy-dns/cloudflare` (imagem própria por xcaddy, versões fixadas):
-   certificado **curinga** `*.hml.liderdeimpacto.com.br` + apex por **DNS-01**, com token da Cloudflare
+   certificado **curinga** `*.hml.lideresdeimpacto.com.br` + apex por **DNS-01**, com token da Cloudflare
    só com `Zone:DNS:Edit` daquela zona, entregue SÓ ao contêiner do Caddy. DNS na Cloudflare em modo
    **DNS only** (nuvem cinza): o plano grátis não faz proxy de curinga de 2º nível, e sem proxy o
    `X-Real-IP` que o Caddy grava é o IP real (o app só confia nele, `src/lib/auth/ip.ts`). Cabeçalhos:
@@ -33,7 +33,7 @@ servidor, não tem migração antes da troca nem verificação de saúde.
    prévia do construtor é iframe da mesma origem, ADR-0010), `Permissions-Policy`. Fluxo (NDJSON do
    assistente) sem buffer.
 4. **Storage = SeaweedFS na própria VPS**, em volume nomeado, publicado SÓ pela API S3 em
-   `s3.hml.liderdeimpacto.com.br` atrás do Caddy (limite de corpo 64 MB = maior PUT único 50 MB e
+   `s3.hml.lideresdeimpacto.com.br` atrás do Caddy (limite de corpo 64 MB = maior PUT único 50 MB e
    partes de 16 MB). O navegador e também app/worker usam esse endpoint público (o cliente S3 é um só,
    ADR-0004): app e worker saem pelo IP público e voltam pelo Caddy. CORS restrito ao apex e `*.apex`
    pelo próprio bucket (`npm run armazenamento:preparar`, rodado a cada deploy). Slug `s3` reservado
@@ -75,7 +75,7 @@ servidor, não tem migração antes da troca nem verificação de saúde.
 - **Separar** como manda a base: VPS do app (Caddy + app) e VPS de backend (Postgres, Redis, workers),
   ou ao menos o worker de vídeo numa máquina própria; storage em **R2** (sem taxa de saída) ou
   SeaweedFS em volume dedicado, com CDN na frente do HLS (`docs/ARQUITETURA_VPS.md`).
-- Domínio `liderdeimpacto.com.br`: o apex vira a plataforma e o site institucional precisa de outro
+- Domínio `lideresdeimpacto.com.br`: o apex vira a plataforma e o site institucional precisa de outro
   host (ou o proxy da Cloudflare passa a valer para o 1º nível, ajustando `src/lib/auth/ip.ts` para o
   cabeçalho da CDN).
 - Backup de vídeos originais (ou storage já externo), retenção de PRD e o job `deploy-prd` reescrito

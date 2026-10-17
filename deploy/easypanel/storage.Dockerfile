@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Serviço `storage` (SeaweedFS, API S3) do Easypanel (ADR-0016) — COLE este conteúdo em
 # App > Source > Dockerfile. Mesma versão do dev e do compose da HML. Só a API S3 (8333) é publicada,
-# pelo domínio s3.liderdeimpacto.com.br do Traefik. A credencial vem das variáveis S3_CHAVE/S3_SEGREDO do serviço
+# pelo domínio s3.lideresdeimpacto.com.br do Traefik. A credencial vem das variáveis S3_CHAVE/S3_SEGREDO do serviço
 # e vira o s3.json em /tmp na subida (nada em camada). Volume do Easypanel montado em /data.
 FROM chrislusf/seaweedfs:4.48
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=5 \

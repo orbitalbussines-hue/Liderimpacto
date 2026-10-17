@@ -34,7 +34,7 @@ const COMPILANDO = process.env.NEXT_PHASE === "phase-production-build";
 /** URL da PLATAFORMA (apex). A origem vem da configuracao, nunca do cabecalho do pedido. */
 export const URL_PLATAFORMA = process.env.BETTER_AUTH_URL ?? "http://localhost:3011";
 if (EM_PRODUCAO && !COMPILANDO && !process.env.BETTER_AUTH_URL?.startsWith("https://")) {
-  throw new Error("BETTER_AUTH_URL ausente ou sem https:// (produção: https://liderdeimpacto.com.br).");
+  throw new Error("BETTER_AUTH_URL ausente ou sem https:// (produção: https://lideresdeimpacto.com.br).");
 }
 
 /** Segredo curto derruba tudo que e assinado e cifrado (cookie, desafio, semente do TOTP). Fail-fast. */

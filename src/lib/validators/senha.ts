@@ -19,7 +19,7 @@ export const MIN_SENHA = 8;
 export const MAX_SENHA = 128;
 
 /** Termos da casa que nao servem de senha, nem dentro de uma frase maior. */
-const TERMOS_DA_CASA = ["liderdeimpacto", "lider de impacto", "lider-de-impacto", "bahtech"];
+const TERMOS_DA_CASA = ["liderdeimpacto", "lideresdeimpacto", "lider de impacto", "lideres de impacto", "lider-de-impacto", "bahtech"];
 /**
  * Lista curta das mais tentadas, por IGUALDADE (sem acento e sem espacos). Com minimo de 8
  * ela pega as obvias offline; o controle de verdade e o `senhaVazada` (HIBP) abaixo.

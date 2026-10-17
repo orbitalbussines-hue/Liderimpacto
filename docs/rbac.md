@@ -33,7 +33,7 @@ pura é `papelEfetivo`/`papelAceito` (`src/lib/auth/permissoes.ts`, com teste).
 
 | Área | Quem |
 |------|------|
-| Apex (`liderdeimpacto.com.br`): `/login`, `/plataforma` | só `SUPER_ADMIN` |
+| Apex (`lideresdeimpacto.com.br`): `/login`, `/plataforma` | só `SUPER_ADMIN` |
 | Criador: área do aluno (`/`, `/continuar`…) | `DONO`, `ADMIN`, `ALUNO` (vínculo ativo) e `SUPER_ADMIN` |
 | Criador: `/admin` | `DONO`, `ADMIN` e `SUPER_ADMIN` (seções financeiras/configuração: `papelMinimo: "DONO"` em `navegacao.ts`) |
 | Membros e grupos (`/admin/membros`) | `DONO` e `ADMIN`; ADMIN só mexe em `ALUNO`; papel e equipe só `DONO` (RN-104) |

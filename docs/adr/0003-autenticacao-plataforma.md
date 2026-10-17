@@ -7,7 +7,7 @@
 ## Contexto
 
 A plataforma (ADR-0002) tem vários criadores, cada um no seu subdomínio
-(`<slug>.liderdeimpacto.com.br`), com identidade global ("um login para tudo") e papel por
+(`<slug>.lideresdeimpacto.com.br`), com identidade global ("um login para tudo") e papel por
 criador. A régua da casa (`docs/seguranca-login.md`) vale inteira. O Espaço 7 já tem um login
 auditado em produção com Better Auth + Drizzle (`ADR-0003..0006` de lá); ele foi **portado e
 adaptado**, não copiado: lá é mono-cliente, sem `cacheComponents` e com passkey.
