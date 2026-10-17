@@ -1,28 +1,35 @@
 #!/usr/bin/env bash
-# Serviço `backup` do projeto Easypanel (ADR-0016). Imagem: deploy/easypanel/backup.Dockerfile
-# (postgres:16.15 + rclone). Destino: Cloudflare R2, FORA da VPS (regra de backup da base).
+# Backup da PRODUÇÃO no Cloudflare R2, FORA da VPS (regra de backup da base; ADR-0016/0017).
+# Roda em duas imagens: `li-backup` (deploy/easypanel/backup.Dockerfile: postgres:16.15 + rclone) e
+# `li-ferramentas` (deploy/docker/worker.Dockerfile: postgresql-client-16 + rclone), como `backup`.
 #
-#   backup                     (padrão do contêiner) espera o horário BACKUP_HORA_UTC e roda todo dia
-#   backup agora               roda uma vez já (teste; pelo Shell do serviço no Easypanel)
+#   backup                     (padrão do contêiner li-backup) espera BACKUP_HORA_UTC e roda todo dia
+#   backup agora               roda uma vez já (teste; Shell do li-backup)
+#   backup pre-deploy          (li-ferramentas, deploy/easypanel/ferramentas.sh) dump do banco em
+#                              banco/pre-deploy/ ANTES de migrar; sai != 0 se falhar (aí não migra).
+#                              Banco vazio (1º deploy: nenhuma tabela em public/drizzle) = nada a salvar.
 #   backup restaurar-teste [prefixo]
 #                              baixa o dump MAIS RECENTE de r2:<bucket>/<prefixo> (padrão banco/diario/),
 #                              restaura num Postgres DESCARTÁVEL dentro deste contêiner e compara a
-#                              contagem de tabelas-chave com o banco no ar. Não toca no banco da HML.
+#                              contagem de tabelas-chave com o banco no ar. Não toca no banco no ar.
 #                              Aceita o formato do Easypanel (pg_dump custom + gzip) e o deste script.
+#                              Só no li-backup (precisa do servidor Postgres da imagem).
+#   backup restaurar <caminho no R2> <nome do banco>
+#                              RESTAURA DE VERDADE o banco no ar (destrói o estado atual). Antes, faz um
+#                              dump de segurança em banco/pre-deploy/. Tudo numa transação: falhou, nada
+#                              muda. Pare app e workers antes; depois, Deploy no li-ferramentas (runbook).
 #
 # O que o "rodar" faz:
-#   1. Arquivos: cópia INCREMENTAL do bucket `lider-arquivos` (capas, materiais, legendas, PDFs de
-#      certificado) para r2:<bucket>/storage/lider-arquivos/ (`rclone copy`: nunca apaga no destino).
-#      Vídeos ficam fora na HML (de teste, grandes; o HLS é refeito do original, ADR-0015).
-#   2. Banco, SÓ com BACKUP_BANCO=1 (plano B: o backup do banco é o do próprio Easypanel, aba
-#      Backups do Postgres; ligue isto só se a licença do Easypanel não agendar): pg_dump no padrão da
-#      base (--no-owner --no-acl --clean --if-exists), backup_DD_MM_YYYY_HH_MM.sql.gz, conferido, em
-#      banco/diario/ e, aos domingos, banco/semanal/. Retenção = ciclo de vida do bucket no R2.
+#   1. Arquivos: cópia INCREMENTAL dos buckets `lider-arquivos` (capas, materiais, legendas, PDFs de
+#      certificado) e `lider-videos-originais` (o HLS é refeito do original) para
+#      r2:<bucket>/storage/<bucket>/ (`rclone copy`: nunca apaga no destino).
+#   2. Banco, com BACKUP_BANCO=1 (padrão da PRD): pg_dump no padrão da base (--no-owner --no-acl
+#      --clean --if-exists), backup_DD_MM_YYYY_HH_MM.sql.gz, conferido, em banco/diario/ e, aos
+#      domingos, banco/semanal/. Retenção = ciclo de vida do bucket no R2 (runbook).
 #
-# Variáveis (deploy/easypanel/env.exemplo, serviço backup): R2_ENDPOINT, R2_BACKUP_BUCKET,
-# R2_BACKUP_ACCESS_KEY_ID, R2_BACKUP_SECRET_ACCESS_KEY, S3_INTERNO, S3_CHAVE, S3_SEGREDO,
-# DATABASE_URL (dono do banco: pg_dump e contagem do restaurar-teste), DB_NOME, BACKUP_HORA_UTC,
-# BACKUP_BANCO. Nada fica no contêiner: os arquivos temporários são apagados no fim.
+# Variáveis (deploy/easypanel/env.exemplo): R2_ENDPOINT, R2_BACKUP_BUCKET, R2_BACKUP_ACCESS_KEY_ID,
+# R2_BACKUP_SECRET_ACCESS_KEY, DATABASE_URL (dono do banco), e no li-backup S3_INTERNO, S3_CHAVE,
+# S3_SEGREDO, BACKUP_HORA_UTC, BACKUP_BANCO. Nada fica no contêiner: os temporários são apagados.
 set -euo pipefail
 
 log() { echo "[backup $(date -u +%FT%TZ)] $*"; }
@@ -47,14 +54,10 @@ BUCKET="$R2_BACKUP_BUCKET"
 # Sem arquivo de configuração: tudo vem do ambiente (cala o aviso "rclone.conf not found").
 export RCLONE_CONFIG=/dev/null
 
-rodar() {
-  exigir S3_INTERNO S3_CHAVE S3_SEGREDO
-  rclone copy sw:lider-arquivos "r2:$BUCKET/storage/lider-arquivos" --stats-one-line --stats-log-level NOTICE
-  log "arquivos: lider-arquivos copiado (incremental)"
-
-  [[ "${BACKUP_BANCO:-0}" == "1" ]] || { log "banco: a cargo do backup do Easypanel (BACKUP_BANCO=0)"; return 0; }
+# Dump no padrão da base, conferido, e enviado a cada prefixo pedido (ex.: banco/diario).
+despejar() {
   exigir DATABASE_URL
-  local tmp nome bytes cabecalho
+  local tmp nome bytes cabecalho p
   tmp="$(mktemp -d)"
   nome="backup_$(date +%d_%m_%Y_%H_%M).sql.gz"
   pg_dump "$DATABASE_URL" --no-owner --no-acl --clean --if-exists | gzip -9 > "$tmp/$nome"
@@ -64,10 +67,33 @@ rodar() {
   if [[ "$bytes" -lt 1024 || "$cabecalho" != *"PostgreSQL database dump"* ]] || ! gzip -t "$tmp/$nome"; then
     rm -rf "$tmp"; log "BACKUP SUSPEITO ($bytes bytes): não enviado."; return 1
   fi
-  rclone copyto "$tmp/$nome" "r2:$BUCKET/banco/diario/$nome"
-  [[ "$(date +%u)" != "7" ]] || rclone copyto "$tmp/$nome" "r2:$BUCKET/banco/semanal/$nome"
+  for p in "$@"; do rclone copyto "$tmp/$nome" "r2:$BUCKET/$p/$nome"; done
   rm -rf "$tmp"
-  log "banco: $nome ($bytes bytes) enviado"
+  log "banco: $nome ($bytes bytes) enviado para $*"
+}
+
+rodar() {
+  exigir S3_INTERNO S3_CHAVE S3_SEGREDO
+  local b
+  for b in lider-arquivos lider-videos-originais; do
+    rclone copy "sw:$b" "r2:$BUCKET/storage/$b" --stats-one-line --stats-log-level NOTICE
+    log "arquivos: $b copiado (incremental)"
+  done
+
+  [[ "${BACKUP_BANCO:-0}" == "1" ]] || { log "banco: a cargo do backup do Easypanel (BACKUP_BANCO=0)"; return 0; }
+  if [[ "$(date +%u)" == "7" ]]; then despejar banco/diario banco/semanal; else despejar banco/diario; fi
+}
+
+# Antes de migrar (li-ferramentas). Qualquer falha = sai != 0 = a migração NÃO roda (set -e).
+pre_deploy() {
+  exigir DATABASE_URL
+  local tabelas
+  tabelas="$(psql "$DATABASE_URL" -Atq -c "select count(*) from information_schema.tables where table_schema in ('public', 'drizzle')")"
+  if [[ "$tabelas" == "0" ]]; then
+    log "pre-deploy: banco vazio (1º deploy), nada a salvar"
+    return 0
+  fi
+  despejar banco/pre-deploy
 }
 
 agendar() {
@@ -125,9 +151,29 @@ restaurar_teste() {
   log "OK: $prefixo$ultimo restaurável."
 }
 
+# Restauração REAL (runbook "Restaurar o banco"). O 2º argumento confirma o banco (evita engano).
+restaurar() {
+  exigir DATABASE_URL
+  local caminho="${1:-}" confirma="${2:-}" banco
+  [[ -n "$caminho" && -n "$confirma" ]] || { echo "uso: backup restaurar <caminho no R2> <nome do banco>" >&2; exit 2; }
+  banco="$(psql "$DATABASE_URL" -Atq -c "select current_database()")"
+  [[ "$confirma" == "$banco" ]] || { log "Recusado: o banco no ar é \"$banco\", não \"$confirma\"."; exit 1; }
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  rclone copyto "r2:$BUCKET/$caminho" "$tmp/dump.sql.gz"
+  gzip -t "$tmp/dump.sql.gz"
+  log "cópia de segurança do estado atual antes de restaurar"
+  despejar banco/pre-deploy
+  log "restaurando $caminho em $banco (uma transação)"
+  gzip -cd "$tmp/dump.sql.gz" | psql "$DATABASE_URL" -1 -q -v ON_ERROR_STOP=1 >/dev/null
+  log "OK: $caminho restaurado. Agora: Deploy no li-ferramentas (permissões da app) e Start em app e workers."
+}
+
 case "${1:-agendar}" in
   agendar) agendar ;;
   agora) rodar ;;
+  pre-deploy) pre_deploy ;;
   restaurar-teste) restaurar_teste "${2:-}" ;;
-  *) echo "uso: backup [agendar|agora|restaurar-teste [prefixo]]" >&2; exit 2 ;;
+  restaurar) restaurar "${2:-}" "${3:-}" ;;
+  *) echo "uso: backup [agendar|agora|pre-deploy|restaurar-teste [prefixo]|restaurar <caminho> <banco>]" >&2; exit 2 ;;
 esac

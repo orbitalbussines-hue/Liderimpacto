@@ -1,24 +1,27 @@
-# CI/CD — Estrutura Base
+# CI/CD — Líder de Impacto (ADR-0017: PRODUÇÃO direto, sem homologação)
 #
-#   PR e push em qualquer branch -> CI (verificacao)
-#   push em `develop`            -> CI -> Deploy HML (Homologacao, Easypanel)
-#   Run workflow com `versao`    -> volta a HML para aquele SHA (sem rebuild)
-#   push em `master`             -> CI -> BACKUP do banco -> Deploy PRD (Producao)
+#   PR e push em qualquer branch -> CI (verificação)
+#   push em `develop`            -> só o CI (não há HML; mudança grande se valida no compose local)
+#   push/merge em `master`       -> CI -> imagens no GHCR (SHA + `prd`) -> gatilhos do Easypanel:
+#                                   li-ferramentas (BACKUP do banco no R2 -> migração) -> app, workers,
+#                                   backup -> confere https://liderdeimpacto.com.br/api/saude
+#   Run workflow com `versao`    -> volta a PRD para aquele SHA (sem rebuild; o backup roda de novo)
 #
 # Por que o auditor roda AQUI: o hook de pre-commit pode ser pulado
 # (`--no-verify`, clone sem `npm install`). O CI e a unica barreira que nenhum
 # agente (Codex, Cursor, Claude) nem pessoa consegue contornar.
 #
-# Secrets necessarios (Settings > Secrets and variables > Actions, por
-# Environment `hml` e `prd`):
+# BACKUP ANTES DO DEPLOY (regra da base): o CI não alcança o banco. Quem faz é o li-ferramentas, que ao
+# subir roda `backup pre-deploy` (pg_dump para o R2, banco/pre-deploy/) e SÓ ENTÃO migra e grava a
+# marca da versão no banco; app e workers novos só ficam saudáveis com essa marca (VERSAO_IMAGEM =
+# SHA, src/lib/db/migracoes.ts). Backup falhou = a versão anterior segue no ar
+# (deploy/easypanel/ferramentas.sh, docs/deploy-easypanel.md).
+#
+# Environment `prd` (Settings > Environments), secrets:
 #   EASYPANEL_DEPLOY_WEBHOOK_FERRAMENTAS / _APP / _WORKER_VIDEO / _WORKER_CERTIFICADOS / _BACKUP
-#     (HML = imagens no GHCR + Deployment Trigger URL de cada servico do Easypanel, ADR-0016 /
-#      docs/deploy-easypanel.md. O GHCR usa o GITHUB_TOKEN do proprio job.)
-#   Variaveis de repositorio: HML_ATIVO=true liga o deploy; HML_S3_ENDPOINT (opcional) troca o
-#     host publico do storage que entra no build do app.
-#   PRD_SSH_HOST / PRD_SSH_USER / PRD_SSH_KEY / PRD_KNOWN_HOSTS / PRD_APP_DIR
-#   PRD_DATABASE_URL   (string de conexao usada no pg_dump antes do deploy PRD)
-#   PRD_BACKUP_DEST    (destino do backup FORA do servidor do banco)
+#     (Deployment Trigger URL de cada serviço do Easypanel. O GHCR usa o GITHUB_TOKEN do job.)
+# Variáveis de repositório: PRD_ATIVO=true liga os gatilhos (sem ela o job só publica as imagens e
+#   avisa); PRD_S3_ENDPOINT (opcional) troca o host público do storage que entra no build do app.
 
 name: CI/CD
 
@@ -29,11 +32,11 @@ on:
   workflow_dispatch:
     inputs:
       versao:
-        description: "Voltar a HML para este SHA (vazio = so roda o CI)"
+        description: "Voltar a PRODUCAO para este SHA (vazio = so roda o CI)"
         required: false
         default: ""
 
-# Evita dois deploys simultaneos no mesmo ambiente.
+# Evita duas execuções simultâneas na mesma branch (os jobs de PRD têm ainda o grupo `prd`).
 concurrency:
   group: cicd-${{ github.ref }}
   cancel-in-progress: false
@@ -105,34 +108,35 @@ jobs:
         run: npm run build
 
   # ---------------------------------------------------------------------------
-  # 2) Deploy HML — somente push na develop, DEPOIS do CI verde (ADR-0016, runbook
-  #    docs/deploy-easypanel.md). A HML mora no Easypanel da VPS da página de vendas.
+  # 2) Deploy PRD — push na master, DEPOIS do CI verde (ADR-0017, runbook docs/deploy-easypanel.md).
   #
-  #   1. constrói as imagens (app, worker, backup) AQUI, não na VPS compartilhada, e publica no
-  #      GHCR com tag = SHA do commit e a tag móvel `hml` (é a que os serviços do Easypanel puxam)
-  #   2. chama a Deployment Trigger URL de cada serviço (secrets EASYPANEL_DEPLOY_WEBHOOK_*):
-  #      ferramentas (migra o banco) -> app -> workers -> backup. O auto-deploy do Easypanel fica
-  #      DESLIGADO: nada vai ao ar sem o CI.
-  #   3. confere de fora (DNS + TLS + app + banco migrado): GET https://<domínio>/api/saude = 200
-  #
-  # O caminho antigo (VPS crua + compose + SSH, ADR-0015) saiu do CI; os arquivos de deploy/hml/
-  # continuam válidos para uma VPS dedicada (docs/deploy-hml.md).
+  #   1. constrói as imagens (app, worker, backup) AQUI, não na VPS, e publica no GHCR com tag = SHA
+  #      e a tag móvel `prd` (a que os serviços do Easypanel puxam). VERSAO_IMAGEM = SHA nas imagens.
+  #   2. PRD_ATIVO=true: chama a Deployment Trigger URL de cada serviço (li-ferramentas primeiro:
+  #      backup -> migração -> marca da versão; depois app, workers e backup). Auto Deploy DESLIGADO
+  #      no Easypanel: nada vai ao ar sem o CI.
+  #   3. confere de fora (DNS + TLS + app + banco): GET https://liderdeimpacto.com.br/api/saude = 200.
+  #      Isto vê o site no ar; a troca de versão se confere na aba Deployments (a anterior segue
+  #      atendendo até a nova ficar saudável).
+  # O job da HML saiu (ADR-0017): não há HML para receber deploy. Recriar = histórico do git + ADR-0016.
   # ---------------------------------------------------------------------------
-  deploy-hml:
-    name: Deploy HML (Easypanel)
+  deploy-prd:
+    name: Deploy PRD (Easypanel)
     needs: ci
-    # Liga só depois do Easypanel pronto: variável de repositório HML_ATIVO=true (runbook).
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && vars.HML_ATIVO == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    environment: hml
+    environment: prd
+    concurrency:
+      group: prd
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
     env:
       REGISTRO: ghcr.io/orbitalbussines-hue/liderimpacto
       # Não é segredo: o host público do storage entra no build do app (next.config.ts, images).
-      S3_ENDPOINT_PUBLICO: ${{ vars.HML_S3_ENDPOINT || 'https://s3.hml.liderdeimpacto.com.br' }}
-      URL_SAUDE: https://hml.liderdeimpacto.com.br/api/saude
+      S3_ENDPOINT_PUBLICO: ${{ vars.PRD_S3_ENDPOINT || 'https://s3.liderdeimpacto.com.br' }}
+      URL_SAUDE: https://liderdeimpacto.com.br/api/saude
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -155,13 +159,14 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRO }}-app:${{ github.sha }}
-            ${{ env.REGISTRO }}-app:hml
+            ${{ env.REGISTRO }}-app:prd
           build-args: |
             S3_ENDPOINT=${{ env.S3_ENDPOINT_PUBLICO }}
+            VERSAO_IMAGEM=${{ github.sha }}
           cache-from: type=gha,scope=app
           cache-to: type=gha,scope=app,mode=max
 
-      - name: Imagem dos workers e ferramentas
+      - name: Imagem dos workers e ferramentas (pg_dump 16 + rclone do backup pre-deploy)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -169,7 +174,9 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRO }}-worker:${{ github.sha }}
-            ${{ env.REGISTRO }}-worker:hml
+            ${{ env.REGISTRO }}-worker:prd
+          build-args: |
+            VERSAO_IMAGEM=${{ github.sha }}
           cache-from: type=gha,scope=worker
           cache-to: type=gha,scope=worker,mode=max
 
@@ -181,24 +188,17 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRO }}-backup:${{ github.sha }}
-            ${{ env.REGISTRO }}-backup:hml
+            ${{ env.REGISTRO }}-backup:prd
           cache-from: type=gha,scope=backup
           cache-to: type=gha,scope=backup,mode=max
 
-      # Não é usada no Easypanel: mantém pronta a alternativa de VPS dedicada (compose + Caddy,
-      # ADR-0015, docs/deploy-hml.md), que puxa app/worker/caddy pela mesma tag do SHA.
-      - name: Imagem do Caddy (alternativa VPS dedicada)
-        uses: docker/build-push-action@v6
-        with:
-          context: deploy/hml
-          file: deploy/hml/caddy.Dockerfile
-          push: true
-          tags: ${{ env.REGISTRO }}-caddy:${{ github.sha }}
-          cache-from: type=gha,scope=caddy
-          cache-to: type=gha,scope=caddy,mode=max
+      - name: PRD ainda desligada (so imagens publicadas)
+        if: vars.PRD_ATIVO != 'true'
+        run: echo "::warning::PRD_ATIVO != true - imagens publicadas (tag prd), deploy NAO disparado (docs/deploy-easypanel.md)."
 
-      - name: Disparar o deploy no Easypanel (ferramentas migra antes)
+      - name: Disparar o deploy no Easypanel (li-ferramentas faz o backup e migra antes)
         id: disparo
+        if: vars.PRD_ATIVO == 'true'
         env:
           EASYPANEL_DEPLOY_WEBHOOK_FERRAMENTAS: ${{ secrets.EASYPANEL_DEPLOY_WEBHOOK_FERRAMENTAS }}
           EASYPANEL_DEPLOY_WEBHOOK_APP: ${{ secrets.EASYPANEL_DEPLOY_WEBHOOK_APP }}
@@ -207,8 +207,6 @@ jobs:
           EASYPANEL_DEPLOY_WEBHOOK_BACKUP: ${{ secrets.EASYPANEL_DEPLOY_WEBHOOK_BACKUP }}
         run: bash deploy/easypanel/disparar-deploy.sh
 
-      # A versão anterior segue atendendo até a nova responder 200 (deploy sem downtime do Easypanel).
-      # Isto confere que o site está no ar; a troca de versão se confere na aba Deployments.
       - name: Conferir saude por fora (DNS + TLS + app + banco migrado)
         if: steps.disparo.outputs.disparado == 'true'
         run: |
@@ -217,17 +215,20 @@ jobs:
           echo
 
   # ---------------------------------------------------------------------------
-  # 2b) Voltar a HML para uma versão anterior (Actions > CI/CD > Run workflow, campo "versao" =
-  #     SHA de um commit da develop já publicado). Repõe a tag `hml` nas imagens daquele SHA e
-  #     dispara o deploy. A doc do Easypanel não tem "rollback"; isto é o rollback.
-  #     Migração só anda para a frente: o código antigo roda sobre o schema novo se a migração
-  #     foi aditiva (o padrão); se não, restaure o backup (runbook).
+  # 3) Voltar a PRODUÇÃO para uma versão anterior (Actions > CI/CD > Run workflow, branch `master`,
+  #    campo "versao" = SHA de um commit da master já publicado). Repõe a tag `prd` nas imagens
+  #    daquele SHA e dispara o deploy: o li-ferramentas faz o backup pre-deploy de novo antes de
+  #    liberar a versão. Migração só anda para a frente: o código antigo roda sobre o schema novo se a
+  #    migração foi aditiva (o padrão); se não, restaure o backup (runbook).
   # ---------------------------------------------------------------------------
-  voltar-hml:
-    name: Voltar versao da HML (Easypanel)
+  voltar-prd:
+    name: Voltar versao da PRD (Easypanel)
     if: github.event_name == 'workflow_dispatch' && inputs.versao != ''
     runs-on: ubuntu-latest
-    environment: hml
+    environment: prd
+    concurrency:
+      group: prd
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -249,10 +250,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Apontar a tag hml para a versao pedida
+      - name: Apontar a tag prd para a versao pedida
         run: |
           for img in app worker backup; do
-            docker buildx imagetools create -t "$REGISTRO-$img:hml" "$REGISTRO-$img:$VERSAO"
+            docker buildx imagetools create -t "$REGISTRO-$img:prd" "$REGISTRO-$img:$VERSAO"
           done
 
       - name: Disparar o deploy no Easypanel
@@ -263,97 +264,3 @@ jobs:
           EASYPANEL_DEPLOY_WEBHOOK_WORKER_CERTIFICADOS: ${{ secrets.EASYPANEL_DEPLOY_WEBHOOK_WORKER_CERTIFICADOS }}
           EASYPANEL_DEPLOY_WEBHOOK_BACKUP: ${{ secrets.EASYPANEL_DEPLOY_WEBHOOK_BACKUP }}
         run: bash deploy/easypanel/disparar-deploy.sh
-
-  # ---------------------------------------------------------------------------
-  # 3) Deploy PRD — somente branch master, com BACKUP do banco ANTES
-  #    ESQUELETO herdado da base (git + pm2). Antes do 1º deploy de PRD, migrar para o modelo da
-  #    HML (imagens do GHCR + implantar.sh) com as mudanças do ADR-0015 ("O que muda em produção").
-  # ---------------------------------------------------------------------------
-  deploy-prd:
-    name: Deploy PRD (Producao)
-    needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    environment: prd
-    steps:
-      - name: Configurar SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.PRD_SSH_KEY }}" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          echo "${{ secrets.PRD_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      # =======================================================================
-      # Disaster Recovery (CLAUDE.md): SEMPRE backup ANTES do deploy PRD, e o
-      # backup NUNCA pode ficar so no mesmo servidor do banco.
-      #
-      # O dump NAO passa pelo runner do GitHub e NAO vira artifact.
-      # Um artifact do Actions e baixavel por QUALQUER pessoa com acesso de
-      # leitura ao repositorio e fica hospedado por semanas. Um dump de producao
-      # carrega nome, endereco, CNPJ e valor de venda de cliente real: isso nao
-      # sai do perimetro. A copia off-server e feita HOST -> DESTINO, direto,
-      # sem intermediario.
-      #
-      # PRE-REQUISITO OPERACIONAL (uma vez, fora do CI):
-      #   a VPS de banco precisa ter chave SSH propria autorizada no destino de
-      #   backup. O CI so dispara o comando; ele nao carrega credencial nenhuma
-      #   do destino.
-      # Secret necessario: PRD_BACKUP_DEST  (ex.: "backup@10.0.0.9:/srv/backups/mm")
-      # =======================================================================
-      - name: Definir nome do backup
-        id: bk
-        run: echo "file=backup_$(date +%d_%m_%Y_%H_%M).sql" >> "$GITHUB_OUTPUT"
-
-      - name: Exigir destino de backup off-server
-        env:
-          DEST: ${{ secrets.PRD_BACKUP_DEST }}
-        run: |
-          if [ -z "$DEST" ]; then
-            echo "::error::PRD_BACKUP_DEST nao configurado."
-            echo "A regra de DR do CLAUDE.md exige copia do backup FORA do servidor do banco."
-            echo "Sem destino off-server, o deploy em producao NAO prossegue."
-            exit 1
-          fi
-
-      - name: Backup do banco no host (obrigatorio antes do PRD)
-        run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.PRD_SSH_USER }}@${{ secrets.PRD_SSH_HOST }}" \
-            "set -e; \
-             mkdir -p ~/Documents/DB_backups; \
-             pg_dump '${{ secrets.PRD_DATABASE_URL }}' \
-               --no-owner --no-acl --clean --if-exists \
-               --file=\"\$HOME/Documents/DB_backups/${{ steps.bk.outputs.file }}\""
-
-      # Dump vazio "com sucesso" e a falha silenciosa classica de DR: so se
-      # descobre no dia do restore. 1 KB e generoso — o schema sozinho ja passa.
-      - name: Conferir que o dump nao esta vazio
-        run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.PRD_SSH_USER }}@${{ secrets.PRD_SSH_HOST }}" \
-            "set -e; \
-             f=\"\$HOME/Documents/DB_backups/${{ steps.bk.outputs.file }}\"; \
-             bytes=\$(wc -c < \"\$f\"); \
-             echo \"backup: \$bytes bytes\"; \
-             if [ \"\$bytes\" -lt 1024 ]; then echo 'BACKUP SUSPEITO (< 1KB)'; exit 1; fi; \
-             grep -q 'PostgreSQL database dump' \"\$f\" || { echo 'nao parece um dump'; exit 1; }"
-
-      # Copia HOST -> DESTINO. O dump nunca toca a infraestrutura do GitHub.
-      - name: Copiar backup para FORA do servidor do banco (regra DR)
-        run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.PRD_SSH_USER }}@${{ secrets.PRD_SSH_HOST }}" \
-            "set -e; \
-             scp -o StrictHostKeyChecking=yes \
-               \"\$HOME/Documents/DB_backups/${{ steps.bk.outputs.file }}\" \
-               '${{ secrets.PRD_BACKUP_DEST }}/${{ steps.bk.outputs.file }}'"
-
-      - name: Deploy na VPS PRD
-        run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.PRD_SSH_USER }}@${{ secrets.PRD_SSH_HOST }}" \
-            "set -e; \
-             cd '${{ secrets.PRD_APP_DIR }}'; \
-             git fetch --all; \
-             git reset --hard origin/master; \
-             npm ci; \
-             npm run build; \
-             npm run db:migrate --if-present; \
-             pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js"

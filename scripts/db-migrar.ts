@@ -19,6 +19,10 @@
  * REVOGA UPDATE/DELETE/TRUNCATE das tabelas append-only (trilha e razão de pontos: docs/back.md
  * "Trilha de auditoria"). Reaplicado a cada deploy (tabela nova, restore).
  *
+ * Com VERSAO_IMAGEM (SHA do commit, gravado na imagem pelo CI): grava `implantacao:<sha>` no COMMENT do
+ * banco, que libera o app e os workers dessa versão (`src/lib/db/migracoes.ts`, ADR-0017). No
+ * li-ferramentas este script só roda depois do backup pré-deploy (deploy/easypanel/ferramentas.sh).
+ *
  * Com SAUDE_ARQUIVO: grava o arquivo no fim (o healthcheck do serviço `ferramentas` olha ele,
  * scripts/worker-saude.mjs).
  */
@@ -60,6 +64,13 @@ async function principal() {
       await db.execute(sql.raw(`GRANT USAGE ON SCHEMA drizzle TO ${papelApp}`));
       await db.execute(sql.raw(`GRANT SELECT ON drizzle.__drizzle_migrations TO ${papelApp}`));
       console.log(`[migrar] permissões de ${papelApp} reaplicadas (append-only: ${APPEND_ONLY.join(", ")}).`);
+    }
+    const versao = process.env.VERSAO_IMAGEM?.trim();
+    if (versao) {
+      // Mesmo texto de MARCA_IMPLANTACAO (src/lib/db/migracoes.ts). COMMENT não aceita parâmetro: escape do pg.
+      const { rows } = await cliente.query<{ banco: string }>("select current_database() as banco");
+      await cliente.query(`COMMENT ON DATABASE ${cliente.escapeIdentifier(rows[0].banco)} IS ${cliente.escapeLiteral(`implantacao:${versao}`)}`);
+      console.log(`[migrar] versão ${versao} liberada.`);
     }
     await db.execute(sql`select pg_advisory_unlock(${TRAVA})`);
   } finally {

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-# Imagem do serviço `backup` do Easypanel (ADR-0016): pg_dump/psql/pg_restore do MESMO major do banco
-# (16) + rclone. Contexto = deploy/easypanel. Construída pelo CI (GHCR, tag = SHA e `hml`).
+# Imagem do serviço `li-backup` do Easypanel (ADR-0016/0017): pg_dump/psql/pg_restore do MESMO major do banco
+# (16) + rclone. Contexto = deploy/easypanel. Construída pelo CI (GHCR, tag = SHA e `prd`).
 #   docker build -f deploy/easypanel/backup.Dockerfile -t liderimpacto-backup deploy/easypanel
 # Sem segredo em camada: R2_*, S3_* e DATABASE_URL chegam como variáveis do serviço.
 FROM rclone/rclone:1.75.2 AS rclone

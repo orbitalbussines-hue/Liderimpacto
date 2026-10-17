@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Chamado pelo CI (jobs deploy-hml e voltar-hml) DEPOIS das imagens publicadas com a tag `hml`:
-# chama a "Deployment Trigger URL" de cada serviço do Easypanel (aba Deployments; a URL contém um
-# segredo e fica só nos secrets do environment `hml`). Ordem: `ferramentas` primeiro (migra o banco);
-# app e workers sobem em seguida e esperam o schema em dia (saúde 503 / aguardarEsquema, ADR-0016).
+# Chamado pelo CI (jobs deploy-prd e voltar-prd, ADR-0017) DEPOIS das imagens publicadas com a tag
+# `prd`: chama a "Deployment Trigger URL" de cada serviço do Easypanel (aba Deployments; a URL contém
+# um segredo e fica só nos secrets do environment `prd`). Ordem: `li-ferramentas` primeiro (backup do
+# banco no R2, migração e marca da versão); app e workers sobem em seguida e só ficam saudáveis com a
+# marca da versão deles no banco (saúde 503 / aguardarEsquema, src/lib/db/migracoes.ts).
 # A doc do Easypanel não diz o método HTTP: tenta POST e, se recusado, GET. Nunca imprime a URL.
 #
-# Nenhum secret ainda (1º push, antes de criar os serviços no Easypanel): só avisa e escreve
-# `disparado=false` no GITHUB_OUTPUT (as imagens já foram publicadas). Alguns sim e outros não: erro.
+# Nenhum secret ainda: só avisa e escreve `disparado=false` no GITHUB_OUTPUT (as imagens já foram
+# publicadas). Alguns sim e outros não: erro.
 set -euo pipefail
 
 SERVICOS=(FERRAMENTAS APP WORKER_VIDEO WORKER_CERTIFICADOS BACKUP)
@@ -23,7 +24,7 @@ if [[ ${#faltam[@]} -eq ${#SERVICOS[@]} ]]; then
   exit 0
 fi
 if [[ ${#faltam[@]} -gt 0 ]]; then
-  echo "::error::secrets ausentes no environment hml: ${faltam[*]}"
+  echo "::error::secrets ausentes no environment prd: ${faltam[*]}"
   exit 1
 fi
 

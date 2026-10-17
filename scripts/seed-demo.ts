@@ -55,6 +55,8 @@ function exigirAmbienteDeDesenvolvimento(): void {
   const host = new URL(url).hostname;
   if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(host)) throw new Error(`Recusado: DATABASE_URL aponta para "${host}", não para o banco local.`);
 }
+// Já no carregamento: as fontes das capas (abaixo) mexem no disco antes do principal() (ADR-0017).
+exigirAmbienteDeDesenvolvimento();
 
 // ---------------------------------------------------------------- roteiro (protótipo)
 const DIA = 86_400_000;

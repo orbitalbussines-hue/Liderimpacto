@@ -14,6 +14,9 @@ node_modules
 coverage
 reference
 deploy
+# ...menos os dois scripts que a imagem worker usa no li-ferramentas (backup antes de migrar).
+!deploy/easypanel/backup.sh
+!deploy/easypanel/ferramentas.sh
 docs
 tests
 templates

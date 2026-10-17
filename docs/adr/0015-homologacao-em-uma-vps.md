@@ -1,6 +1,6 @@
 # ADR-0015: Homologação em 1 VPS com Docker Compose, Caddy (DNS-01 Cloudflare), SeaweedFS local e imagens no GHCR
 
-- **Status**: Aceito — para a HML atual, ver ADR-0016 (Easypanel compartilhado); este segue como alternativa de VPS dedicada
+- **Status**: Aceito — sem HML desde o ADR-0017 (produção direto no Easypanel, ADR-0016); este segue como referência para uma HML futura em VPS dedicada
 - **Data**: 2026-10-14
 - **Decisores**: Paulo (Bah! Tech)
 

@@ -1,6 +1,6 @@
 # ADR-0016: Homologação no Easypanel compartilhado com a página de vendas
 
-- **Status**: Aceito
+- **Status**: Aceito — desenho dos serviços vale para a PRODUÇÃO; a HML não existe mais (ADR-0017: projeto `lideranca` recriado só para a plataforma, domínios definitivos, tag `prd`, job `deploy-prd`, backup antes de cada deploy)
 - **Data**: 2026-10-16
 - **Decisores**: Paulo (Bah! Tech)
 

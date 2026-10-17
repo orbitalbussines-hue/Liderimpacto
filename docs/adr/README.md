@@ -35,5 +35,6 @@ numerado e imutavel — se a decisao muda, cria-se um novo ADR que supersede o a
 | [0012](0012-gamificacao-razao-de-pontos.md) | Gamificação: razão de pontos append-only, tudo calculado, desafios por janela; segundos por dia no heartbeat | Aceito |
 | [0013](0013-legendas-e-transcricao.md) | Legendas e transcrição: VTT normalizado no storage, texto puro no banco, entrega pelo app | Aceito |
 | [0014](0014-assistente-ia-base-de-conhecimento.md) | Assistente do professor com Claude: busca full-text, recuperação filtrada pelo acesso e limites no banco | Aceito |
-| [0015](0015-homologacao-em-uma-vps.md) | Homologação em 1 VPS: Docker Compose, Caddy com DNS-01 Cloudflare, SeaweedFS local, imagens no GHCR e backup no R2 | Aceito (alternativa para VPS dedicada; a HML segue o 0016) |
-| [0016](0016-homologacao-no-easypanel-compartilhado.md) | Homologação no Easypanel compartilhado com a página de vendas: serviços App, deploy por Trigger depois do CI, migração com trava e saúde por versão do schema | Aceito |
+| [0015](0015-homologacao-em-uma-vps.md) | Homologação em 1 VPS: Docker Compose, Caddy com DNS-01 Cloudflare, SeaweedFS local, imagens no GHCR e backup no R2 | Aceito (referência para HML futura em VPS dedicada; hoje sem HML, 0017) |
+| [0016](0016-homologacao-no-easypanel-compartilhado.md) | Homologação no Easypanel compartilhado com a página de vendas: serviços App, deploy por Trigger depois do CI, migração com trava e saúde por versão do schema | Aceito (o desenho vale para a PRD, 0017) |
+| [0017](0017-producao-direto-sem-homologacao.md) | Produção direto, sem homologação: deploy da `master` no Easypanel, backup do banco no R2 antes de cada deploy e versão liberada só depois dele | Aceito |

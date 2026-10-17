@@ -870,47 +870,55 @@ npm run db:studio     # visualizar o banco
 ## Backup (antes de todo deploy em PRD)
 
 ```bash
-pg_dump "$DATABASE_URL" --no-owner --no-acl --clean --if-exists \
-  --file="backup_$(date +%d_%m_%Y_%H_%M).sql"
+pg_dump "$DATABASE_URL" --no-owner --no-acl --clean --if-exists   --file="backup_$(date +%d_%m_%Y_%H_%M).sql"
 ```
 
-Backup fica FORA do servidor do banco e o restore e testado em HML. O pipeline de
-deploy ja faz o dump e a copia off-server antes do PRD.
+Backup fica FORA do servidor do banco (Cloudflare R2, bucket `li-backups-prd`) e o restore e testado
+(`backup restaurar-teste`, todo dia 1o). Sem HML (ADR-0017), o backup antes do deploy e feito DENTRO da
+VPS: o servico `li-ferramentas` roda `deploy/easypanel/ferramentas.sh` = `backup pre-deploy` (o
+pg_dump acima, gzip, conferido, em `banco/pre-deploy/`) -> migracao -> buckets. Backup falhou = nao
+migra e a versao nova nao e liberada. Banco vazio (1o deploy) = nada a salvar.
 
-Na HML (Easypanel, ADR-0016): banco pela aba Backups do Postgres do Easypanel (R2, diario 30 copias
-e semanal 13); arquivos pelo servico `backup` (`deploy/easypanel/backup.sh`: bucket `lider-arquivos`
-para o R2, incremental; com `BACKUP_BANCO=1`, tambem o pg_dump acima, plano B se a licenca do
-Easypanel nao agendar). `backup restaurar-teste` restaura o ultimo dump (formato do Easypanel ou do
-script) num Postgres descartavel e compara contagens. Passo a passo em `docs/deploy-easypanel.md`.
+O servico `li-backup` (`deploy/easypanel/backup.sh`, `BACKUP_BANCO=1`) faz todo dia o dump em
+`banco/diario/` (domingo tambem `banco/semanal/`) e copia `lider-arquivos` e `lider-videos-originais`
+para `storage/` (incremental, nunca apaga no destino). Retencao pelo ciclo de vida do bucket (diario
+30 d, semanal 90 d, pre-deploy 90 d). `backup restaurar-teste [prefixo]` restaura o ultimo dump num
+Postgres descartavel e compara contagens; `backup restaurar <caminho> <banco>` restaura de verdade
+(confere o nome, guarda o estado atual, uma transacao). Passo a passo em `docs/deploy-easypanel.md`.
 Na alternativa de VPS dedicada (ADR-0015): `deploy/hml/backup.sh` e `deploy/hml/restaurar-teste.sh`.
 
-## Deploy da HML (ADR-0016; alternativa ADR-0015)
+## Deploy da PRODUCAO (ADR-0017 sobre o desenho do ADR-0016; alternativa ADR-0015)
 
-**Easypanel** da VPS da pagina de vendas, projeto `lideranca` (o mesmo da pagina de vendas, servicos com prefixo `li-`): servicos App separados (ficha em
-`deploy/easypanel/servicos.md`, variaveis em `deploy/easypanel/env.exemplo`). Imagens construidas no
-CI e publicadas no GHCR (tag do SHA + tag movel `hml`); o job `deploy-hml` chama a Deployment
-Trigger URL de cada servico (`deploy/easypanel/disparar-deploy.sh`) so depois do CI verde; o job
-`voltar-hml` repoe a tag `hml` num SHA anterior. Sem job de pre-deploy: o servico `ferramentas` migra
-com trava e o app/workers esperam o schema em dia.
+Sem homologacao: a `develop` roda so o CI; push/merge na `master` faz o deploy de PRD no **Easypanel**
+da VPS KVM 8, projeto `lideranca` (servicos com prefixo `li-`, ficha em `deploy/easypanel/servicos.md`,
+variaveis em `deploy/easypanel/env.exemplo`). Imagens construidas no CI e publicadas no GHCR (tag do
+SHA + tag movel `prd`, `VERSAO_IMAGEM` = SHA dentro delas); o job `deploy-prd` chama a Deployment
+Trigger URL de cada servico (`deploy/easypanel/disparar-deploy.sh`) so depois do CI verde e com a
+variavel `PRD_ATIVO=true`; o job `voltar-prd` repoe a tag `prd` num SHA anterior. Sem job de
+pre-deploy: o `li-ferramentas` faz o backup, migra com trava e grava a marca da versao; app e workers
+novos esperam o schema em dia E a marca da versao deles.
 
 **Alternativa (VPS dedicada, ADR-0015)**: Docker Compose (`deploy/hml/docker-compose.yml`) com Caddy
 (DNS-01 Cloudflare, curinga `*.hml`), as mesmas imagens e `deploy/hml/implantar.sh <sha>` (migra
-ANTES de trocar a versao). Saiu do CI; roda a mao (`docs/deploy-hml.md`).
+ANTES de trocar a versao). Fora do CI; referencia para uma HML futura (`docs/deploy-hml.md`).
 
 | Peca | O que faz |
 |------|-----------|
-| `GET /api/saude` (`src/app/api/saude/route.ts`) | `{ ok }` 200/503, `no-store`, sem detalhe; fora do matcher do `proxy.ts`. 200 = banco responde E tem todas as migracoes do codigo (`src/lib/db/migracoes.ts`). Healthcheck do app (`HEALTHCHECK` da imagem) e conferencia do deploy |
-| `src/lib/db/migracoes.ts` | `esquemaEmDia()` compara o `when` da ultima migracao do journal com `max(created_at)` de `drizzle.__drizzle_migrations` (`>=`: a versao anterior segue saudavel); `aguardarEsquema()` segura os workers ate la |
-| `scripts/db-migrar.ts` | Migrator do drizzle-orm (sem drizzle-kit) como dono do banco, sob `pg_advisory_lock` (dois conteineres ao mesmo tempo: o segundo espera); com `DB_APP_USUARIO`, reaplica os GRANTs da app (inclusive SELECT na tabela de controle) e revoga UPDATE/DELETE/TRUNCATE de `auditoria` e `criadores_membros_pontos`; com `SAUDE_ARQUIVO`, grava o arquivo no fim |
+| `GET /api/saude` (`src/app/api/saude/route.ts`) | `{ ok }` 200/503, `no-store`, sem detalhe; fora do matcher do `proxy.ts`. 200 = banco responde E tem todas as migracoes do codigo E (com `VERSAO_IMAGEM`) a marca desta versao no banco (`src/lib/db/migracoes.ts`). Healthcheck do app (`HEALTHCHECK` da imagem, `start-period` 15 min) e conferencia do deploy |
+| `src/lib/db/migracoes.ts` | `esquemaEmDia()` compara o `when` da ultima migracao do journal com `max(created_at)` de `drizzle.__drizzle_migrations` (`>=`: a versao anterior segue saudavel) e, com `VERSAO_IMAGEM`, exige `implantacao:<sha>` no `COMMENT` do banco (`implantacaoLiberada`; liberado uma vez, o processo segue liberado); `aguardarEsquema()` segura os workers ate la |
+| `scripts/db-migrar.ts` | Migrator do drizzle-orm (sem drizzle-kit) como dono do banco, sob `pg_advisory_lock` (dois conteineres ao mesmo tempo: o segundo espera); com `DB_APP_USUARIO`, reaplica os GRANTs da app (inclusive SELECT na tabela de controle) e revoga UPDATE/DELETE/TRUNCATE de `auditoria` e `criadores_membros_pontos`; com `VERSAO_IMAGEM`, grava a marca da versao no `COMMENT` do banco; com `SAUDE_ARQUIVO`, grava o arquivo no fim |
 | `scripts/worker-saude.mjs` | Healthcheck da imagem worker: PING no Redis do `REDIS_URL`, ou (com `SAUDE_ARQUIVO`, servico `ferramentas`) o arquivo da migracao existir |
+| `deploy/easypanel/ferramentas.sh` | Comando do `li-ferramentas`: `backup pre-deploy` -> `db-migrar.ts` -> `armazenamento:preparar` -> parado; falhou = espera 5 min e sai (sem martelar o banco no reinicio) |
 | `deploy/easypanel/banco-bootstrap.sql` | Uma vez, no psql do Easypanel: papeis `lider_migracao` (dono, cria o `unaccent`) e `lider_app` (so DML). Na VPS dedicada: `deploy/hml/postgres-init.sh` |
 
 Os cabecalhos de seguranca (HSTS em producao, `nosniff`, `Referrer-Policy`, `X-Frame-Options:
 SAMEORIGIN`, `Permissions-Policy`) saem do proprio app (`next.config.ts`, `headers()`), valendo atras
 do Traefik do Easypanel ou do Caddy.
 
-Variaveis da HML: `deploy/easypanel/env.exemplo` (Easypanel, por servico) ou `deploy/hml/env.exemplo`
-(VPS dedicada), com como gerar cada segredo. Os valores reais moram so no Easypanel/servidor.
+Variaveis da PRD: `deploy/easypanel/env.exemplo` (Easypanel, por servico; `deploy/hml/env.exemplo` na
+VPS dedicada), com como gerar cada segredo. Os valores reais moram so no Easypanel. Producao nunca
+recebe dado de demonstracao: `seed:demo`, `seed:demo:*` e `sessao:demo` recusam `NODE_ENV=production`
+e banco fora do localhost.
 `SEED_SUPER_ADMIN_EMAIL`, `SEED_DONO_EMAIL` e `SEED_DONO_NOME` sao passadas so no `npm run db:seed`
 manual (Shell do servico `ferramentas`).
 

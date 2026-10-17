@@ -4,7 +4,7 @@
 # só para compilar (o auth.ts recusa subir sem segredo) e o segredo real chega no `docker run`.
 #
 #   docker build -f deploy/docker/app.Dockerfile \
-#     --build-arg S3_ENDPOINT=https://s3.hml.liderdeimpacto.com.br -t liderimpacto-app .
+#     --build-arg S3_ENDPOINT=https://s3.liderdeimpacto.com.br -t liderimpacto-app .
 #
 # S3_ENDPOINT/S3_BUCKET_ARQUIVOS NÃO são segredo: o next.config.ts os lê no BUILD para liberar o
 # host do storage no otimizador de imagens (o config é serializado no standalone). Mudou o host
@@ -32,7 +32,10 @@ RUN BETTER_AUTH_SECRET=valor-de-mentira-so-para-compilar-0123456789abcdef \
     npm run build
 
 FROM ${NODE_IMAGEM} AS app
-ENV NODE_ENV=production \
+# SHA do commit (build-arg do CI): o app só fica saudável depois que o li-ferramentas gravou a marca
+# desta versão no banco = backup pré-deploy + migração feitos (src/lib/db/migracoes.ts, ADR-0017).
+ARG VERSAO_IMAGEM=
+ENV NODE_ENV=production     VERSAO_IMAGEM=${VERSAO_IMAGEM} \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0
@@ -46,7 +49,8 @@ RUN chown -R node:node /app/.next
 USER node
 EXPOSE 3000
 # Healthcheck NA IMAGEM: o Easypanel (Docker Swarm) não tem campo de healthcheck e usa este; o
-# Swarm só põe a versão nova no ar depois do 1º "healthy" (503 até o banco estar migrado, ADR-0016).
-# O compose da HML define o mesmo teste (ADR-0015).
-HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/saude').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+# Swarm só põe a versão nova no ar depois do 1º "healthy" (503 até o banco estar migrado e, em PRD,
+# até o backup pré-deploy, ADR-0016/0017). start-period de 15 min (= o do li-ferramentas): esperar
+# por ele não conta como falha; o 1º 200 já libera. O compose da HML define o mesmo teste (ADR-0015).
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15m --retries=5   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/saude').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node", "server.js"]
