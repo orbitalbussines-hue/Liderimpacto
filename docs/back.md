@@ -886,7 +886,7 @@ Na alternativa de VPS dedicada (ADR-0015): `deploy/hml/backup.sh` e `deploy/hml/
 
 ## Deploy da HML (ADR-0016; alternativa ADR-0015)
 
-**Easypanel** da VPS da pagina de vendas, projeto `lider-impacto`: servicos App separados (ficha em
+**Easypanel** da VPS da pagina de vendas, projeto `lideranca` (o mesmo da pagina de vendas, servicos com prefixo `li-`): servicos App separados (ficha em
 `deploy/easypanel/servicos.md`, variaveis em `deploy/easypanel/env.exemplo`). Imagens construidas no
 CI e publicadas no GHCR (tag do SHA + tag movel `hml`); o job `deploy-hml` chama a Deployment
 Trigger URL de cada servico (`deploy/easypanel/disparar-deploy.sh`) so depois do CI verde; o job

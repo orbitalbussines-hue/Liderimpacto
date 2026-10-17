@@ -44,7 +44,7 @@ O que a documentação oficial do Easypanel confirma (consultada em 16/10/2026) 
 
 ## Decisão
 
-1. **Serviços App separados num projeto `lider-impacto`**, não um Compose service: só o App tem
+1. **Serviços App separados, com prefixo `li-`, dentro do projeto `lideranca` da página de vendas** (decisão do Paulo em 17/10: não criar projeto novo; o `db` e o `site` da página não são tocados), não um Compose service: só o App tem
    limites de CPU/memória, zero-downtime, Trigger URL e Shell por serviço no painel; num VPS
    compartilhado o limite por serviço é a proteção da página de vendas. Ficha:
    `deploy/easypanel/servicos.md`; variáveis: `deploy/easypanel/env.exemplo`.

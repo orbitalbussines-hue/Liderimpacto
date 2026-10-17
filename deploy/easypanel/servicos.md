@@ -1,9 +1,9 @@
-# Projeto Easypanel `lider-impacto` — serviços
+# Projeto Easypanel `lideranca` (o mesmo da página de vendas) — serviços
 
 Ficha de cada serviço da HML no Easypanel (ADR-0016). O passo a passo de clicar está em
 `docs/deploy-easypanel.md`; as variáveis de cada um, em `env.exemplo` (nesta pasta).
 
-Nomes: o Easypanel monta o host interno como `<projeto>_<serviço>` (ex.: `lider-impacto_db`), o mesmo
+Nomes: o Easypanel monta o host interno como `<projeto>_<serviço>` (ex.: `lideranca_li-db`), o mesmo
 que o template oficial do SeaweedFS usa (`$(PROJECT_NAME)_<serviço>`). Confira na aba Credentials do
 Postgres antes de colar as URLs.
 
@@ -12,21 +12,21 @@ tag `hml` anda a cada deploy (o CI publica também a tag do SHA, usada para volt
 
 ## Ordem de criação
 
-1. `db` → 2. `redis` → 3. `storage` → 4. `ferramentas` → 5. `app` → 6. `worker-certificados` →
-7. `worker-video` → 8. `backup`. Banco, fila e storage precisam existir antes de quem usa.
+1. `li-db` → 2. `li-redis` → 3. `li-storage` → 4. `li-ferramentas` → 5. `li-app` → 6. `li-worker-certificados` →
+7. `li-worker-video` → 8. `li-backup`. Banco, fila e storage precisam existir antes de quem usa.
 
 ## Tabela
 
 | Serviço | Tipo / origem | Comando (Deploy > Command) | Volume | Domínio | CPU / memória (limite) |
 |---|---|---|---|---|---|
-| `db` | Postgres (do Easypanel), imagem `postgres:16.15`, banco `lider_impacto_hml` | — | do próprio serviço | nenhum (nunca Expose) | 1,5 vCPU / 2048 MB |
-| `redis` | App, Source **Dockerfile** = conteúdo de `redis.Dockerfile` | — | `redis-dados` → `/data` | nenhum | 0,5 / 768 MB |
-| `storage` | App, Source **Dockerfile** = conteúdo de `storage.Dockerfile` | — | `seaweed-dados` → `/data` | `s3.hml.liderdeimpacto.com.br` → porta **8333** | 1 / 1024 MB |
-| `ferramentas` | App, Docker Image `...-worker:hml` | `node --import tsx scripts/db-migrar.ts && npm run -s armazenamento:preparar && exec sleep infinity` | — | nenhum | 0,5 / 512 MB |
-| `app` | App, Docker Image `...-app:hml` | — (padrão da imagem: `node server.js`) | — | `hml.liderdeimpacto.com.br` e o mesmo com **Wildcard** → porta **3000** | 2 / 2048 MB |
-| `worker-certificados` | App, Docker Image `...-worker:hml` | — (padrão da imagem) | — | nenhum | 0,5 / 768 MB |
-| `worker-video` | App, Docker Image `...-worker:hml` | `node --conditions=react-server --import tsx scripts/worker-video.ts` | — | nenhum | **3** / 3072 MB |
-| `backup` | App, Docker Image `...-backup:hml` | — (padrão: `backup agendar`) | — | nenhum | 0,5 / 1024 MB |
+| `li-db` | Postgres (do Easypanel), imagem `postgres:16.15`, banco `lider_impacto_hml` | — | do próprio serviço | nenhum (nunca Expose) | 1,5 vCPU / 2048 MB |
+| `li-redis` | App, Source **Dockerfile** = conteúdo de `redis.Dockerfile` | — | `redis-dados` → `/data` | nenhum | 0,5 / 768 MB |
+| `li-storage` | App, Source **Dockerfile** = conteúdo de `storage.Dockerfile` | — | `seaweed-dados` → `/data` | `s3.hml.liderdeimpacto.com.br` → porta **8333** | 1 / 1024 MB |
+| `li-ferramentas` | App, Docker Image `...-worker:hml` | `node --import tsx scripts/db-migrar.ts && npm run -s armazenamento:preparar && exec sleep infinity` | — | nenhum | 0,5 / 512 MB |
+| `li-app` | App, Docker Image `...-app:hml` | — (padrão da imagem: `node server.js`) | — | `hml.liderdeimpacto.com.br` e o mesmo com **Wildcard** → porta **3000** | 2 / 2048 MB |
+| `li-worker-certificados` | App, Docker Image `...-worker:hml` | — (padrão da imagem) | — | nenhum | 0,5 / 768 MB |
+| `li-worker-video` | App, Docker Image `...-worker:hml` | `node --conditions=react-server --import tsx scripts/worker-video.ts` | — | nenhum | **3** / 3072 MB |
+| `li-backup` | App, Docker Image `...-backup:hml` | — (padrão: `backup agendar`) | — | nenhum | 0,5 / 1024 MB |
 
 Em todos: reserva de CPU 0,1 e de memória 128 MB (o limite é o que protege a página de vendas).
 Soma dos limites de memória ≈ 11 GB dos 32 GB da KVM 8. CPU: o worker de vídeo (3 vCPU, concorrência 1,
@@ -35,7 +35,7 @@ página de vendas.
 
 ## Por serviço
 
-**Comuns a `ferramentas`, `app` e workers**: credencial do registro na fonte Docker Image
+**Comuns a `li-ferramentas`, `li-app` e workers**: credencial do registro na fonte Docker Image
 (usuário GitHub + token clássico só `read:packages`); Deploy > **Zero downtime** ligado, **Tini**
 ligado, **Replicas** 1, **Cap drop** `ALL`; Domains: apague o domínio automático do Easypanel se ele
 criar um; Deployments: **Auto Deploy desligado** (quem dispara é o CI). Healthcheck: vem da imagem
