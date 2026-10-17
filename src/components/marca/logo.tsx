@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 export interface LogoProps {
   /**
-   * `cabecalho`: header do aluno (Newsreader 700 20px, "LÍDER" accent + " IMPACTO").
+   * `cabecalho`: header do aluno (Newsreader 700 20px, "LÍDER" accent + " DE IMPACTO").
    * `bloco`: "LÍDER DE / IMPACTO" em duas linhas, 800 (login no celular, sidebar).
    * `fixo`: o bloco sobre fundo sempre escuro (painel esquerdo do login).
    */
@@ -25,8 +25,9 @@ export function Logo({ variante = "cabecalho", tamanho = 13, className }: LogoPr
           className
         )}
       >
-        <span aria-hidden>
-          LÍDER<span className="text-text"> IMPACTO</span>
+        <span aria-hidden className="inline-block">
+          {/* Em duas linhas até 1280px: com o "DE" o nome não cabe ao lado do menu e dos ícones. */}
+          LÍDER<span className="text-text"> DE<br className="xl:hidden" /> IMPACTO</span>
         </span>
         <span className="sr-only">Líder de Impacto</span>
       </span>

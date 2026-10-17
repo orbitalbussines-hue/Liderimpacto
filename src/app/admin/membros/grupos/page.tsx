@@ -50,7 +50,7 @@ async function Grupos({ searchParams }: { searchParams: Busca }) {
       vazio={
         busca
           ? { titulo: "Nenhum grupo encontrado", descricao: "Ajuste a busca." }
-          : { titulo: "Nenhum grupo ainda", descricao: "Turmas e grupos de acesso organizam os membros (e, no passo das matrículas, liberam conteúdo)." }
+          : { titulo: "Nenhum grupo ainda", descricao: "Turmas e grupos de acesso organizam os membros e podem liberar conteúdos, eventos e desafios só para quem faz parte." }
       }
     />
   );

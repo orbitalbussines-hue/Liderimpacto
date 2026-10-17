@@ -177,7 +177,8 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
           "Páginas", ["Páginas", "Templates", "Domínios"],
           [{ titulo: "Página" }, { titulo: "URL", largura: 160 }, { titulo: "Status", largura: 120 }, { titulo: "Atualização", largura: 120 }, ACOES_COL],
           { acaoPrincipal: novo("Nova página") }
-        )
+        ),
+        { selo: "Em breve" }
       ),
       item(
         "funis", "Funis", Filter, 3,
@@ -194,7 +195,8 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
           "Automações", ["Automações", "Histórico"],
           [{ titulo: "Automação" }, { titulo: "Gatilho", largura: 180 }, { titulo: "Execuções", largura: 110 }, { titulo: "Status", largura: 110 }, ACOES_COL],
           { acaoPrincipal: novo("Nova automação") }
-        )
+        ),
+        { selo: "Em breve" }
       ),
       item(
         "campanhas", "Campanhas", Send, 3,
@@ -202,7 +204,8 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
           "Campanhas", ["Campanhas", "Listas", "Modelos"],
           [{ titulo: "Campanha" }, { titulo: "Enviados", largura: 120 }, { titulo: "Abertura", largura: 110 }, { titulo: "Cliques", largura: 110 }, { titulo: "Status", largura: 110 }, ACOES_COL],
           { acaoPrincipal: novo("Nova campanha") }
-        )
+        ),
+        { selo: "Em breve" }
       ),
       // Eventos ao vivo (ADR-0011): tela própria em /admin/eventos.
       item("eventos", "Eventos", Calendar, 2, { tipo: "proprio" }),

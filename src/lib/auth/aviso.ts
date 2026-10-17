@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
-import type { CriadorDaRequisicao } from "@/lib/criador/area";
-import { alvoAtual } from "@/lib/criador/atual";
+import { headers } from "next/headers";
+import { alvoDosCabecalhos, type CriadorDaRequisicao } from "@/lib/criador/area";
 import { db } from "@/lib/db";
 import { usuarios } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
@@ -11,10 +11,14 @@ import { marcaDaArea } from "@/lib/email/modelo";
 import { URL_PLATAFORMA } from "./auth";
 import { depoisDaResposta } from "./depois";
 
-/** Criador do host da requisicao; fora de uma requisicao (teste, script) = plataforma. */
+/**
+ * Criador do host da requisicao; fora de uma requisicao (teste, script) = plataforma.
+ * Le os cabecalhos direto (sem `@/lib/criador/atual`): aquele modulo puxa `next/navigation`,
+ * que quebra os scripts e workers que importam o auth fora do Next (seed, sessao:demo).
+ */
 async function criadorDoHostAtual(): Promise<CriadorDaRequisicao | null> {
   try {
-    const alvo = await alvoAtual();
+    const alvo = await alvoDosCabecalhos(await headers());
     return alvo?.tipo === "criador" ? alvo.criador : null;
   } catch {
     return null;
