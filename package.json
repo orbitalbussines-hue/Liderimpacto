@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 3011",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --config config/vitest.config.mts",
     "test:compliance": "node tests/check-compliance.test.mjs",
     "compliance": "node scripts/check-compliance.mjs",
