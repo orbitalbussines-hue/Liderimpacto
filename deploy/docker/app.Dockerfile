@@ -45,4 +45,8 @@ COPY --from=build --chown=node:node /app/.next/static ./.next/static
 RUN chown -R node:node /app/.next
 USER node
 EXPOSE 3000
+# Healthcheck NA IMAGEM: o Easypanel (Docker Swarm) não tem campo de healthcheck e usa este; o
+# Swarm só põe a versão nova no ar depois do 1º "healthy" (503 até o banco estar migrado, ADR-0016).
+# O compose da HML define o mesmo teste (ADR-0015).
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/saude').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node", "server.js"]

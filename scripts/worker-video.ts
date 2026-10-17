@@ -23,6 +23,7 @@ import {
   prefixoFila,
 } from "../src/lib/video/fila";
 import { processarJob } from "../src/lib/video/worker";
+import { aguardarEsquema } from "../src/lib/db/migracoes";
 
 async function processar(job: Job<JobVideo>): Promise<string> {
   const { videoId } = esquemaJobVideo.parse(job.data);
@@ -37,6 +38,7 @@ async function processar(job: Job<JobVideo>): Promise<string> {
 
 async function principal() {
   lerChaveMestra(); // falha cedo: sem a mestra nenhum vídeo é decifrado
+  await aguardarEsquema("video"); // ADR-0016: deploy sem job prévio, a migração pode estar rodando
   const conexao = conexaoRedis();
   const prefix = prefixoFila();
   const dlq = new Queue(NOME_FILA_VIDEO_DLQ, { connection: conexao, prefix });

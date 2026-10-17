@@ -1,4 +1,12 @@
-# Deploy da homologação (HML) — passo a passo
+# Deploy da homologação (HML) — passo a passo (VPS dedicada)
+
+> **A HML atual roda no Easypanel** (ADR-0016): siga `docs/deploy-easypanel.md`. Este runbook é a
+> ALTERNATIVA para uma VPS só do projeto (ADR-0015). O job `deploy-hml` do CI agora dispara o
+> Easypanel; o caminho por SSH saiu do CI (os passos 8 e 9 abaixo ficam sem efeito). Para usar este:
+> o CI continua publicando `liderimpacto-{app,worker,caddy}:<sha>` no GHCR; na VPS, copie
+> `deploy/hml/*` para `/opt/lider-impacto`, faça `docker login ghcr.io` (token `read:packages`) e rode
+> `./implantar.sh <sha>` à mão. Para voltar ao deploy automático por SSH, restaure o job antigo do
+> histórico do git (ADR-0016).
 
 Ambiente de homologação em **uma VPS** (decisão e porquês no ADR-0015). Endereços:
 

@@ -877,28 +877,42 @@ pg_dump "$DATABASE_URL" --no-owner --no-acl --clean --if-exists \
 Backup fica FORA do servidor do banco e o restore e testado em HML. O pipeline de
 deploy ja faz o dump e a copia off-server antes do PRD.
 
-Na HML: `deploy/hml/backup.sh` (cron diario: dump + bucket `lider-arquivos` para o Cloudflare R2,
-retencao 30/90 dias por ciclo de vida do bucket) e `deploy/hml/restaurar-teste.sh` (restaura o
-ultimo dump num Postgres descartavel e compara contagens). Passo a passo em `docs/deploy-hml.md`.
+Na HML (Easypanel, ADR-0016): banco pela aba Backups do Postgres do Easypanel (R2, diario 30 copias
+e semanal 13); arquivos pelo servico `backup` (`deploy/easypanel/backup.sh`: bucket `lider-arquivos`
+para o R2, incremental; com `BACKUP_BANCO=1`, tambem o pg_dump acima, plano B se a licenca do
+Easypanel nao agendar). `backup restaurar-teste` restaura o ultimo dump (formato do Easypanel ou do
+script) num Postgres descartavel e compara contagens. Passo a passo em `docs/deploy-easypanel.md`.
+Na alternativa de VPS dedicada (ADR-0015): `deploy/hml/backup.sh` e `deploy/hml/restaurar-teste.sh`.
 
-## Deploy da HML (ADR-0015)
+## Deploy da HML (ADR-0016; alternativa ADR-0015)
 
-Uma VPS com Docker Compose (`deploy/hml/docker-compose.yml`): Caddy (DNS-01 Cloudflare, curinga
-`*.hml`), app (Next standalone), `worker-video`, `worker-certificados`, Postgres, Redis e SeaweedFS
-(rede interna; o storage sai so por `s3.<dominio>` no Caddy). Imagens no GHCR por SHA
-(`deploy/docker/app.Dockerfile`, `worker.Dockerfile`, `deploy/hml/caddy.Dockerfile`), publicadas pelo
-job `deploy-hml`; na VPS, `deploy/hml/implantar.sh <sha>` migra o banco ANTES de trocar a versao.
+**Easypanel** da VPS da pagina de vendas, projeto `lider-impacto`: servicos App separados (ficha em
+`deploy/easypanel/servicos.md`, variaveis em `deploy/easypanel/env.exemplo`). Imagens construidas no
+CI e publicadas no GHCR (tag do SHA + tag movel `hml`); o job `deploy-hml` chama a Deployment
+Trigger URL de cada servico (`deploy/easypanel/disparar-deploy.sh`) so depois do CI verde; o job
+`voltar-hml` repoe a tag `hml` num SHA anterior. Sem job de pre-deploy: o servico `ferramentas` migra
+com trava e o app/workers esperam o schema em dia.
+
+**Alternativa (VPS dedicada, ADR-0015)**: Docker Compose (`deploy/hml/docker-compose.yml`) com Caddy
+(DNS-01 Cloudflare, curinga `*.hml`), as mesmas imagens e `deploy/hml/implantar.sh <sha>` (migra
+ANTES de trocar a versao). Saiu do CI; roda a mao (`docs/deploy-hml.md`).
 
 | Peca | O que faz |
 |------|-----------|
-| `GET /api/saude` (`src/app/api/saude/route.ts`) | `{ ok }` 200/503 (`select 1`), `no-store`, sem detalhe; fora do matcher do `proxy.ts`. Healthcheck do app e conferencia do deploy |
-| `scripts/db-migrar.ts` | Migrator do drizzle-orm (sem drizzle-kit) como dono do banco; com `DB_APP_USUARIO`, reaplica os GRANTs da app e revoga UPDATE/DELETE/TRUNCATE de `auditoria` e `criadores_membros_pontos` |
-| `scripts/worker-saude.mjs` | Healthcheck dos workers: PING no Redis do `REDIS_URL` |
-| `deploy/hml/postgres-init.sh` | So na 1a subida: papeis `lider_migracao` (dono, cria o `unaccent`) e `lider_app` (so DML) |
+| `GET /api/saude` (`src/app/api/saude/route.ts`) | `{ ok }` 200/503, `no-store`, sem detalhe; fora do matcher do `proxy.ts`. 200 = banco responde E tem todas as migracoes do codigo (`src/lib/db/migracoes.ts`). Healthcheck do app (`HEALTHCHECK` da imagem) e conferencia do deploy |
+| `src/lib/db/migracoes.ts` | `esquemaEmDia()` compara o `when` da ultima migracao do journal com `max(created_at)` de `drizzle.__drizzle_migrations` (`>=`: a versao anterior segue saudavel); `aguardarEsquema()` segura os workers ate la |
+| `scripts/db-migrar.ts` | Migrator do drizzle-orm (sem drizzle-kit) como dono do banco, sob `pg_advisory_lock` (dois conteineres ao mesmo tempo: o segundo espera); com `DB_APP_USUARIO`, reaplica os GRANTs da app (inclusive SELECT na tabela de controle) e revoga UPDATE/DELETE/TRUNCATE de `auditoria` e `criadores_membros_pontos`; com `SAUDE_ARQUIVO`, grava o arquivo no fim |
+| `scripts/worker-saude.mjs` | Healthcheck da imagem worker: PING no Redis do `REDIS_URL`, ou (com `SAUDE_ARQUIVO`, servico `ferramentas`) o arquivo da migracao existir |
+| `deploy/easypanel/banco-bootstrap.sql` | Uma vez, no psql do Easypanel: papeis `lider_migracao` (dono, cria o `unaccent`) e `lider_app` (so DML). Na VPS dedicada: `deploy/hml/postgres-init.sh` |
 
-Variaveis da HML (todas, com como gerar cada segredo): `deploy/hml/env.exemplo`. O `.env` real mora
-so na VPS. `SEED_SUPER_ADMIN_EMAIL`, `SEED_DONO_EMAIL` e `SEED_DONO_NOME` sao passadas so no
-`docker compose run ... npm run db:seed` manual.
+Os cabecalhos de seguranca (HSTS em producao, `nosniff`, `Referrer-Policy`, `X-Frame-Options:
+SAMEORIGIN`, `Permissions-Policy`) saem do proprio app (`next.config.ts`, `headers()`), valendo atras
+do Traefik do Easypanel ou do Caddy.
+
+Variaveis da HML: `deploy/easypanel/env.exemplo` (Easypanel, por servico) ou `deploy/hml/env.exemplo`
+(VPS dedicada), com como gerar cada segredo. Os valores reais moram so no Easypanel/servidor.
+`SEED_SUPER_ADMIN_EMAIL`, `SEED_DONO_EMAIL` e `SEED_DONO_NOME` sao passadas so no `npm run db:seed`
+manual (Shell do servico `ferramentas`).
 
 ## Video (pipeline HLS self-host)
 

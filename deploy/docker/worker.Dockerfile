@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
-# Imagem dos WORKERS e das FERRAMENTAS de deploy (uma imagem, comando por serviço no compose):
+# Imagem dos WORKERS e das FERRAMENTAS de deploy (uma imagem, comando por serviço no compose/Easypanel):
 #   worker de vídeo ......... node --conditions=react-server --import tsx scripts/worker-video.ts
 #   worker de certificados .. (filas certificados, eventos e conhecimento) scripts/worker-certificados.ts
-#   migração ................ scripts/db-migrar.ts (antes de subir a versão nova)
+#   migração ................ scripts/db-migrar.ts (antes da versão nova; no Easypanel, serviço ferramentas)
 #   buckets + CORS .......... npm run armazenamento:preparar
 #   primeiro acesso ......... npm run db:seed (MANUAL, nunca no entrypoint)
 # Contexto = raiz do repositório. Sem segredo em camada: tudo chega por variável no `docker run`.
@@ -37,4 +37,7 @@ COPY src ./src
 COPY scripts ./scripts
 # O worker de vídeo escreve no diretório temporário do sistema (/tmp), não em /app.
 USER node
+# Healthcheck NA IMAGEM (o Easypanel/Swarm usa este; o compose da HML define o mesmo): PING no Redis
+# da fila, ou, no serviço `ferramentas` (SAUDE_ARQUIVO), a migração ter terminado.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 CMD ["node", "scripts/worker-saude.mjs"]
 CMD ["node", "--conditions=react-server", "--import", "tsx", "scripts/worker-certificados.ts"]

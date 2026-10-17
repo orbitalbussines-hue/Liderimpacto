@@ -6,7 +6,7 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 722 |
+| Arquivos TS/TSX | 723 |
 | Tabelas (Drizzle) | 61 |
 | Server Actions (arquivos) | 35 |
 | Rotas de API | 11 |
@@ -445,6 +445,7 @@ lib/
     migrations/
     schema/
     index.ts
+    migracoes.ts
     sinais-fator.ts
     soft-delete.ts
   email/

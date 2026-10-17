@@ -47,6 +47,7 @@ import {
 } from "../src/lib/eventos/fila";
 import { lembretesPendentes, processarLembrete } from "../src/lib/eventos/lembrete";
 import { conexaoRedis, ehFalhaDefinitiva, prefixoFila } from "../src/lib/video/fila";
+import { aguardarEsquema } from "../src/lib/db/migracoes";
 
 async function processar(job: Job<JobCertificado>): Promise<string> {
   const { versaoId } = esquemaJobCertificado.parse(job.data);
@@ -70,6 +71,7 @@ async function processarConhecimento(job: Job<JobConhecimento>): Promise<string>
 }
 
 async function principal() {
+  await aguardarEsquema("certificados"); // ADR-0016: deploy sem job prévio, a migração pode estar rodando
   const conexao = conexaoRedis();
   const prefix = prefixoFila();
   const dlq = new Queue(NOME_FILA_CERTIFICADOS_DLQ, { connection: conexao, prefix });

@@ -215,8 +215,13 @@ export async function prepararBucket(b: Bucket, origens: readonly string[]): Pro
   try {
     await clienteS3().send(new HeadBucketCommand({ Bucket }));
   } catch {
-    await clienteS3().send(new CreateBucketCommand({ Bucket }));
-    estado = "criado";
+    try {
+      await clienteS3().send(new CreateBucketCommand({ Bucket }));
+      estado = "criado";
+    } catch (e) {
+      // Dois deploys ao mesmo tempo (serviço ferramentas do Easypanel, ADR-0016): o outro criou antes.
+      if (!(e instanceof Error && e.name === "BucketAlreadyOwnedByYou")) throw e;
+    }
   }
   await clienteS3().send(
     new PutBucketCorsCommand({

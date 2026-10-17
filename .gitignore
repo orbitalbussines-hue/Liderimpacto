@@ -43,3 +43,7 @@ next-env.d.ts
 # Estrutura Base
 !.env.example
 .lixo-quarentena/
+
+# Arquivos locais com chaves/tokens (nunca versionar)
+env.txt
+*API*.txt
