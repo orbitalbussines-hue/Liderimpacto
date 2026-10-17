@@ -147,11 +147,14 @@ os que este passo manda criar).
 
 ### 6.2 `li-redis`
 
-1. **+ Service** > **App**. Nome `li-redis`.
-2. **Source** > **Dockerfile**: cole o conteúdo de `deploy/easypanel/redis.Dockerfile`.
-3. **Environment**: `REDIS_SENHA=<o valor gerado>`.
-4. **Mounts** > Add **Volume**: nome `redis-dados`, caminho `/data`.
-5. Resources: CPU 0,5, memória 768. Deploy. Em alguns segundos fica verde (healthy).
+1. **+ Service** > **Redis** (o Redis pronto do Easypanel). Nome `li-redis`, senha vazia (o Easypanel
+   gera), imagem `redis:7.4`. Criar.
+2. Resources: CPU 0,5, memória 768. Deploy.
+3. Aba **Credentials**: copie a **URL interna** (`redis://default:<senha>@lideranca_li-redis:6379`).
+   Ela é o `REDIS_URL` de `li-app`, `li-worker-certificados` e `li-worker-video`.
+
+(O `deploy/easypanel/redis.Dockerfile`, com AOF ligado, fica como alternativa. Na HML o Redis pronto
+basta: a política padrão do Redis já é `noeviction`, o que a fila precisa.)
 
 ### 6.3 `li-storage` (SeaweedFS)
 
