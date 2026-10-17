@@ -6,6 +6,11 @@
 FROM rclone/rclone:1.75.2 AS rclone
 
 FROM postgres:16.15
+# A imagem do Postgres não traz as autoridades certificadoras: sem elas o rclone recusa o HTTPS do R2
+# ("x509: certificate signed by unknown authority"). O teste local usava R2 falso em http.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 COPY --from=rclone /usr/local/bin/rclone /usr/local/bin/rclone
 COPY --chmod=0755 backup.sh /usr/local/bin/backup
 # root: o restaurar-teste sobe um Postgres descartável como `postgres` (gosu) dentro do contêiner.
