@@ -818,7 +818,8 @@ Reprocessar na tela = `acaoReprocessarVideo` (só FALHOU/PROCESSANDO: `podeRepro
 
 | Arquivo | O quê |
 |---------|-------|
-| `enviar.ts` | `enviarEmail({ para, remetente, assunto, html, texto })`: SMTP da Hostinger só por env; sempre multipart (html + texto). `from` = `"<nome da área>" <endereço do EMAIL_REMETENTE>` (nome sem quebra de linha, aspas nem `<>`). Nunca loga o corpo (leva token) |
+| `enviar.ts` | `enviarEmail({ para, tipo, criadorId, remetente, assunto, html, texto })`: SMTP da Hostinger só por env; sempre multipart (html + texto). `from` = `"<nome da área>" <endereço do EMAIL_REMETENTE>` (nome sem quebra de linha, aspas nem `<>`). Nunca loga o corpo (leva token). Todo caso vira uma linha em `emails_disparos` (`ENVIADO`, `FALHOU` com o código do erro, `NAO_CONFIGURADO`), sem o corpo — RN-203 |
+| `disparos.ts` | `registrarDisparo` (best-effort, nunca lança), `mascararEmail`, `hashDoDestinatario` (HMAC), `listarDisparos`, `resumoDisparos` — ver "Fase 1" abaixo |
 | `modelo.ts` (puro) | `montarEmail(conteudo)` → `{ html, texto }`; `marcaDaArea(criador \| null, URL_PLATAFORMA)`; `urlSegura` (só `https://`, ou `http://` em `localhost`/`*.localhost`; sem credencial na URL; o resto lança); `escaparHtml` em todo texto dinâmico; `coresDoBotao(cor)` |
 | `mensagens.ts` (puro) | `emailDefinirSenha` (validade em minutos), `emailPrimeiroAcesso` (válido até, horário de Brasília), `emailAvisoSeguranca` (o que mudou + quando, botão para `/conta/seguranca` da área) |
 
@@ -920,7 +921,7 @@ ANTES de trocar a versao). Fora do CI; referencia para uma HML futura (`docs/dep
 |------|-----------|
 | `GET /api/saude` (`src/app/api/saude/route.ts`) | `{ ok }` 200/503, `no-store`, sem detalhe; fora do matcher do `proxy.ts`. 200 = banco responde E tem todas as migracoes do codigo E (com `VERSAO_IMAGEM`) a marca desta versao no banco (`src/lib/db/migracoes.ts`). Healthcheck do app (`HEALTHCHECK` da imagem, `start-period` 15 min) e conferencia do deploy |
 | `src/lib/db/migracoes.ts` | `esquemaEmDia()` compara o `when` da ultima migracao do journal com `max(created_at)` de `drizzle.__drizzle_migrations` (`>=`: a versao anterior segue saudavel) e, com `VERSAO_IMAGEM`, exige `implantacao:<sha>` no `COMMENT` do banco (`implantacaoLiberada`; liberado uma vez, o processo segue liberado); `aguardarEsquema()` segura os workers ate la |
-| `scripts/db-migrar.ts` | Migrator do drizzle-orm (sem drizzle-kit) como dono do banco, sob `pg_advisory_lock` (dois conteineres ao mesmo tempo: o segundo espera); com `DB_APP_USUARIO`, reaplica os GRANTs da app (inclusive SELECT na tabela de controle) e revoga UPDATE/DELETE/TRUNCATE de `auditoria` e `criadores_membros_pontos`; com `VERSAO_IMAGEM`, grava a marca da versao no `COMMENT` do banco; com `SAUDE_ARQUIVO`, grava o arquivo no fim |
+| `scripts/db-migrar.ts` | Migrator do drizzle-orm (sem drizzle-kit) como dono do banco, sob `pg_advisory_lock` (dois conteineres ao mesmo tempo: o segundo espera); com `DB_APP_USUARIO`, reaplica os GRANTs da app (inclusive SELECT na tabela de controle) e revoga UPDATE/DELETE/TRUNCATE de `auditoria`, `criadores_membros_pontos` e `emails_disparos` (lista `APPEND_ONLY`); com `VERSAO_IMAGEM`, grava a marca da versao no `COMMENT` do banco; com `SAUDE_ARQUIVO`, grava o arquivo no fim |
 | `scripts/worker-saude.mjs` | Healthcheck da imagem worker: PING no Redis do `REDIS_URL`, ou (com `SAUDE_ARQUIVO`, servico `ferramentas`) o arquivo da migracao existir |
 | `deploy/easypanel/ferramentas.sh` | Comando do `li-ferramentas`: `backup pre-deploy` -> `db-migrar.ts` -> `armazenamento:preparar` -> parado; falhou = espera 5 min e sai (sem martelar o banco no reinicio) |
 | `deploy/easypanel/banco-bootstrap.sql` | Uma vez, no psql do Easypanel: papeis `lider_migracao` (dono, cria o `unaccent`) e `lider_app` (so DML). Na VPS dedicada: `deploy/hml/postgres-init.sh` |
@@ -1099,3 +1100,133 @@ aluno -> POST /api/assistente {pergunta, conversaId?, aulaId?}
 Comandos: `npm run conhecimento:reindexar -- <slug>` (idempotente) e, só em dev,
 `npm run seed:demo:assistente` (textos de exemplo, reindexação e 3 conversas pelo fluxo real com o
 cliente falso). Teste REAL mínimo (pessoa roda; 2 chamadas, `max_tokens` 300, nada gravado): `npx tsx --env-file=.env --conditions=react-server scripts/assistente-teste-real.ts [slug]`. `tests/integracao/assistente.test.ts` usa só o `ClienteFalso` (o `_ambiente.ts` apaga a chave).
+
+## Fase 1: tags, vouchers, feedback, disparos, webhooks, abas e IA no estúdio (ADR-0018, RN-200 a RN-206)
+
+Migração `0012_fase1_tags_vouchers_webhooks` (só aditiva; o CHECK de `produtos_matriculas.origem`
+ganhou `VOUCHER`). Convenção de todas as actions abaixo: `"use server"`, `executar()` → `Resultado`,
+criador do HOST, Zod `strictObject` de `src/lib/validators/<entidade>.ts` (as telas importam os
+MESMOS schemas), `versao` = `updated_at` ISO devolvido para a próxima edição, trilha na transação.
+Serviços recebem `tx` + `criadorId` + `autor` (id do usuário da sessão), nunca de input.
+
+### Tags de membros (RN-200) — DONO e ADMIN
+
+| Tabela | Colunas |
+|--------|---------|
+| `criadores_tags` | `nome` (1–40, único por criador em `lower`), `cor` `#rrggbb`; `uq (id, criador_id)` |
+| `criadores_membros_tags` | `membro_id`, `tag_id` (FKs compostas com `criador_id`); um vivo por (membro, tag) |
+
+| Função | Assinatura / o quê |
+|--------|-------------------|
+| `acaoCriarTag` | `{ nome, cor }` → `{ id, versao }` (nome repetido = "Já existe uma tag com este nome.") |
+| `acaoSalvarTag` | `{ tagId, versao, nome, cor }` → `{ versao }` |
+| `acaoExcluirTag` | `{ tagId, versao }` → `{ desmarcados }` (ModalConfirmacaoBlock; tira de todos) |
+| `acaoAplicarTag` / `acaoRemoverTag` | `{ tagId, membroIds[1..500] }` → `{ aplicadas, jaTinham }` / `{ removidas }` (idempotentes) |
+| `listarTags(criadorId)` (`membros/consultas.ts`) | `[{ id, nome, cor, criadoEm, versao, membros }]` |
+| `tagsDosMembros(criadorId, membroIds)` | `Map<membroId, { id, nome, cor }[]>` |
+| `listarMembros(criadorId, { ..., tagId })` | filtro novo `tagId`; cada linha traz `tags` |
+| Serviço `src/lib/tags/servico.ts` | `criarTag`, `salvarTag`, `excluirTag`, `aplicarTag`, `removerTag` (todos `(tx, p)`) |
+
+### Vouchers (RN-201) — gerenciar: DONO e ADMIN; resgatar: qualquer membro com vínculo
+
+| Tabela | Colunas |
+|--------|---------|
+| `criadores_vouchers` | `codigo` (CHECK `^[A-HJ-NP-Z2-9]{6,16}$`, único por criador entre os vivos), `descricao` ≤ 200, `situacao` ATIVO/PAUSADO/ENCERRADO, `valido_ate?`, `limite_usos?`, `limite_por_pessoa` (1–100), `dias_acesso?` (1–3650) |
+| `criadores_vouchers_produtos` | `voucher_id`, `produto_id` (FKs compostas) |
+| `criadores_vouchers_resgates` | `voucher_id`, `membro_id`, `matriculas` jsonb `[{ produtoId, matriculaId, resultado }]`; `created_at` = quando |
+
+| Função | Assinatura / o quê |
+|--------|-------------------|
+| `acaoCriarVoucher` | `{ codigo?: string \| null, descricao?, validoAte?: ISO \| null, limiteUsos?, limitePorPessoa?, diasAcesso?, produtoIds[1..50] }` → `{ id, codigo, versao }` (`codigo` nulo = gerado, 8 símbolos) |
+| `acaoSalvarVoucher` | `{ voucherId, versao, ...os mesmos campos menos codigo }` → `{ versao }` (encerrado não edita) |
+| `acaoMudarSituacaoVoucher` | `{ voucherId, versao, situacao }` → `{ versao }` (ENCERRADO é final) |
+| `acaoExcluirVoucher` | `{ voucherId, versao }` (só sem resgates) |
+| `acaoResgatarVoucher` (aluno) | `{ codigo }` (aceita minúsculas, espaço, hífen) → `{ resgateId, matriculas }`; notifica e emite `MATRICULA_CRIADA` depois do commit |
+| `listarVouchers(criadorId, { busca?, situacao? })` (`vouchers/consultas.ts`) | `[{ id, codigo, descricao, situacao, validoAte, limiteUsos, limitePorPessoa, diasAcesso, criadoEm, versao, usos, expirado, produtos: [{ id, titulo }] }]` |
+| `resgatesDoVoucher(criadorId, voucherId)` | `[{ id, membroId, nome, email, resgatadoEm, matriculas }]` ou `null` |
+| `src/lib/vouchers/regras.ts` (puro, tela e servidor) | `gerarCodigoVoucher`, `normalizarCodigoVoucher`, `formatarCodigoVoucher` (`ABCD-EFGH`), `motivoRecusaResgate`, `TEXTO_RECUSA_RESGATE`, `transicaoVoucherValida`, `expiracaoDoResgate` |
+| Serviço `vouchers/servico.ts` | `criarVoucher`, `salvarVoucher`, `mudarSituacaoVoucher`, `excluirVoucher`, `resgatarVoucher(tx, { criadorId, membroId, usuarioId, codigo })` (voucher `FOR UPDATE`; `matricular` origem VOUCHER, referência `voucher:<resgate>:<produto>`) |
+
+### Feedback de conteúdo (RN-202)
+
+Tabela `produtos_modulos_aulas_feedbacks`: `aula_id`, `membro_id` (FKs compostas), `util` boolean,
+`comentario?` (1–500, texto puro); um vivo por (membro, aula).
+
+| Função | Quem | Assinatura / o quê |
+|--------|------|-------------------|
+| `acaoDarFeedback` | ALUNO com acesso à aula | `{ aulaId, util, comentario? }` → `{ id, versao }` (UPSERT; equipe recebe "Só alunos avaliam as aulas.") |
+| `acaoRemoverFeedback` | o próprio aluno | `{ aulaId }` → `{ removido }` |
+| `meuFeedback(criadorId, membroId, aulaId)` | tela da aula | `{ util, comentario, versao } \| null` |
+| `feedbacksDoCriador(criadorId, { produtoId?, aulaId?, util?, soComComentario?, pagina, porPagina })` | DONO e ADMIN | `{ total, linhas: [{ id, util, comentario, quando, aulaId, aula, produtoId, produto, membroId, nome, email }] }` |
+| `resumoFeedbackPorAula(criadorId, produtoId?)` | DONO e ADMIN | `[{ aulaId, aula, produtoId, produto, avaliacoes, uteis, percentualUtil, comentarios }]`, piores primeiro |
+
+### Disparos de e-mails (RN-203) — só DONO
+
+Tabela `emails_disparos` (**append-only**, sem `updated_at`/`is_deleted`/`modified_by`): `criador_id?`
+(nulo = plataforma), `tipo` (`TIPOS_EMAIL`), `destinatario_mascarado`, `destinatario_hash` (HMAC hex),
+`assunto`, `situacao` (`SITUACOES_EMAIL`), `erro?` (código), `created_at`.
+
+| Função | Assinatura / o quê |
+|--------|-------------------|
+| `listarDisparos(criadorId, { tipo?, situacao?, email?, pagina, porPagina })` | `{ total, linhas: [{ id, tipo, destinatario, assunto, situacao, erro, quando }] }`; `email` = busca EXATA pelo HMAC |
+| `resumoDisparos(criadorId, dias = 30)` | `{ ENVIADO, FALHOU, NAO_CONFIGURADO }` |
+| `registrarDisparo(d)` | chamado só por `enviarEmail` |
+
+### Integrações e webhooks (RN-204) — só DONO
+
+| Tabela | Colunas |
+|--------|---------|
+| `criadores_webhooks` | `nome` (2–60), `url` (https, ≤ 500), `eventos` text[] (`EVENTOS_WEBHOOK`, ≥ 1), `situacao` ATIVO/PAUSADO, `segredo_cifrado` (`v1:` AES-256-GCM), `segredo_final` (4) |
+| `criadores_webhooks_entregas` | `webhook_id` (FK composta), `evento`, `payload` jsonb (`PayloadWebhook`: `id` do evento, `evento`, `ocorridoEm`, `criador {id, slug}`, `dados`), `situacao` PENDENTE/ENTREGUE/FALHOU, `tentativas`, `status_http?`, `erro?` (≤ 300), `proxima_tentativa_em?`, `entregue_em?` |
+
+| Função | Assinatura / o quê |
+|--------|-------------------|
+| `acaoCriarWebhook` | `{ nome, url, eventos[] }` → `{ id, segredo, versao }` (segredo em claro SÓ aqui; até 10 por área) |
+| `acaoSalvarWebhook` | `{ webhookId, versao, nome, url, eventos }` → `{ versao }` |
+| `acaoMudarSituacaoWebhook` | `{ webhookId, versao, situacao }` → `{ versao }` |
+| `acaoRotacionarSegredoWebhook` | `{ webhookId, versao }` → `{ segredo, versao }` (ModalConfirmacaoBlock) |
+| `acaoExcluirWebhook` | `{ webhookId, versao }` (ModalConfirmacaoBlock) |
+| `acaoReenviarEntrega` | `{ entregaId, versao }` → `{ versao }` (só FALHOU, webhook ATIVO) |
+| `listarWebhooks(criadorId)` (`webhooks/consultas.ts`) | `[{ id, nome, url, eventos, situacao, segredoFinal, criadoEm, versao }]` (nunca a cifra) |
+| `entregasDoWebhook(criadorId, webhookId, { situacao?, limite? = 50 })` | `[{ id, evento, payload, situacao, tentativas, statusHttp, erro, proximaTentativaEm, entregueEm, criadoEm, versao }]` ou `null` |
+| `src/lib/webhooks/regras.ts` (puro, tela) | `ROTULO_EVENTO_WEBHOOK`, `problemaNaUrlWebhook`, cabeçalhos `X-Lider-Assinatura`/`X-Lider-Evento`/`X-Lider-Entrega`, `TENTATIVAS_WEBHOOK` (8), `atrasoDaProxima`, `MAX_WEBHOOKS_POR_CRIADOR` |
+| `emitir.ts` (depois do commit, nunca lança) | `webhookMatriculas(criadorId, ids, "MATRICULA_CRIADA" \| "MATRICULA_CANCELADA", autorId)`, `webhookMembrosCadastrados`, `webhookAulaConcluida`, `webhookCursoConcluido`, `webhookAvaliacaoAprovada`, `webhookCertificadoEmitido` — ligados em `actions/matriculas.ts`, `matriculas-importacao.ts`, `membros.ts`, `vouchers.ts`, `progresso/registrar.ts`, `avaliacoes/tentativas.ts`, `certificados/emissao.ts` |
+| `rede.ts` | `ipBloqueado`, `resolverPublico`, `postarWebhook` (SSRF, `lookup` fixado, 5 s, sem redirect) |
+| `segredo.ts` | `gerarSegredoWebhook`, `cifrarSegredo`/`decifrarSegredo` (HKDF do `BETTER_AUTH_SECRET`, AAD = id), `assinarCorpo` |
+| `entrega.ts` + `fila.ts` | `processarEntrega(entregaId, tentativa, max, postar?)` (4º Worker de `worker:certificados`), `entregasPendentes()`; fila `webhooks`, DLQ `webhooks-dlq`, `jobId` = entrega, backoff exponencial 30 s |
+
+Receptor confere: `HMAC_SHA256(segredo, "<t>.<corpo cru>") == v1` e `|agora - t|` pequeno; deduplica
+por `X-Lider-Entrega` (ou `payload.id`, o mesmo em todo webhook do evento).
+
+### Abas de acompanhamento (RN-205) — só consultas
+
+| Função | Onde / quem | Devolve |
+|--------|-------------|---------|
+| `progressoDasMatriculas(criadorId, { produtoId?, busca?, soEmAndamento?, pagina, porPagina })` | `matriculas/abas.ts`, Matrículas › Progresso (DONO, ADMIN) | `{ total, linhas: [{ matriculaId, membroId, nome, email, produtoId, produto, iniciadaEm, concluidaEm, expiraEm, totalAulas, concluidas, percentual, ultimaAtividade }] }` |
+| `tentativasDoCriador(criadorId, { produtoId?, avaliacaoId?, aprovada?, busca?, pagina, porPagina })` | Matrículas › Avaliações | `{ total, linhas: [{ tentativaId, numero, iniciadaEm, finalizadaEm, finalizadaPor, nota, aprovada, emAndamento, avaliacaoId, avaliacao, notaMinima, produtoId, produto, membroId, nome, email }] }` (só ALUNOS) |
+| `esgotaramSemAprovar(criadorId)` | Matrículas › Tentativas extras (fila) | `[{ membroId, nome, email, avaliacaoId, avaliacao, produto, finalizadas, extras, melhorNota, ultimaEm }]`; conceder = `acaoConcederTentativa` (já existe) |
+| `concessoesDoCriador(criadorId, { avaliacaoId?, pagina, porPagina })` | Matrículas › Tentativas extras (histórico) | `{ total, linhas: [{ id, quantidade, motivo, quando, avaliacaoId, avaliacao, membroId, nome, email, concedidaPor }] }` |
+| `anotacoesDoAluno(q: QuemPede, { produtoId?, limite? })` | `progresso/continuar.ts`, Continuar › Anotações (o próprio) | `[{ id, texto, tempoSeg, criadaEm, versao, aulaId, aula, produtoId, produto, produtoSlug }]`; editar/remover = actions de anotação existentes |
+| `turmasDoAluno(q: QuemPede)` | Continuar › Turmas (o próprio) | `[{ id, nome, tipo, entrouEm, membros }]` |
+| `estatisticasDosVideos(criadorId, { produtoId?, dias? = 30 })` | `video/estatisticas.ts`, Estúdio › Estatísticas (DONO, ADMIN) | `[{ videoId, aulaId, aula, produtoId, produto, duracaoSeg, visualizacoes, espectadores, minutosAssistidos, retencaoMedia, conclusoes }]`, mais vistos primeiro |
+
+### IA no Estúdio (RN-206) — DONO e ADMIN
+
+Tabela `produtos_modulos_aulas_sugestoes`: `aula_id` (FK composta), `descricao`, `capitulos` jsonb
+(`Capitulo[]`), `perguntas` jsonb (`PerguntaSugerida[]`: `enunciado`, `opcoes[]`, `correta` índice,
+`explicacao`), `modelo`, `tokens_*`, `descricao_aplicada_em?`, `capitulos_aplicados_em?`,
+`perguntas_aplicadas_em?`. Descartar = soft delete (conta no limite diário).
+
+| Função | Assinatura / o quê |
+|--------|-------------------|
+| `acaoGerarSugestao` | `{ aulaId }` → `{ id, versao }` (segundos; recusas: "IA não configurada", sem legenda, limite de 30/dia, formato inesperado) |
+| `acaoAplicarSugestao` | `{ parte: "DESCRICAO" \| "CAPITULOS", sugestaoId, versao, aulaVersao }` ou `{ parte: "PERGUNTAS", sugestaoId, versao, avaliacaoId, indices? }` → `{ versao, aulaVersao, questoes }` (descrição reindexa a base do assistente) |
+| `acaoDescartarSugestao` | `{ sugestaoId, versao }` |
+| `sugestoesDaAula(criadorId, aulaId)` (`estudio-ia/servico.ts`) | últimas 20 vivas com `custoUsd` estimado e o que já foi aplicado |
+| `geracoesDeHoje(criadorId)` | contador do limite (mostrar "x de 30 hoje") |
+| `src/lib/estudio-ia/regras.ts` (puro) | `LIMITES_ESTUDIO_IA`, `SISTEMA_ESTUDIO_IA`, `transcricaoComTempos`, `montarPedidoEstudio`, `lerSugestao` |
+
+Testes: `tests/integracao/fase1-tags-vouchers.test.ts`, `fase1-feedback-disparos.test.ts`,
+`fase1-webhooks.test.ts`, `fase1-estudio-ia.test.ts` (Postgres real; IA só com o `ClienteFalso`; o POST
+do webhook é injetado) e os puros `src/lib/vouchers/regras.test.ts`, `src/lib/webhooks/regras.test.ts`
+(SSRF, cifra, assinatura), `src/lib/estudio-ia/regras.test.ts`, `src/lib/email/modelo.test.ts`.

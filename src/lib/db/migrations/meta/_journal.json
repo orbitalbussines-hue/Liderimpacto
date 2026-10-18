@@ -85,6 +85,13 @@
       "when": 1792015367081,
       "tag": "0011_ia_conhecimento_assistente",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792270024536,
+      "tag": "0012_fase1_tags_vouchers_webhooks",
+      "breakpoints": true
     }
   ]
 }

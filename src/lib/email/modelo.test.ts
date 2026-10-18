@@ -103,8 +103,10 @@ describe("mensagens do sistema", () => {
   });
 });
 
-const { sendMail } = vi.hoisted(() => ({ sendMail: vi.fn().mockResolvedValue({}) }));
+const { sendMail, registrarDisparo } = vi.hoisted(() => ({ sendMail: vi.fn().mockResolvedValue({}), registrarDisparo: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("nodemailer", () => ({ default: { createTransport: () => ({ sendMail }) } }));
+// O registro grava no banco (coberto em tests/integracao/fase1-feedback-disparos.test.ts).
+vi.mock("./disparos", () => ({ registrarDisparo }));
 
 describe("enviarEmail (transporte falso)", () => {
   beforeEach(() => {
@@ -118,9 +120,30 @@ describe("enviarEmail (transporte falso)", () => {
     vi.stubEnv("EMAIL_REMETENTE", "Plataforma <nao-responda@lideresdeimpacto.com.br>");
     const { enviarEmail } = await import("./enviar");
     const m = emailDefinirSenha(marcaDaArea({ nome: 'Ateliê "A"\r\nBcc: x', slug: "a", cor_marca: null }, PLATAFORMA), "Ana", LINK, 30);
-    expect(await enviarEmail({ para: "ana@exemplo.com", ...m })).toBe(true);
+    expect(await enviarEmail({ para: "ana@exemplo.com", tipo: "DEFINIR_SENHA", criadorId: null, ...m })).toBe(true);
     const [arg] = sendMail.mock.calls[0];
     expect(arg.from).toEqual({ name: "Ateliê ABcc: x", address: "nao-responda@lideresdeimpacto.com.br" });
     expect(arg).toMatchObject({ to: "ana@exemplo.com", subject: m.assunto, text: m.texto, html: m.html });
+    // Registro sem corpo: só tipo, área, destinatário (mascarado no registro) e assunto.
+    expect(registrarDisparo).toHaveBeenLastCalledWith({ criadorId: null, tipo: "DEFINIR_SENHA", para: "ana@exemplo.com", assunto: m.assunto, situacao: "ENVIADO" });
+  });
+
+  it("falha do SMTP: registra FALHOU só com o código do erro e relança", async () => {
+    vi.stubEnv("EMAIL_REMETENTE", "nao-responda@lideresdeimpacto.com.br");
+    sendMail.mockRejectedValueOnce(Object.assign(new Error("535 auth failed for ana@exemplo.com"), { code: "EAUTH" }));
+    const { enviarEmail } = await import("./enviar");
+    const m = emailDefinirSenha(marcaDaArea(null, PLATAFORMA), "Ana", LINK, 30);
+    await expect(enviarEmail({ para: "ana@exemplo.com", tipo: "DEFINIR_SENHA", criadorId: "c1", ...m })).rejects.toThrow("535");
+    expect(registrarDisparo).toHaveBeenLastCalledWith(expect.objectContaining({ situacao: "FALHOU", erro: "EAUTH", criadorId: "c1" }));
+  });
+
+  it("sem SMTP: registra NAO_CONFIGURADO e não envia", async () => {
+    vi.stubEnv("SMTP_HOST", "");
+    sendMail.mockClear();
+    const { enviarEmail } = await import("./enviar");
+    const m = emailDefinirSenha(marcaDaArea(null, PLATAFORMA), "Ana", LINK, 30);
+    expect(await enviarEmail({ para: "ana@exemplo.com", tipo: "AVISO_SEGURANCA", criadorId: null, ...m })).toBe(false);
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(registrarDisparo).toHaveBeenLastCalledWith(expect.objectContaining({ situacao: "NAO_CONFIGURADO", tipo: "AVISO_SEGURANCA" }));
   });
 });

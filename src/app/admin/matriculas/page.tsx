@@ -10,6 +10,8 @@ import { listarGrupos } from "@/lib/membros/consultas";
 import { dataCurta } from "../membros/_components/comum";
 import { AcoesMatricula } from "./_components/acoes-matricula";
 import { BotoesMatriculas } from "./_components/botoes-matriculas";
+import { CarregandoLista } from "./_components/carregando";
+import { ABAS_MATRICULAS } from "./_components/comum";
 import { FiltrosMatriculas } from "./_components/filtros-matriculas";
 
 export const metadata: Metadata = { title: "Matrículas" };
@@ -25,8 +27,6 @@ const COLUNAS: Coluna[] = [
   { titulo: "Ações", largura: 56 },
 ];
 const TOM: Record<SituacaoMatricula, TomSelo> = { ATIVA: "ok", PENDENTE: "accent", CANCELADA: "warn", EXPIRADA: "neutro" };
-/** Abas do protótipo; as que dependem do progresso/avaliações (passo 5+) aparecem "Em breve". */
-const ABAS = [{ rotulo: "Matrículas", href: "/admin/matriculas" }, ...["Progresso", "Feedbacks de conteúdo", "Avaliações", "Correção"].map((rotulo) => ({ rotulo, emBreve: true }))];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Busca = Promise<Record<string, string | string[] | undefined>>;
@@ -94,7 +94,7 @@ async function Matriculas({ searchParams }: { searchParams: Busca }) {
           {contadores.expiradas} expiradas
         </>
       }
-      abas={ABAS}
+      abas={ABAS_MATRICULAS}
       abaAtiva="Matrículas"
       busca="Pesquise pelo nome ou e-mail do aluno..."
       valorBusca={filtros.busca}
@@ -131,7 +131,7 @@ async function Matriculas({ searchParams }: { searchParams: Busca }) {
 /** Matrículas do criador do HOST (DONO e ADMIN). Busca, filtros e página na URL. */
 export default function PaginaMatriculas({ searchParams }: { searchParams: Busca }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<CarregandoLista />}>
       <Matriculas searchParams={searchParams} />
     </Suspense>
   );

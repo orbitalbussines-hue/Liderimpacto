@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useSelecaoUnica } from "./use-selecao-unica";
 
@@ -51,6 +51,16 @@ export function Abas({
     valorInicial: valorInicial ?? itens[0]?.valor,
     onMudar: onSelecionar,
   });
+  // No celular a barra rola: traz a aba ativa para a vista (sem mexer na rolagem da página).
+  const barra = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const c = barra.current;
+    const el = c?.querySelector<HTMLElement>('[aria-current="page"], [aria-selected="true"]');
+    if (!c || !el) return;
+    const a = el.getBoundingClientRect();
+    const b = c.getBoundingClientRect();
+    if (a.right > b.right || a.left < b.left) c.scrollLeft += a.left - b.left - 16;
+  }, [atual]);
   const modoLink = itens.length > 0 && itens.every((i) => i.href);
   const classe = (marcado: boolean) =>
     cn(
@@ -62,7 +72,7 @@ export function Abas({
 
   if (modoLink) {
     return (
-      <nav className={container} {...props}>
+      <nav ref={barra} className={container} {...props}>
         {itens.map((i) => (
           <Link
             key={i.valor}
@@ -78,7 +88,7 @@ export function Abas({
   }
 
   return (
-    <div role="tablist" className={container} {...props}>
+    <div ref={barra} role="tablist" className={container} {...props}>
       {itens.map((i, n) => (
         <button
           key={i.valor}

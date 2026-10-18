@@ -8,6 +8,7 @@ import type { FinalizacaoTentativa } from "@/lib/db/schema/_enums";
 import { registrarConquista } from "@/lib/gamificacao/pontos";
 import { criadores_membros, produtos_avaliacoes as av, produtos_avaliacoes_concessoes, produtos_avaliacoes_questoes as qst, produtos_avaliacoes_tentativas as tent } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
+import { webhookAvaliacaoAprovada } from "@/lib/webhooks/emitir";
 import { aprovou, corrigir, montarOrdem, prazoEstourado, TEXTO_MOTIVO_AVALIACAO } from "./regras";
 import { situacoesDoMembro, type QuemAvalia } from "./situacao";
 
@@ -166,6 +167,7 @@ export async function finalizarTentativa(quem: QuemFaz, tentativaId: string, por
   if (r.novo && r.aprovada) {
     // Pontos da 1ª aprovação (razão idempotente por avaliação; nunca lança) — ADR-0012.
     await registrarConquista({ criadorId: quem.criadorId, membroId: quem.membroId, conquista: { motivo: "AVALIACAO_APROVADA", avaliacaoId: r.avaliacaoId }, ocorridoEm: r.fim });
+    await webhookAvaliacaoAprovada(quem.criadorId, quem.membroId, r.avaliacaoId, r.nota); // nunca lança (RN-204)
     await verificarEmissao(quem.criadorId, quem.membroId, r.produtoId);
   }
   return { tentativaId: r.tentativaId, nota: r.nota, aprovada: r.aprovada, finalizadaPor: r.finalizadaPor };

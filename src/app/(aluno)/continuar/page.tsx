@@ -1,25 +1,31 @@
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
+import Link from "next/link";
 import { BookOpen, Bookmark, NotebookPen, SearchX, Users } from "lucide-react";
+import { mesAno } from "@/components/aluno/formatos";
 import { CartaoCurso } from "@/components/curso/cartao-curso";
 import { Abas } from "@/components/ui/abas";
+import { buttonVariants } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Esqueleto } from "@/components/ui/esqueleto";
+import { Selo } from "@/components/ui/selo";
 import { CartaoFileira } from "@/components/vitrine/cartao-fileira";
 import { urlDeImagemOuNula } from "@/lib/armazenamento/cliente";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
 import { cursosDoAluno } from "@/lib/matriculas/consultas";
 import { comImagens, minhaLista, progressoDosCursos } from "@/lib/progresso/consultas";
+import { anotacoesDoAluno, turmasDoAluno } from "@/lib/progresso/continuar";
+import { formatarTempo } from "@/lib/validators/catalogo";
 import { FiltrosContinuar } from "./_components/filtros-continuar";
 
 export const metadata: Metadata = { title: "Continuar aprendendo" };
 
 /**
  * Continuar aprendendo (README tela 3): cursos do membro LOGADO com progresso real, favoritos
- * ("Minha lista") e, por enquanto, "Em breve" em Anotações e Turmas (sem consulta de listagem
- * ainda). Aba, busca e situação vivem na URL (GET), então a tela funciona sem JavaScript.
+ * ("Minha lista"), anotações por curso (cada uma abre a aula no minuto) e turmas (RN-205).
+ * Aba, busca e situação vivem na URL (GET), então a tela funciona sem JavaScript.
  */
 
 const ABAS = [
@@ -52,7 +58,19 @@ async function abaConteudos(q: Quem, busca: string, situacao: string): Promise<C
     return {
       total: 0,
       exibidos: 0,
-      corpo: <EstadoVazio comMoldura icone={<BookOpen />} titulo="Você ainda não tem cursos" descricao={`Quando a equipe da ${q.criador.nome} liberar um curso para você, ele aparece aqui.`} />,
+      corpo: (
+        <EstadoVazio
+          comMoldura
+          icone={<BookOpen />}
+          titulo="Você ainda não tem cursos"
+          descricao={`Quando a equipe da ${q.criador.nome} liberar um curso para você, ele aparece aqui.`}
+          acao={
+            <Link href="/resgatar" className={buttonVariants({ variant: "contorno", size: "40" })}>
+              Tenho um código de voucher
+            </Link>
+          }
+        />
+      ),
     };
   }
   const progresso = await progressoDosCursos(q, cursos.map((c) => c.produtoId));
@@ -114,17 +132,97 @@ async function abaFavoritos(q: Quem, busca: string): Promise<Conteudo> {
   return { total: lista.length, exibidos: filtrados.length, corpo };
 }
 
-const EM_BREVE: Record<"anotacoes" | "turmas", Conteudo> = {
-  anotacoes: { total: 0, exibidos: 0, corpo: <EstadoVazio comMoldura icone={<NotebookPen />} titulo="Em breve" descricao="As anotações que você faz nas aulas vão aparecer reunidas aqui." /> },
-  turmas: { total: 0, exibidos: 0, corpo: <EstadoVazio comMoldura icone={<Users />} titulo="Em breve" descricao="As turmas de que você participa vão aparecer aqui." /> },
-};
+async function abaAnotacoes(q: Quem, busca: string): Promise<Conteudo> {
+  const lista = await anotacoesDoAluno(q);
+  const termo = normalizar(busca);
+  const filtradas = lista.filter((a) => !termo || normalizar(`${a.texto} ${a.aula} ${a.produto}`).includes(termo));
+  if (lista.length === 0) {
+    return {
+      total: 0,
+      exibidos: 0,
+      corpo: <EstadoVazio comMoldura icone={<NotebookPen />} titulo="Nenhuma anotação ainda" descricao="Na aba Anotações de cada aula, anote o que quer lembrar. Tudo aparece reunido aqui, com o minuto do vídeo." />,
+    };
+  }
+  if (filtradas.length === 0) return { total: lista.length, exibidos: 0, corpo: <EstadoVazio icone={<SearchX />} titulo="Nenhuma anotação encontrada" descricao="Tente outro termo." /> };
+  // A consulta já vem ordenada por curso, módulo, aula e minuto: agrupar mantém a ordem.
+  const porCurso = Map.groupBy(filtradas, (a) => a.produtoId);
+  return {
+    total: lista.length,
+    exibidos: filtradas.length,
+    corpo: (
+      <div className="flex max-w-[860px] flex-col gap-7">
+        {[...porCurso.values()].map((notas) => (
+          <section key={notas[0].produtoId} aria-labelledby={`curso-${notas[0].produtoId}`} className="flex flex-col gap-2.5">
+            <h2 id={`curso-${notas[0].produtoId}`} className="m-0 text-base font-bold">
+              <Link href={`/cursos/${notas[0].produtoSlug}`} className="rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                {notas[0].produto}
+              </Link>
+            </h2>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {notas.map((a) => (
+                <li key={a.id}>
+                  <Link
+                    href={`/aula/${a.aulaId}?t=${a.tempoSeg}`}
+                    aria-label={`${a.aula}, em ${formatarTempo(a.tempoSeg)}: ${a.texto.slice(0, 120)}`}
+                    className="flex items-start gap-3 rounded-xl border border-border bg-surface px-3.5 py-3 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <span className="mt-px inline-flex h-7 shrink-0 items-center rounded-full bg-accent-soft px-2.5 text-xs font-bold text-accent tabular-nums">{formatarTempo(a.tempoSeg)}</span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5">
+                      <span className="text-xs font-semibold text-muted">{a.aula}</span>
+                      <span className="text-sm leading-relaxed break-words whitespace-pre-line">{a.texto}</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    ),
+  };
+}
+
+async function abaTurmas(q: Quem): Promise<Conteudo> {
+  const turmas = await turmasDoAluno(q);
+  if (turmas.length === 0) {
+    return { total: 0, exibidos: 0, corpo: <EstadoVazio comMoldura icone={<Users />} titulo="Você ainda não está em uma turma" descricao={`Quando a equipe da ${q.criador.nome} colocar você em uma turma, ela aparece aqui.`} /> };
+  }
+  return {
+    total: turmas.length,
+    exibidos: turmas.length,
+    corpo: (
+      <ul className="m-0 flex max-w-[860px] list-none flex-col divide-y divide-border rounded-2xl border border-border bg-surface p-0">
+        {turmas.map((t) => (
+          <li key={t.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-4 py-3.5">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <p className="m-0 text-[15px] font-bold break-words">{t.nome}</p>
+              <p className="m-0 text-[13px] text-muted">
+                {t.membros} {t.membros === 1 ? "pessoa" : "pessoas"} · você entrou em {mesAno(t.entrouEm)}
+              </p>
+            </div>
+            <Selo tom="neutro" forma="rotulo">
+              {t.tipo === "TURMA" ? "Turma" : "Grupo de acesso"}
+            </Selo>
+          </li>
+        ))}
+      </ul>
+    ),
+  };
+}
 
 async function Continuar({ searchParams }: { searchParams: Busca }) {
   const [sp, q] = await Promise.all([searchParams, membroDaPagina(TODOS_OS_MEMBROS)]);
   const aba: Aba = ABAS.find((a) => a.valor === sp.aba)?.valor ?? "conteudos";
   const busca = texto(sp.q);
   const situacao = (SITUACOES as readonly string[]).includes(texto(sp.situacao)) ? texto(sp.situacao) : "";
-  const c = aba === "conteudos" ? await abaConteudos(q, busca, situacao) : aba === "favoritos" ? await abaFavoritos(q, busca) : EM_BREVE[aba];
+  const c =
+    aba === "conteudos"
+      ? await abaConteudos(q, busca, situacao)
+      : aba === "favoritos"
+        ? await abaFavoritos(q, busca)
+        : aba === "anotacoes"
+          ? await abaAnotacoes(q, busca)
+          : await abaTurmas(q);
   const hrefAba = (valor: string) => {
     const p = new URLSearchParams();
     if (valor !== "conteudos") p.set("aba", valor);
@@ -132,7 +230,7 @@ async function Continuar({ searchParams }: { searchParams: Busca }) {
     const s = p.toString();
     return s ? `/continuar?${s}` : "/continuar";
   };
-  const comFiltros = aba === "conteudos" || aba === "favoritos";
+  const comFiltros = aba !== "turmas";
   return (
     <>
       <CabecalhoPagina titulo="Continuar aprendendo" contador={comFiltros ? c.exibidos : undefined} />

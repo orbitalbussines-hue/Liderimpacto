@@ -21,6 +21,7 @@ import {
   type ContagemMatriculas,
 } from "@/lib/matriculas/servico";
 import { violouUnico } from "@/lib/membros/vinculos";
+import { webhookMatriculas } from "@/lib/webhooks/emitir";
 import { alterarExpiracaoSchema, cancelarMatriculaSchema, expiracaoOpcional, matricularSchema } from "@/lib/validators/matriculas";
 import { idSchema, versaoSchema } from "@/lib/validators/membros";
 
@@ -76,8 +77,9 @@ export async function acaoMatricular(entrada: unknown) {
         return { ...c, pessoas, produtos: produtoIds.length };
       })
       .catch(concorrencia);
-    // Depois do commit; nunca lança (RN-134).
+    // Depois do commit; nunca lançam (RN-134, RN-204).
     await notificarMatriculas(criador.id, novas, usuario.id);
+    await webhookMatriculas(criador.id, novas, "MATRICULA_CRIADA", usuario.id);
     return r;
   });
 }
@@ -87,6 +89,7 @@ export async function acaoCancelarMatricula(entrada: unknown) {
     const { usuario, criador } = await exigirMembro(EQUIPE);
     const e = cancelarMatriculaSchema.parse(entrada);
     await db.transaction((tx) => cancelarMatricula(tx, { criadorId: criador.id, matriculaId: e.matriculaId, versao: e.versao, motivo: e.motivo, autor: usuario.id }));
+    await webhookMatriculas(criador.id, [e.matriculaId], "MATRICULA_CANCELADA", usuario.id);
     return null;
   });
 }
@@ -117,6 +120,7 @@ export async function acaoReativarMatricula(entrada: unknown) {
       })
       .catch(concorrencia);
     await notificarMatriculas(criador.id, [e.matriculaId], usuario.id);
+    await webhookMatriculas(criador.id, [e.matriculaId], "MATRICULA_CRIADA", usuario.id);
     return null;
   });
 }

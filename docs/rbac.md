@@ -79,6 +79,15 @@ pura é `papelEfetivo`/`papelAceito` (`src/lib/auth/permissoes.ts`, com teste).
 | Gamificação — ajuste manual de pontos (`ajustarPontos`) | só `DONO` e `ADMIN`, só para `ALUNO` do criador, com justificativa e trilha na mesma transação — RN-145 |
 | Gamificação — aluno (`/conquistas` = `conquistasDoMembro`: `rankingDoCriador`, `resumoDoMembro`, `extratoDoMembro` do próprio, `desafiosDoMembro`; `acaoParticiparDoDesafio`) — desligada: 404 e recusa | qualquer membro do criador do HOST; extrato e participação só os PRÓPRIOS; desafio só do público (`vePublicoSql`). Ranking só com alunos ativos que não saíram dele (`aparecer_no_ranking`) — RN-146, RN-147 |
 | `/continuar` (cursos do aluno) | qualquer membro ativo; mostra só as matrículas DELE neste criador |
+| Continuar › Anotações e Turmas (`anotacoesDoAluno`, `turmasDoAluno`) | qualquer membro, só as PRÓPRIAS (membro da sessão; SUPER_ADMIN sem vínculo = vazio) — RN-205 |
+| Tags de membros (`src/lib/actions/tags.ts`: criar, salvar, excluir, aplicar, remover; `listarTags`, filtro `tagId`) | `DONO` e `ADMIN` (`ALUNO`: "Sem permissão"). Tag ou membro de outro criador = "não encontrado" (FK composta) — RN-200 |
+| Vouchers — gerenciar (`acaoCriarVoucher`, `acaoSalvarVoucher`, `acaoMudarSituacaoVoucher`, `acaoExcluirVoucher`; `listarVouchers`, `resgatesDoVoucher`) | `DONO` e `ADMIN`; curso de outro criador = "Curso não encontrado" — RN-201 |
+| Vouchers — resgatar (`acaoResgatarVoucher`) | membro com VÍNCULO no criador do HOST, sempre para si (nenhum id de pessoa no corpo); código de outro criador = "Voucher não encontrado" — RN-201 |
+| Feedback de conteúdo — dar/tirar (`acaoDarFeedback`, `acaoRemoverFeedback`, `meuFeedback`) | só `ALUNO` que passa em `podeAssistir` a aula (`acessoDaAula`), só o PRÓPRIO; equipe recebe "Só alunos avaliam as aulas." — RN-202 |
+| Feedback de conteúdo — lista e resumo (`feedbacksDoCriador`, `resumoFeedbackPorAula`) e abas Matrículas › Progresso, Avaliações, Tentativas extras (`progressoDasMatriculas`, `tentativasDoCriador`, `esgotaramSemAprovar`, `concessoesDoCriador`; conceder = `acaoConcederTentativa`) | `DONO` e `ADMIN` — RN-202, RN-205 |
+| Estúdio › Estatísticas (`estatisticasDosVideos`) e IA (`acaoGerarSugestao`, `acaoAplicarSugestao`, `acaoDescartarSugestao`, `sugestoesDaAula`) | `DONO` e `ADMIN`; aula/avaliação de outro criador ou de outro curso = recusa — RN-205, RN-206 |
+| Configurações › Disparos de e-mails (`listarDisparos`, `resumoDisparos`) | só `DONO` (página com `papelMinimo: "DONO"`); só os da própria área — RN-203 |
+| Configurações › Integrações e webhooks (`src/lib/actions/webhooks.ts`; `listarWebhooks`, `entregasDoWebhook`) | só `DONO` (ADMIN e ALUNO: 403 na página e "Sem permissão" na action): o webhook manda dado de pessoas para fora — RN-204 |
 | Criadores (`/plataforma`, `/plataforma/novo`) | só `SUPER_ADMIN` no apex (RN-108) |
 | `/conta/seguranca` | qualquer sessão, inclusive a provisória do SUPER_ADMIN sem TOTP |
 | Link de senha para outra pessoa | ver RN-102 em `docs/regras-negocio.md` |

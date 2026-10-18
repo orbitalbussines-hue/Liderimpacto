@@ -3,13 +3,13 @@ import type { PapelCriador } from "@/lib/db/schema/_enums";
 
 export const ROTULO_PAPEL: Record<PapelCriador, string> = { DONO: "Dono", ADMIN: "Admin", ALUNO: "Aluno" };
 
-/** Abas das telas de Membros (as do protótipo sem rota ainda aparecem como "Em breve"). */
+/** Abas das telas de Membros. */
 export const ABAS_MEMBROS: AbaTabela[] = [
   { rotulo: "Membros", href: "/admin/membros" },
   { rotulo: "Grupos de acesso", href: "/admin/membros/grupos" },
-  { rotulo: "Vouchers", emBreve: true },
+  { rotulo: "Vouchers", href: "/admin/membros/vouchers" },
   { rotulo: "Gamificação", href: "/admin/membros/gamificacao" },
-  { rotulo: "Tags", emBreve: true },
+  { rotulo: "Tags", href: "/admin/membros/tags" },
 ];
 
 /** 21/09/26, no fuso de Brasília. */

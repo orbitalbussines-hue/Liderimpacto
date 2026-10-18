@@ -2,18 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { GraduationCap, KeyRound, MoreVertical, Power, ShieldCheck, Trash2, Users } from "lucide-react";
+import { GraduationCap, KeyRound, MoreVertical, Power, ShieldCheck, Tag, Trash2, Users } from "lucide-react";
 import { DialogoAdmin } from "@/components/admin/dialogo-admin";
 import { MenuAdmin, type ItemMenuAdmin } from "@/components/admin/menu-admin";
 import { DialogoMatricular, type DialogoMatricularProps } from "@/components/matriculas/dialogo-matricular";
 import { ModalConfirmacaoBlock } from "@/components/modal-confirmacao-block";
 import { Button } from "@/components/ui/button";
 import type { Resultado } from "@/lib/acao";
+import { acaoAplicarTag, acaoRemoverTag } from "@/lib/actions/tags";
 import { acaoAlterarSituacaoMembro, acaoDefinirGruposDoMembro, acaoMudarPapel, acaoRemoverMembro } from "@/lib/actions/membros-gestao";
 import type { PapelCriador, StatusMembro } from "@/lib/db/schema/_enums";
 import { podeGerir, podeMudarPapel } from "@/lib/membros/regras";
+import type { TagVisivel } from "./chip-tag";
 import { ROTULO_PAPEL } from "./comum";
-import { DialogoGrupos, DialogoLink, DialogoPapel } from "./dialogos-membro";
+import { DialogoGrupos, DialogoLink, DialogoPapel, DialogoTags } from "./dialogos-membro";
 
 export interface MembroDaLinha {
   id: string;
@@ -24,6 +26,8 @@ export interface MembroDaLinha {
   /** `updated_at` ISO do vínculo (trava de colisão). */
   versao: string;
   grupoIds: string[];
+  /** Tags marcadas (só na lista de Membros). */
+  tagIds?: string[];
   email: string;
   imagem: string | null;
 }
@@ -34,16 +38,18 @@ export interface AcoesMembroProps {
   /** Produtos do criador para "Matricular em…". */
   produtos: DialogoMatricularProps["produtos"];
   ator: { usuarioId: string; papel: PapelCriador };
+  /** Tags da área: liga o item "Tags" (RN-200). Sem isto (tela Equipe), o item não aparece. */
+  tags?: readonly TagVisivel[];
 }
 
-type Aberto = "link" | "papel" | "grupos" | "matricular" | null;
+type Aberto = "link" | "papel" | "grupos" | "tags" | "matricular" | null;
 type Critica = { titulo: string; mensagem: string; texto: string; executar: () => Promise<Resultado<null>> } | null;
 
 /**
  * Menu "⋮" da linha de membro. Esconder item é conforto: a action confere tudo de novo.
  * Ações críticas (papel, inativar, remover) passam pelo ModalConfirmacaoBlock.
  */
-export function AcoesMembro({ membro, grupos, produtos, ator }: AcoesMembroProps) {
+export function AcoesMembro({ membro, grupos, produtos, ator, tags }: AcoesMembroProps) {
   const router = useRouter();
   const [aberto, setAberto] = useState<Aberto>(null);
   const [critica, setCritica] = useState<Critica>(null);
@@ -66,6 +72,7 @@ export function AcoesMembro({ membro, grupos, produtos, ator }: AcoesMembroProps
   if (gerir) itens.push({ rotulo: "Gerar link de senha", icone: <KeyRound />, onSelecionar: () => setAberto("link") });
   if (podeMudarPapel(ator.papel)) itens.push({ rotulo: "Mudar papel", icone: <ShieldCheck />, onSelecionar: () => setAberto("papel") });
   if (podeGerir(ator.papel, membro.papel)) itens.push({ rotulo: "Grupos", icone: <Users />, onSelecionar: () => setAberto("grupos") });
+  if (tags) itens.push({ rotulo: "Tags", icone: <Tag />, onSelecionar: () => setAberto("tags") });
   if (gerir) {
     itens.push({
       rotulo: inativo ? "Reativar" : "Inativar",
@@ -140,6 +147,21 @@ export function AcoesMembro({ membro, grupos, produtos, ator }: AcoesMembroProps
           }}
         />
       )}
+      {aberto === "tags" && tags && (
+        <DialogoTags
+          aberto
+          onFechar={() => setAberto(null)}
+          nome={membro.nome}
+          tags={tags}
+          marcadas={membro.tagIds ?? []}
+          erro={erro}
+          pendente={pendente}
+          onSalvar={(ids) => {
+            setErro(null);
+            rodar(() => salvarTagsDoMembro(membro.id, membro.tagIds ?? [], ids));
+          }}
+        />
+      )}
 
       <ModalConfirmacaoBlock
         aberto={critica !== null}
@@ -151,7 +173,7 @@ export function AcoesMembro({ membro, grupos, produtos, ator }: AcoesMembroProps
         onConfirmar={() => critica && rodar(critica.executar)}
       />
       <DialogoAdmin
-        aberto={erro !== null && aberto !== "grupos"}
+        aberto={erro !== null && aberto !== "grupos" && aberto !== "tags"}
         onFechar={() => setErro(null)}
         titulo="Não foi possível concluir"
         descricao={erro}
@@ -163,4 +185,17 @@ export function AcoesMembro({ membro, grupos, produtos, ator }: AcoesMembroProps
       />
     </div>
   );
+}
+
+/** Marca as tags novas e tira as desmarcadas (actions idempotentes, uma por tag). Para no primeiro erro. */
+export async function salvarTagsDoMembro(membroId: string, antes: readonly string[], depois: readonly string[]): Promise<Resultado<null>> {
+  const mudancas = [
+    ...depois.filter((id) => !antes.includes(id)).map((tagId) => () => acaoAplicarTag({ tagId, membroIds: [membroId] })),
+    ...antes.filter((id) => !depois.includes(id)).map((tagId) => () => acaoRemoverTag({ tagId, membroIds: [membroId] })),
+  ];
+  for (const mudar of mudancas) {
+    const r = await mudar();
+    if (!r.ok) return r;
+  }
+  return { ok: true, dados: null };
 }

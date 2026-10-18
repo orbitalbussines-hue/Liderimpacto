@@ -230,7 +230,7 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
       item(
         "matriculas", "Matrículas", Inbox, 1,
         tabela(
-          "Matrículas", ["Matrículas", "Progresso", "Feedbacks de conteúdo", "Avaliações", "Correção"],
+          "Matrículas", ["Matrículas", "Progresso", "Feedbacks de conteúdo", "Avaliações", "Tentativas extras"],
           [{ titulo: "Aluno" }, { titulo: "Produto", largura: 200 }, { titulo: "Origem", largura: 110 }, { titulo: "Situação", largura: 110 }, { titulo: "Iniciada em", largura: 110 }, { titulo: "Expira em", largura: 110 }, ACOES_COL],
           { acaoPrincipal: novo("Matricular"), acaoSecundaria: { rotulo: "Importar CSV", icone: Upload, href: "/admin/matriculas/importar" } }
         )
@@ -288,8 +288,8 @@ export const RODAPE_NAVEGACAO: ItemNavegacao[] = [
         { icone: FileText, titulo: "Logs", descricao: "Trilha de auditoria e registros excluídos", href: "/admin/configuracoes/logs" },
         { icone: Upload, titulo: "Importação", descricao: "Upload em massa de membros e matrículas", href: "/admin/membros/importar" },
         { icone: Trophy, titulo: "Gamificação", descricao: "Ligar, pontos por ação e níveis", href: "/admin/configuracoes/gamificacao" },
-        { icone: Mail, titulo: "Disparos de e-mails", descricao: "Logs, entregas e templates" },
-        { icone: Link2, titulo: "Integrações e webhooks", descricao: "Conectores e automações externas" },
+        { icone: Mail, titulo: "Disparos de e-mails", descricao: "E-mails enviados, falhas e busca por destinatário", href: "/admin/configuracoes/disparos" },
+        { icone: Link2, titulo: "Integrações e webhooks", descricao: "Eventos da área enviados para outros sistemas", href: "/admin/configuracoes/webhooks" },
       ],
     },
     { papelMinimo: "DONO" }

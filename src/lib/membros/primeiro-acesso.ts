@@ -37,7 +37,7 @@ export async function linkDePrimeiroAcesso(
 export async function enviarPrimeiroAcesso(para: string, nome: string, criador: CriadorDaRequisicao, link: LinkNaTela): Promise<boolean> {
   if (!emailConfigurado()) return false;
   try {
-    return await enviarEmail({ para, ...emailPrimeiroAcesso(marcaDaArea(criador, URL_PLATAFORMA), nome, link.url, new Date(link.expiraEm)) });
+    return await enviarEmail({ para, tipo: "PRIMEIRO_ACESSO", criadorId: criador.id, ...emailPrimeiroAcesso(marcaDaArea(criador, URL_PLATAFORMA), nome, link.url, new Date(link.expiraEm)) });
   } catch (erro) {
     // O corpo leva o token: so o tipo do erro vai para o log.
     console.error("[email] falha ao enviar o primeiro acesso:", erro instanceof Error ? erro.name : "erro");

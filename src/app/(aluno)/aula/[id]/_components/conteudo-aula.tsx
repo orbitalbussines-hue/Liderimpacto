@@ -10,6 +10,7 @@ import { membroDaPagina } from "@/lib/auth/guarda";
 import { TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
 import { comentariosDaAula, situacaoNaComunidade } from "@/lib/comunidade/consultas";
 import { iniciais } from "@/lib/comunidade/regras";
+import { meuFeedback } from "@/lib/feedbacks/consultas";
 import { aulaParaPlayer } from "@/lib/progresso/consultas";
 import { Comentarios } from "@/components/comunidade/comentarios";
 import { textoSilenciado } from "@/components/comunidade/formatos";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { configPublicada } from "@/lib/vitrine/cache";
 import { idSchema } from "@/lib/validators/progresso";
 import { AulaInterativa } from "./aula-interativa";
+import { FeedbackAula } from "./feedback-aula";
 import { QuadroAviso } from "./quadro-aviso";
 import { avisoDeBloqueio, avisoDoVideo, eyebrowDaAula } from "./textos";
 
@@ -55,11 +57,14 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
   const d = await aulaParaPlayer(q, id, new Date(), (await configPublicada(q.criador.id))?.player);
   if (!d) notFound();
 
-  const [poster, comentarios, situacao, assistente] = await Promise.all([
+  // Só ALUNO avalia (RN-202); a equipe na prévia vê os botões desligados.
+  const avalia = d.pode && !!q.membro.id && q.membro.papel === "ALUNO";
+  const [poster, comentarios, situacao, assistente, feedback] = await Promise.all([
     urlDeImagemOuNula(q.criador.id, d.aula.thumbChave),
     d.flags.abas.comentarios ? comentariosDaAula(q, d.aula.id) : null,
     situacaoNaComunidade(q),
     assistenteDaAula(q, { id: d.aula.id, produtoId: d.produto.id, pode: d.pode }),
+    avalia && q.membro.id ? meuFeedback(q.criador.id, q.membro.id, d.aula.id) : null,
   ]);
   // `?t=` (link de fonte do assistente): abre a aula naquele segundo.
   const t = typeof busca.t === "string" && /^\d{1,6}$/.test(busca.t) ? Number(busca.t) : null;
@@ -91,6 +96,7 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
         legendas={aviso ? [] : d.legendas}
         chaveLegenda={`li:legenda:${q.usuario.id}`}
         saltoSeg={t}
+        feedback={d.pode && q.membro.id ? <FeedbackAula aulaId={d.aula.id} inicial={feedback && { util: feedback.util, comentario: feedback.comentario }} somenteLeitura={!avalia} /> : undefined}
         assistente={
           assistente && (
             <ChatAssistente

@@ -22,10 +22,11 @@ export interface FiltrosContinuarProps {
 /** Busca + situação por GET (a URL guarda o filtro; Enter busca, trocar a situação aplica na hora). */
 export function FiltrosContinuar({ aba, busca, situacao, comSituacao }: FiltrosContinuarProps) {
   const form = useRef<HTMLFormElement>(null);
+  const rotulo = aba === "anotacoes" ? "Pesquisar anotações" : "Pesquisar conteúdo";
   return (
     <form ref={form} method="get" role="search" className="flex w-full flex-wrap gap-2 pb-2 desk:w-auto">
       {aba !== "conteudos" && <input type="hidden" name="aba" value={aba} />}
-      <CampoBusca name="q" defaultValue={busca} rotulo="Pesquisar conteúdo" placeholder="Pesquisar conteúdo..." fundo="surface" classNameMoldura="min-w-0 flex-1 desk:w-[220px] desk:flex-none" />
+      <CampoBusca name="q" defaultValue={busca} rotulo={rotulo} placeholder={`${rotulo}...`} fundo="surface" classNameMoldura="min-w-0 flex-1 desk:w-[220px] desk:flex-none" />
       {comSituacao && (
         <Selecao
           name="situacao"

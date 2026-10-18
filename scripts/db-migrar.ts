@@ -33,7 +33,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Client } from "pg";
 
 /** Tabelas `compliance:append-only`: a aplicação só insere e lê. */
-const APPEND_ONLY = ["auditoria", "criadores_membros_pontos"] as const;
+const APPEND_ONLY = ["auditoria", "criadores_membros_pontos", "emails_disparos"] as const;
 const NOME_DE_PAPEL = /^[a-z_][a-z0-9_]{0,62}$/;
 /** Chave da trava (texto fixo -> int4). Só este script a usa. */
 const TRAVA = sql`hashtext('lider-impacto:migracoes')`;

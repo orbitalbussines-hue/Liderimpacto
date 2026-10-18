@@ -17,7 +17,7 @@ export const ROTULO_SITUACAO_MATRICULA: Record<SituacaoMatricula, string> = {
   EXPIRADA: "Expirada",
 };
 
-export const ROTULO_ORIGEM_MATRICULA: Record<OrigemMatricula, string> = { MANUAL: "Manual", IMPORTACAO: "Importação", COMPRA: "Compra" };
+export const ROTULO_ORIGEM_MATRICULA: Record<OrigemMatricula, string> = { MANUAL: "Manual", IMPORTACAO: "Importação", COMPRA: "Compra", VOUCHER: "Voucher" };
 
 export function situacaoDaMatricula(m: { status: StatusMatricula; expiraEm: Date | null }, agora: Date): SituacaoMatricula {
   if (m.status !== "ATIVA") return m.status;

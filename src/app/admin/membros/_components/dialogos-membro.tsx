@@ -9,6 +9,7 @@ import { Campo } from "@/components/ui/campo";
 import { GrupoChips } from "@/components/ui/grupo-chips";
 import { acaoGerarLinkDeSenha } from "@/lib/actions/usuarios-senha";
 import type { PapelCriador } from "@/lib/db/schema/_enums";
+import { ChipTag, type TagVisivel } from "./chip-tag";
 import { ROTULO_PAPEL } from "./comum";
 
 interface BaseDialogo {
@@ -141,6 +142,60 @@ export function DialogoGrupos({
           <legend className="sr-only">Grupos</legend>
           {grupos.map((g) => (
             <CaixaSelecao key={g.id} rotulo={g.nome} checked={selecao.includes(g.id)} onChange={(e) => alternar(g.id, e.target.checked)} className="text-text" />
+          ))}
+        </fieldset>
+      )}
+      {erro && (
+        <p role="alert" className="m-0 text-[13px] font-semibold text-warn">
+          {erro}
+        </p>
+      )}
+    </DialogoAdmin>
+  );
+}
+
+/** Marca/desmarca as tags do membro (RN-200: tag só organiza, não libera nada). */
+export function DialogoTags({
+  aberto,
+  onFechar,
+  nome,
+  tags,
+  marcadas,
+  erro,
+  pendente,
+  onSalvar,
+}: BaseDialogo & {
+  tags: readonly TagVisivel[];
+  marcadas: readonly string[];
+  erro: string | null;
+  pendente: boolean;
+  onSalvar: (ids: string[]) => void;
+}) {
+  const [selecao, setSelecao] = useState<string[]>([...marcadas]);
+  const alternar = (id: string, ligado: boolean) => setSelecao((s) => (ligado ? [...s, id] : s.filter((x) => x !== id)));
+  const mudou = selecao.length !== marcadas.length || selecao.some((id) => !marcadas.includes(id));
+  return (
+    <DialogoAdmin
+      aberto={aberto}
+      onFechar={onFechar}
+      titulo="Tags"
+      descricao={tags.length ? `Tags de ${nome}. Só organizam a lista: não liberam conteúdo.` : "Esta área ainda não tem tags. Crie na aba Tags."}
+      rodape={
+        <>
+          <Button variant="contorno" size="42" onClick={onFechar}>
+            Cancelar
+          </Button>
+          <Button size="42" carregando={pendente} disabled={!mudou} onClick={() => onSalvar(selecao)}>
+            Salvar
+          </Button>
+        </>
+      }
+    >
+      {tags.length > 0 && (
+        <fieldset className="m-0 flex max-h-72 flex-col overflow-y-auto border-0 p-0">
+          <legend className="sr-only">Tags</legend>
+          {tags.map((t) => (
+            <CaixaSelecao key={t.id} rotulo={<ChipTag tag={t} />} checked={selecao.includes(t.id)} onChange={(e) => alternar(t.id, e.target.checked)} />
           ))}
         </fieldset>
       )}

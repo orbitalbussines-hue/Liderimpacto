@@ -55,6 +55,8 @@ export interface AulaInterativaProps {
   assistente?: ReactNode;
   /** `?t=` da URL: ao mudar (fonte citada pelo assistente na mesma aula), o vídeo pula para lá. */
   saltoSeg?: number | null;
+  /** "Esta aula foi útil?" (RN-202), montado no servidor só para quem pode assistir. */
+  feedback?: ReactNode;
 }
 
 type Aba = "descricao" | "transcricao" | "assistente" | "materiais" | "comentarios" | "anotacoes";
@@ -210,6 +212,7 @@ export function AulaInterativa(p: AulaInterativaProps) {
         </div>
       )}
       {erro && <Aviso tom="erro">{erro}</Aviso>}
+      {p.feedback}
       {!!p.flags.aulasParaCertificado && (
         <p className="m-0 flex items-center gap-2 self-start rounded-[10px] bg-accent-soft px-3.5 py-2.5 text-[13px] font-bold text-accent">
           <Award aria-hidden className="size-4 shrink-0" />

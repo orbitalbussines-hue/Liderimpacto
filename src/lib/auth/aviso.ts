@@ -32,11 +32,12 @@ async function criadorDoHostAtual(): Promise<CriadorDaRequisicao | null> {
  * Roda DEPOIS da resposta. Sem SMTP configurado, nada sai (o evento ja esta na trilha).
  */
 export async function avisarDono(usuarioId: string, oQueMudou: string): Promise<void> {
-  const marca = marcaDaArea(await criadorDoHostAtual(), URL_PLATAFORMA);
+  const criador = await criadorDoHostAtual();
+  const marca = marcaDaArea(criador, URL_PLATAFORMA);
   const quando = new Date();
   await depoisDaResposta(async () => {
     const [u] = await db.select({ nome: usuarios.nome, email: usuarios.email }).from(usuarios).where(and(eq(usuarios.id, usuarioId), vivos(usuarios)));
     if (!u) return;
-    await enviarEmail({ para: u.email, ...emailAvisoSeguranca(marca, u.nome, oQueMudou, quando) });
+    await enviarEmail({ para: u.email, tipo: "AVISO_SEGURANCA", criadorId: criador?.id ?? null, ...emailAvisoSeguranca(marca, u.nome, oQueMudou, quando) });
   });
 }

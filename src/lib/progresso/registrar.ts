@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { registrarConquista } from "@/lib/gamificacao/pontos";
 import type { ConclusaoAula } from "@/lib/db/schema/_enums";
 import { DURACAO_MAXIMA_PROGRESSO_SEG } from "@/lib/db/schema/progresso";
+import { webhookAulaConcluida, webhookCursoConcluido } from "@/lib/webhooks/emitir";
 import { esquemaBatida, FOLGA_SEG, PERCENTUAL_CONCLUSAO, prepararBatida, TETO_PRIMEIRA_BATIDA_SEG, VELOCIDADE_MAXIMA, type Intervalo } from "./regras";
 
 /**
@@ -199,6 +200,7 @@ export async function concluirManualmente(e: EntradaConclusaoManual): Promise<Pr
  */
 async function depoisDeConcluir(criadorId: string, membroId: string, aulaId: string): Promise<void> {
   await registrarConquista({ criadorId, membroId, conquista: { motivo: "AULA_CONCLUIDA", aulaId } });
+  await webhookAulaConcluida(criadorId, membroId, aulaId); // nunca lança (RN-204)
   await concluirMatriculaSeCompleta(criadorId, membroId, aulaId);
 }
 
@@ -222,6 +224,7 @@ async function concluirMatriculaSeCompleta(criadorId: string, membroId: string, 
   // Passo 7: matrícula concluída é uma das condições do certificado (RN-128).
   for (const r of rows) {
     await registrarConquista({ criadorId, membroId, conquista: { motivo: "CURSO_CONCLUIDO", produtoId: r.produto_id } });
+    await webhookCursoConcluido(criadorId, membroId, r.produto_id);
     await verificarEmissao(criadorId, membroId, r.produto_id);
   }
 }

@@ -15,6 +15,7 @@ import { estadoDaFila, listarVideos, produtosComVideo, totaisDoEstudio, type Est
 import { ROTULO_SITUACAO_VIDEO, TOM_SITUACAO_VIDEO, formatarBytes, formatarHoras } from "@/lib/video/regras";
 import { dataHoraCurta, ehUuid } from "../conteudos/_components/comum";
 import { AcoesVideo } from "./_components/acoes-video";
+import { ABAS_ESTUDIO, ROTA_ESTUDIO, um, type Busca } from "./_components/comum";
 
 export const metadata: Metadata = { title: "Estúdio de vídeo" };
 
@@ -30,11 +31,7 @@ const COLUNAS: Coluna[] = [
   { titulo: "Enviado em", largura: 140 },
   { titulo: "Ações", largura: 56 },
 ];
-const ABA_DA_SITUACAO: Record<SituacaoVideo, string> = { PRONTO: "Prontos", PROCESSANDO: "Processando", FALHOU: "Falharam", ENVIANDO: "Enviando" };
-const ORDEM_ABAS: SituacaoVideo[] = ["PRONTO", "PROCESSANDO", "FALHOU", "ENVIANDO"];
-
-type Busca = Promise<Record<string, string | string[] | undefined>>;
-const um = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() || undefined;
+const ORDEM_SITUACOES: SituacaoVideo[] = ["PRONTO", "PROCESSANDO", "FALHOU", "ENVIANDO"];
 /** "1080p" antes de "720p". */
 const ordenarResolucoes = (r: string[]) => [...r].sort((a, b) => Number.parseInt(b, 10) - Number.parseInt(a, 10));
 
@@ -75,10 +72,11 @@ async function Estudio({ searchParams }: { searchParams: Busca }) {
     const atual = { q: filtros.busca, situacao: filtros.situacao, curso: filtros.produtoId, pagina: undefined as string | undefined, ...mudar };
     for (const [k, v] of Object.entries(atual)) if (v) p.set(k, v);
     const qs = p.toString();
-    return qs ? `/admin/estudio-de-video?${qs}` : "/admin/estudio-de-video";
+    return qs ? `${ROTA_ESTUDIO}?${qs}` : ROTA_ESTUDIO;
   };
   const cursoAtivo = cursos.find((c) => c.id === filtros.produtoId);
   const filtrosAtivos = [
+    filtros.situacao && { rotulo: `Situação · ${ROTULO_SITUACAO_VIDEO[filtros.situacao]}`, hrefRemover: href({ situacao: undefined }) },
     cursoAtivo && { rotulo: `Curso · ${cursoAtivo.titulo}`, hrefRemover: href({ curso: undefined }) },
     filtros.busca && { rotulo: `Busca · ${filtros.busca}`, hrefRemover: href({ q: undefined }) },
   ].filter((f) => !!f);
@@ -140,22 +138,31 @@ async function Estudio({ searchParams }: { searchParams: Busca }) {
       <PaginaTabela
         titulo="Estúdio de vídeo"
         estatistica={`${lista.total} ${lista.total === 1 ? "vídeo" : "vídeos"}`}
-        abas={[{ rotulo: "Todos", href: href({ situacao: undefined }) }, ...ORDEM_ABAS.map((s) => ({ rotulo: ABA_DA_SITUACAO[s], href: href({ situacao: s }) }))]}
-        abaAtiva={filtros.situacao ? ABA_DA_SITUACAO[filtros.situacao] : "Todos"}
+        abas={ABAS_ESTUDIO}
+        abaAtiva="Vídeos"
         busca="Pesquise pela aula ou pelo nome do arquivo..."
         valorBusca={filtros.busca}
         formBusca={{ nome: "q", manter: Object.fromEntries(Object.entries({ situacao: filtros.situacao, curso: filtros.produtoId }).filter(([, v]) => v)) as Record<string, string> }}
         filtrosAtivos={filtrosAtivos}
         controles={
-          cursos.length > 0 && (
+          <>
             <MenuFiltro
-              rotulo="Curso"
+              rotulo="Situação"
               itens={[
-                { rotulo: "Todos os cursos", href: href({ curso: undefined }), marcado: !filtros.produtoId },
-                ...cursos.map((c) => ({ rotulo: c.titulo, href: href({ curso: c.id }), marcado: c.id === filtros.produtoId })),
+                { rotulo: "Todas as situações", href: href({ situacao: undefined }), marcado: !filtros.situacao },
+                ...ORDEM_SITUACOES.map((s) => ({ rotulo: ROTULO_SITUACAO_VIDEO[s], href: href({ situacao: s }), marcado: s === filtros.situacao })),
               ]}
             />
-          )
+            {cursos.length > 0 && (
+              <MenuFiltro
+                rotulo="Curso"
+                itens={[
+                  { rotulo: "Todos os cursos", href: href({ curso: undefined }), marcado: !filtros.produtoId },
+                  ...cursos.map((c) => ({ rotulo: c.titulo, href: href({ curso: c.id }), marcado: c.id === filtros.produtoId })),
+                ]}
+              />
+            )}
+          </>
         }
         colunas={COLUNAS}
         linhas={linhas}

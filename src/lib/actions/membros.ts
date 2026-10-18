@@ -14,6 +14,7 @@ import { enviarPrimeiroAcesso, linkDePrimeiroAcesso, MSG_CONTA_EXISTENTE, type L
 import { papeisQuePodeCadastrar } from "@/lib/membros/regras";
 import { definirGruposDoMembro, vincularPessoa, violouUnico } from "@/lib/membros/vinculos";
 import { cadastroMembroSchema } from "@/lib/validators/membros";
+import { webhookMembrosCadastrados } from "@/lib/webhooks/emitir";
 
 /**
  * Cadastro e importacao de membros do criador do HOST (RN-104). DONO e ADMIN; ADMIN so
@@ -50,6 +51,7 @@ export async function acaoCadastrarMembro(entrada: unknown) {
         throw erro;
       });
 
+    await webhookMembrosCadastrados(criador.id, [vinculo.membroId], usuario.id); // depois do commit; nunca lança (RN-204)
     if (!vinculo.identidadeNova) return { link: null, emailEnviado: false, aviso: MSG_CONTA_EXISTENTE };
     const link = await linkDePrimeiroAcesso(vinculo.usuarioId, criador, usuario.id, "Primeiro acesso (cadastro de membro)");
     const emailEnviado = await enviarPrimeiroAcesso(e.email, e.nome, criador, link);
@@ -83,6 +85,7 @@ export async function acaoImportarMembros(entrada: unknown) {
     let reaproveitados = 0;
     let jaMembros = 0;
     const gruposCriados: string[] = [];
+    const cadastrados: string[] = [];
 
     await db
       .transaction(async (tx) => {
@@ -98,6 +101,7 @@ export async function acaoImportarMembros(entrada: unknown) {
             jaMembros++;
             continue;
           }
+          cadastrados.push(v.membroId);
           if (v.identidadeNova) novos.push({ usuarioId: v.usuarioId, nome: dados.nome, email: dados.email });
           else reaproveitados++;
           if (!dados.grupo) continue;
@@ -139,6 +143,7 @@ export async function acaoImportarMembros(entrada: unknown) {
         throw erro;
       });
 
+    await webhookMembrosCadastrados(criador.id, cadastrados, usuario.id); // depois do commit; nunca lança (RN-204)
     // ponytail: um link por conta nova, em sequencia (4 consultas cada); fila se passar de 1000 linhas.
     const links: ResultadoImportacao["links"] = [];
     for (const n of novos) {

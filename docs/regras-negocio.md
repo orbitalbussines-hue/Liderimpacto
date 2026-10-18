@@ -536,6 +536,62 @@ Cada regra segue este formato:
 - **Comportamento esperado**: números calculados das mensagens gravadas (nada de contador que diverge).
 - **Impacto se descumprida**: surpresa na fatura.
 
+### RN-200 - Tags de membros — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-17
+- **Modulo**: Admin > Membros > Tags (DONO e ADMIN)
+- **Descricao**: A equipe cria **tags** (nome de até 40 caracteres, único na área sem diferenciar maiúsculas, e uma cor) e marca um ou vários membros de uma vez (marcar quem já tem não muda nada). A lista de membros filtra por tag e mostra as tags de cada pessoa. Tag só organiza: **não libera curso, canal nem conteúdo** (isso é grupo). Editar usa a versão aberta (outra pessoa mexeu = "recarregue"). Excluir a tag pede a confirmação de 3 s e tira a tag de todos os membros; o nome fica livre de novo.
+- **Comportamento esperado**: contagem de membros por tag; toda mudança na trilha.
+- **Impacto se descumprida**: equipe misturando tag com permissão; tags duplicadas ("VIP" e "vip").
+
+### RN-201 - Vouchers — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-17
+- **Modulo**: Admin > Membros > Vouchers (DONO e ADMIN) e resgate pelo aluno
+- **Descricao**: Um voucher é um **código** que dá matrícula em um ou mais cursos. Código de 6 a 16 letras e números **sem 0, O, 1 e I** (o gerado pelo sistema tem 8); o aluno pode digitar com minúsculas, espaço ou hífen. Único na área; não muda depois de criado. Tem descrição, **validade** opcional, **limite total de usos** opcional, **limite por pessoa** (padrão 1) e **dias de acesso** da matrícula gerada (vazio = sem expiração). Situação **ATIVO**, **PAUSADO** (volta a ativo) ou **ENCERRADO** (final). Resgate: confere situação, validade e limites com o voucher travado (dois resgates ao mesmo tempo nunca passam do limite) e matricula em cada curso (origem "Voucher"); quem já tem um dos cursos valendo fica como está nesse curso; quem já tem **todos** recebe "você já tem acesso" sem gastar uso. Voucher com resgate não se exclui: encerre.
+- **Comportamento esperado**: lista com usos, cursos e "Expirado" quando a validade passou; resgates com quem, quando e as matrículas; trilha de criar, editar, mudar situação e resgatar.
+- **Impacto se descumprida**: código vazado sendo usado além do combinado; matrícula paga sobrescrita.
+
+### RN-202 - Feedback de conteúdo — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-17
+- **Modulo**: Aula do aluno (botão discreto) e Admin > Matrículas > Feedbacks de conteúdo
+- **Descricao**: O aluno diz se a aula foi **útil** ou **não útil**, com um comentário opcional de até 500 caracteres (texto puro). Uma avaliação por aluno por aula: mudar de ideia substitui a anterior; ele pode tirar a avaliação. Só aluno com acesso à aula avalia (a prévia da equipe não conta). A equipe vê a lista (mais recentes primeiro; filtros por curso, aula, útil/não útil e "só com comentário") e o resumo por aula com o **% de útil** (a "média"), piores primeiro.
+- **Comportamento esperado**: comentário sempre exibido como texto; números calculados das avaliações vivas.
+- **Impacto se descumprida**: estatística distorcida pela equipe; HTML do aluno na tela da equipe.
+
+### RN-203 - Disparos de e-mails
+- **Definida por**: Bah! Tech
+- **Data**: 2026-10-17
+- **Modulo**: Admin > Configurações > Disparos de e-mails (só DONO)
+- **Descricao**: Cada e-mail que o sistema tenta mandar (definir senha, primeiro acesso, aviso de segurança) vira um registro com tipo, **destinatário mascarado** (`pa***@gm***.com`), assunto, situação (**Enviado**, **Falhou** com o código do erro, **Não configurado** quando o SMTP não está ligado) e data. O corpo nunca é guardado (leva link com token). A busca por destinatário exige o **e-mail completo** (compara um código derivado do endereço, não o endereço). O registro não pode ser alterado nem apagado.
+- **Comportamento esperado**: resumo dos últimos 30 dias por situação; só os da própria área.
+- **Impacto se descumprida**: suporte sem saber se o e-mail saiu; dado pessoal em claro num registro que não se apaga.
+
+### RN-204 - Integrações e webhooks
+- **Definida por**: Bah! Tech
+- **Data**: 2026-10-17
+- **Modulo**: Admin > Configurações > Integrações e webhooks (só DONO)
+- **Descricao**: O dono cadastra até **10 endereços https** que recebem eventos: matrícula criada (inclui reativada e por voucher), matrícula cancelada, aula concluída, curso concluído, certificado emitido, avaliação aprovada, membro cadastrado. Cada webhook tem nome, eventos escolhidos e situação (**ativo**/**pausado**). O **segredo** de assinatura aparece **uma única vez** ao criar ou ao trocar (o antigo para de valer na hora); depois só os 4 últimos caracteres. Cada envio leva a assinatura HMAC-SHA256 no cabeçalho `X-Lider-Assinatura` (`t=<unix>,v1=<hex>` do texto `<t>.<corpo>`), o evento e o id da entrega. Falhou (sem resposta em 5 s, erro, redirecionamento ou status fora de 2xx): até 8 tentativas em cerca de 1 hora; depois "Falhou" e pode ser **reenviada**. Endereços internos (localhost, rede privada, metadados da nuvem) são recusados sempre. O corpo leva id, nome e e-mail da pessoa e os dados do curso/aula.
+- **Comportamento esperado**: lista de entregas com evento, situação, status HTTP, tentativas, próxima tentativa e erro resumido; criar, editar, pausar, trocar segredo e excluir na trilha (sem o segredo).
+- **Impacto se descumprida**: dado de aluno enviado para lugar errado; servidor da plataforma usado para atacar a rede interna.
+
+### RN-205 - Abas de acompanhamento (Matrículas, Continuar, Estúdio)
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-17
+- **Modulo**: Admin > Matrículas (Progresso, Avaliações, Tentativas extras), Aluno > Continuar (Anotações, Turmas), Admin > Estúdio de vídeo (Estatísticas)
+- **Descricao**: **Progresso**: por aluno e curso (matrículas ativas), aulas concluídas de aulas publicadas, %, última atividade e conclusão. **Avaliações**: tentativas dos alunos com nota, aprovada/reprovada ou em andamento. **Tentativas extras** (no lugar de "Correção": as avaliações são objetivas e corrigidas na hora): quem esgotou as tentativas sem aprovar, para a equipe conceder nova chance, e o histórico de concessões (quem, quanto, por quê, quem deu). **Anotações**: todas as anotações do próprio aluno por curso e aula, com o minuto. **Turmas**: os grupos em que o aluno está. **Estatísticas** por vídeo pronto: visualizações no período (padrão 30 dias), pessoas que abriram, minutos assistidos (segundos únicos por pessoa), retenção média (% assistido) e conclusões.
+- **Comportamento esperado**: só dados da própria área; aluno só vê o que é dele.
+- **Impacto se descumprida**: equipe decidindo com número errado; aluno vendo dado de outro.
+
+### RN-206 - IA no Estúdio de vídeo — PADRÃO aguardando o cliente
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-17
+- **Modulo**: Admin > Estúdio de vídeo > IA (DONO e ADMIN)
+- **Descricao**: Com a **legenda** enviada, a equipe pede à IA (Claude) uma **descrição** da aula, **capítulos** com o minuto e **3 a 5 perguntas** de múltipla escolha (4 opções, uma certa, com explicação). Nada muda sozinho: a equipe revisa e **aplica cada parte** — a descrição e os capítulos substituem os da aula (se alguém editou a aula nesse meio tempo, "recarregue"); as perguntas escolhidas entram no fim de uma avaliação **do mesmo curso**. Sem o arquivo da legenda no armazenamento não há capítulos (o minuto seria inventado). Até **30 gerações por dia** por área, contando as descartadas; cada geração guarda os tokens e o custo estimado. Resposta fora do formato é descartada com aviso.
+- **Comportamento esperado**: sugestões mais recentes primeiro com o que já foi aplicado; descartar some da lista; toda geração e aplicação na trilha.
+- **Impacto se descumprida**: conteúdo inventado publicado sem revisão; custo sem teto.
+
 <!-- Exemplo de registro: -->
 
 <!--

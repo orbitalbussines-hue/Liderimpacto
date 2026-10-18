@@ -1,11 +1,22 @@
 import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
+import type { TipoEmail } from "@/lib/db/schema/_enums";
+import { registrarDisparo } from "./disparos";
 import type { MensagemPronta } from "./mensagens";
 
 /** Sempre multipart (html + texto), montado por `mensagens.ts` / `modelo.ts`. */
 export interface Email extends MensagemPronta {
   para: string;
+  /** Para o registro de disparos (RN-203): que e-mail é e de qual área saiu (nulo = plataforma). */
+  tipo: TipoEmail;
+  criadorId: string | null;
 }
+
+/** Só o NOME/código do erro vai para o registro (a mensagem do SMTP pode ecoar o destinatário). */
+const codigoDoErro = (e: unknown) => {
+  const x = e as { code?: unknown; name?: unknown } | null;
+  return typeof x?.code === "string" ? x.code : typeof x?.name === "string" ? x.name : "Erro";
+};
 
 /**
  * E-mail do sistema: SMTP da Hostinger (`smtp.hostinger.com`, porta 465 com TLS direto),
@@ -27,11 +38,16 @@ export const emailConfigurado = () => config() !== null;
 
 let transporte: Transporter | null = null;
 
-/** `true` = entregue ao servidor SMTP; `false` = sem configuracao (nada enviado). Falha de envio lanca. */
+/**
+ * `true` = entregue ao servidor SMTP; `false` = sem configuracao (nada enviado). Falha de envio lanca.
+ * Todo caso (ENVIADO, FALHOU, NAO_CONFIGURADO) vira uma linha em `emails_disparos`, sem o corpo.
+ */
 export async function enviarEmail(e: Email): Promise<boolean> {
+  const registro = { criadorId: e.criadorId, tipo: e.tipo, para: e.para, assunto: e.assunto } as const;
   const c = config();
   if (!c) {
     console.info(`[email] SMTP não configurado: "${e.assunto}" não foi enviado.`);
+    await registrarDisparo({ ...registro, situacao: "NAO_CONFIGURADO" });
     return false;
   }
   transporte ??= nodemailer.createTransport({
@@ -45,6 +61,12 @@ export async function enviarEmail(e: Email): Promise<boolean> {
   const endereco = /<([^>]+)>/.exec(c.remetente)?.[1] ?? c.remetente;
   const nome = e.remetente.replace(/[\r\n"<>]/g, "").trim();
   const from = nome ? { name: nome, address: endereco } : c.remetente;
-  await transporte.sendMail({ from, to: e.para, subject: e.assunto, text: e.texto, html: e.html });
+  try {
+    await transporte.sendMail({ from, to: e.para, subject: e.assunto, text: e.texto, html: e.html });
+  } catch (erro) {
+    await registrarDisparo({ ...registro, situacao: "FALHOU", erro: codigoDoErro(erro) });
+    throw erro;
+  }
+  await registrarDisparo({ ...registro, situacao: "ENVIADO" });
   return true;
 }

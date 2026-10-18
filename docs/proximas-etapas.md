@@ -44,6 +44,22 @@ também os e-mails de senha). Candidatos: Brevo, Amazon SES, Resend (domínio pr
 
 ## 4. Produto
 
+### Fase 1 dos "Em breve" (sem gateway e sem e-mail em massa) — camada de dados feita em 17/10/2026
+
+ADR-0018, RN-200 a RN-206, `docs/back.md` ("Fase 1"), migração `0012`. Faltam as TELAS (e as páginas
+das Configurações com `papelMinimo: "DONO"` para Disparos e Webhooks):
+
+- ~~Dados~~ Membros › **Tags** e **Vouchers** (+ resgate pelo aluno).
+- ~~Dados~~ Matrículas › **Feedbacks de conteúdo**, **Progresso**, **Avaliações** e **Tentativas extras**
+  (no lugar de "Correção"; questão discursiva com nota manual fica para uma fase própria com ADR).
+- ~~Dados~~ Botão de feedback na aula do aluno; Continuar › **Anotações** e **Turmas**.
+- ~~Dados~~ Configurações › **Disparos de e-mails** (registro ligado no `enviarEmail`) e **Integrações e
+  webhooks** (4º Worker de `worker:certificados`: a imagem do worker não muda, só o código).
+- ~~Dados~~ Estúdio › **Estatísticas** e **IA** (precisa da `ANTHROPIC_API_KEY` do item 3).
+- Depois: "Enviar teste" do webhook, retenção das entregas antigas, questão discursiva.
+
+### Fase 2
+
 - Gateway de pagamento (libera Vendas e financeiro, Páginas e Funis).
 - Página de vendas do livro do Valmer de volta ao ar (projeto `Desktop\Valmer\Pagina de vendas
   mulher`, em projeto próprio do Easypanel).

@@ -16,6 +16,7 @@ import { MAX_BYTES_CSV, type ErroCsv } from "@/lib/membros/csv";
 import { enviarPrimeiroAcesso, linkDePrimeiroAcesso, type LinkNaTela } from "@/lib/membros/primeiro-acesso";
 import { vincularPessoa, violouUnico } from "@/lib/membros/vinculos";
 import { notificarMatriculas } from "@/lib/notificacoes/gerar";
+import { webhookMatriculas, webhookMembrosCadastrados } from "@/lib/webhooks/emitir";
 
 /**
  * Importacao CSV de matriculas (`nome,email,produto,expira_em,grupo`), RN-117. DONO e ADMIN.
@@ -85,6 +86,7 @@ export async function acaoImportarMatriculas(entrada: unknown) {
     let jaMembros = 0;
     const gruposCriados: string[] = [];
     const novasMatriculas: string[] = [];
+    const cadastrados: string[] = [];
 
     await db
       .transaction(async (tx) => {
@@ -101,8 +103,11 @@ export async function acaoImportarMatriculas(entrada: unknown) {
             membroId = v.membroId;
             membroPorEmail.set(dados.email, membroId);
             if (v.tipo === "ja-membro") jaMembros++;
-            else if (v.identidadeNova) novos.set(dados.email, { usuarioId: v.usuarioId, nome: dados.nome, email: dados.email });
-            else reaproveitados++;
+            else {
+              cadastrados.push(v.membroId);
+              if (v.identidadeNova) novos.set(dados.email, { usuarioId: v.usuarioId, nome: dados.nome, email: dados.email });
+              else reaproveitados++;
+            }
           }
           if (dados.grupo) {
             const criado = await porNoGrupo(tx, { criadorId: criador.id, autorId: usuario.id, membroId, nome: dados.grupo, grupos });
@@ -135,8 +140,10 @@ export async function acaoImportarMatriculas(entrada: unknown) {
         throw erro;
       });
 
-    // Depois do commit; nunca lança (RN-134).
+    // Depois do commit; nunca lançam (RN-134, RN-204).
     await notificarMatriculas(criador.id, novasMatriculas, usuario.id);
+    await webhookMembrosCadastrados(criador.id, cadastrados, usuario.id);
+    await webhookMatriculas(criador.id, novasMatriculas, "MATRICULA_CRIADA", usuario.id);
 
     // ponytail: um link (e um e-mail) por conta nova, em sequencia; fila se passar de 1000 linhas.
     const links: ResultadoImportacaoMatriculas["links"] = [];

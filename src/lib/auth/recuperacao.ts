@@ -122,7 +122,7 @@ export async function solicitarRedefinicao(email: string, ip: string, cabecalhos
     registroId: u.id,
     detalhes: `Pedido de link para definir senha por e-mail · IP ${ip} · ${agenteDe(cabecalhos)}`,
   });
-  await enviarEmail({ para: alvoEmail, ...emailDefinirSenha(marcaDaArea(criador, URL_PLATAFORMA), u.nome, link.url, VALIDADE_LINK_EMAIL_MIN) });
+  await enviarEmail({ para: alvoEmail, tipo: "DEFINIR_SENHA", criadorId: criador?.id ?? null, ...emailDefinirSenha(marcaDaArea(criador, URL_PLATAFORMA), u.nome, link.url, VALIDADE_LINK_EMAIL_MIN) });
 }
 
 /** Teto do passo 2, cobrado ANTES de qualquer trabalho (a tela e publica). */

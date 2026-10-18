@@ -16,6 +16,8 @@
  * lembrete. Ao subir, reenfileira o lembrete de todo evento PUBLICADO que ainda não começou.
  * Um 3º `Worker` consome a fila `conhecimento` (reindexação da base do assistente, ADR-0014), com
  * DLQ `conhecimento-dlq`; o job é idempotente (relê a fonte e compara a assinatura dos trechos).
+ * Um 4º `Worker` consome a fila `webhooks` (entregas de saída, ADR-0018 item 5): backoff exponencial,
+ * DLQ `webhooks-dlq`; ao subir, reenfileira as entregas PENDENTES (`jobId` = entrega: não duplica).
  */
 import { type Job, Queue, Worker } from "bullmq";
 import {
@@ -48,6 +50,24 @@ import {
 import { lembretesPendentes, processarLembrete } from "../src/lib/eventos/lembrete";
 import { conexaoRedis, ehFalhaDefinitiva, prefixoFila } from "../src/lib/video/fila";
 import { aguardarEsquema } from "../src/lib/db/migracoes";
+import { entregasPendentes, processarEntrega } from "../src/lib/webhooks/entrega";
+import {
+  CONCORRENCIA_WORKER_WEBHOOKS,
+  criarFilaWebhooks,
+  enfileirarEntrega,
+  esquemaJobWebhook,
+  type JobWebhook,
+  NOME_FILA_WEBHOOKS,
+  NOME_FILA_WEBHOOKS_DLQ,
+  OPCOES_JOB_WEBHOOK,
+} from "../src/lib/webhooks/fila";
+
+async function processarWebhook(job: Job<JobWebhook>): Promise<string> {
+  const { entregaId } = esquemaJobWebhook.parse(job.data);
+  const r = await processarEntrega(entregaId, job.attemptsMade + 1, job.opts.attempts ?? OPCOES_JOB_WEBHOOK.attempts);
+  console.log(`[webhooks] ${entregaId}: ${r} (tentativa ${job.attemptsMade + 1})`);
+  return r;
+}
 
 async function processar(job: Job<JobCertificado>): Promise<string> {
   const { versaoId } = esquemaJobCertificado.parse(job.data);
@@ -105,6 +125,15 @@ async function principal() {
   });
   workerConhecimento.on("error", (e) => console.error("[conhecimento] erro do worker:", e.message));
 
+  const dlqWebhooks = new Queue(NOME_FILA_WEBHOOKS_DLQ, { connection: conexao, prefix });
+  const workerWebhooks = new Worker<JobWebhook>(NOME_FILA_WEBHOOKS, processarWebhook, { connection: conexao, prefix, concurrency: CONCORRENCIA_WORKER_WEBHOOKS });
+  workerWebhooks.on("failed", (job, erro) => {
+    if (!job) return;
+    console.error(`[webhooks] ${job.id}: falhou (${job.attemptsMade}/${job.opts.attempts}): ${erro.message}`);
+    if (ehFalhaDefinitiva(job.attemptsMade, job.opts.attempts)) void dlqWebhooks.add("falhou", { ...job.data, erro: erro.message, falhouEm: new Date().toISOString() });
+  });
+  workerWebhooks.on("error", (e) => console.error("[webhooks] erro do worker:", e.message));
+
   const fila = criarFilaCertificados(conexao);
   const pendentes = await versoesPendentes();
   for (const versaoId of pendentes) await enfileirarCertificado(fila, { versaoId });
@@ -115,10 +144,15 @@ async function principal() {
   for (const l of lembretes) await enfileirarLembrete(filaEv, l);
   await filaEv.close();
 
+  const filaWh = criarFilaWebhooks(conexao);
+  const entregas = await entregasPendentes();
+  for (const entregaId of entregas) await enfileirarEntrega(filaWh, { entregaId });
+  await filaWh.close();
+
   const desligar = async () => {
     console.log("[certificados] desligando: termina os jobs atuais e para.");
-    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close()]);
-    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close()]);
+    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close(), workerWebhooks.close()]);
+    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close(), dlqWebhooks.close()]);
     process.exit(0);
   };
   process.on("SIGTERM", desligar);
@@ -126,6 +160,7 @@ async function principal() {
   console.log(`[certificados] worker ouvindo ${prefix}:${NOME_FILA_CERTIFICADOS} (concorrência ${CONCORRENCIA_WORKER_CERTIFICADOS}); ${pendentes.length} pendente(s) reenfileirada(s).`);
   console.log(`[eventos] worker ouvindo ${prefix}:${NOME_FILA_EVENTOS} (concorrência ${CONCORRENCIA_WORKER_EVENTOS}); ${lembretes.length} lembrete(s) (re)enfileirado(s).`);
   console.log(`[conhecimento] worker ouvindo ${prefix}:${NOME_FILA_CONHECIMENTO} (concorrência ${CONCORRENCIA_WORKER_CONHECIMENTO}).`);
+  console.log(`[webhooks] worker ouvindo ${prefix}:${NOME_FILA_WEBHOOKS} (concorrência ${CONCORRENCIA_WORKER_WEBHOOKS}); ${entregas.length} entrega(s) pendente(s) reenfileirada(s).`);
 }
 
 principal().catch((e: unknown) => {

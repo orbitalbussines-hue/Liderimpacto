@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { DialogoAdmin } from "@/components/admin/dialogo-admin";
 import { MenuAdmin } from "@/components/admin/menu-admin";
@@ -12,22 +11,7 @@ import { CampoMoldura } from "@/components/ui/campo-moldura";
 import { GrupoChips } from "@/components/ui/grupo-chips";
 import { acaoCriarGrupo, acaoRemoverGrupo, acaoRenomearGrupo } from "@/lib/actions/grupos";
 import type { TipoGrupo } from "@/lib/db/schema/_enums";
-
-/** Roda a action, mostra o erro ou fecha e recarrega a lista. */
-function useAcao() {
-  const router = useRouter();
-  const [erro, setErro] = useState<string | null>(null);
-  const [pendente, iniciar] = useTransition();
-  const rodar = (acao: () => Promise<{ ok: boolean; erro?: string }>, aoConcluir: () => void) =>
-    iniciar(async () => {
-      setErro(null);
-      const r = await acao();
-      if (!r.ok) return setErro(r.erro ?? "Falha inesperada.");
-      aoConcluir();
-      router.refresh();
-    });
-  return { erro, setErro, pendente, rodar };
-}
+import { useAcao } from "../_components/use-acao";
 
 /** Botão "Novo grupo" do cabeçalho + diálogo (nome e tipo). */
 export function NovoGrupo() {

@@ -6,9 +6,9 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 730 |
-| Tabelas (Drizzle) | 61 |
-| Server Actions (arquivos) | 35 |
+| Arquivos TS/TSX | 769 |
+| Tabelas (Drizzle) | 71 |
+| Server Actions (arquivos) | 40 |
 | Rotas de API | 12 |
 | Paginas | 81 |
 | Componentes | 155 |
@@ -315,8 +315,10 @@ lib/
     configuracoes.ts
     conhecimento.ts
     criadores.ts
+    estudio-ia.ts
     eventos.ts
     favoritos.ts
+    feedbacks.ts
     gamificacao.ts
     grupos.ts
     legendas.ts
@@ -331,11 +333,14 @@ lib/
     produtos.ts
     progresso.ts
     seguranca.ts
+    tags.ts
     tema.ts
     trilhas.ts
     usuarios-senha.ts
     videos.ts
     vitrine.ts
+    vouchers.ts
+    webhooks.ts
   analytics/
     cache.ts
     consultas-avaliacoes.ts
@@ -452,10 +457,15 @@ lib/
     sinais-fator.ts
     soft-delete.ts
   email/
+    disparos.ts
     enviar.ts
     mensagens.ts
     modelo.test.ts
     modelo.ts
+  estudio-ia/
+    regras.test.ts
+    regras.ts
+    servico.ts
   eventos/
     admin.ts
     agenda-ics.test.ts
@@ -470,6 +480,9 @@ lib/
     sql.ts
     tela.test.ts
     tela.ts
+  feedbacks/
+    consultas.ts
+    servico.ts
   gamificacao/
     admin.ts
     conquistas.ts
@@ -491,6 +504,7 @@ lib/
     paleta.ts
     predefinicoes.ts
   matriculas/
+    abas.ts
     consultas.ts
     csv.ts
     regras.test.ts
@@ -524,12 +538,15 @@ lib/
     beacon.ts
     consultas-curso.ts
     consultas.ts
+    continuar.ts
     registrar.ts
     regras.test.ts
     regras.ts
     sql.ts
     top10.ts
     visao.ts
+  tags/
+    servico.ts
   trilhas/
     consultas.ts
     regras.test.ts
@@ -541,8 +558,10 @@ lib/
     comunidade.ts
     criadores.test.ts
     criadores.ts
+    estudio-ia.ts
     eventos.test.ts
     eventos.ts
+    feedbacks.ts
     gamificacao.ts
     ia.ts
     legendas.ts
@@ -553,12 +572,16 @@ lib/
     progresso.ts
     senha.test.ts
     senha.ts
+    tags.ts
+    vouchers.ts
+    webhooks.ts
   video/
     acesso-aula.ts
     acesso.ts
     chaves.test.ts
     chaves.ts
     entrega.ts
+    estatisticas.ts
     estudio.ts
     ffmpeg.test.ts
     ffmpeg.ts
@@ -583,6 +606,21 @@ lib/
     config.ts
     dados.ts
     resolver.ts
+  vouchers/
+    consultas.ts
+    regras.test.ts
+    regras.ts
+    servico.ts
+  webhooks/
+    consultas.ts
+    emitir.ts
+    entrega.ts
+    fila.ts
+    rede.ts
+    regras.test.ts
+    regras.ts
+    segredo.ts
+    servico.ts
   acao.ts
   tema-constantes.ts
   tema.ts
@@ -676,6 +714,9 @@ proxy.ts
 ### `criadores_membros` — src/lib/db/schema/criadores.ts
 `id`, `criador_id`, `usuario_id`, `papel`, `status`, `ultimo_acesso_em`
 
+### `emails_disparos` — src/lib/db/schema/emails.ts
+`id`, `criador_id`, `tipo`, `destinatario_mascarado`, `destinatario_hash`, `assunto`, `situacao`, `erro`, `created_at`
+
 ### `criadores_eventos` — src/lib/db/schema/eventos.ts
 `id`, `criador_id`, `titulo`, `descricao`, `inicio_em`, `duracao_min`, `link_acesso`, `situacao`, `publico`, `produto_id`, `gravacao_aula_id`, `publicado_em`, `cancelado_em`, `criado_por`
 
@@ -687,6 +728,9 @@ proxy.ts
 
 ### `criadores_membros_favoritos` — src/lib/db/schema/favoritos.ts
 `id`, `criador_id`, `membro_id`, `produto_id`, `aula_id`
+
+### `produtos_modulos_aulas_feedbacks` — src/lib/db/schema/feedbacks.ts
+`id`, `criador_id`, `aula_id`, `membro_id`, `util`, `comentario`
 
 ### `criadores_gamificacao` — src/lib/db/schema/gamificacao.ts
 `id`, `criador_id`, `ligada`, `pontos_aula_concluida`, `pontos_curso_concluido`, `pontos_avaliacao_aprovada`, `pontos_publicacao_comunidade`, `niveis`
@@ -733,6 +777,15 @@ proxy.ts
 ### `produtos_modulos_aulas_anotacoes` — src/lib/db/schema/progresso.ts
 `id`, `criador_id`, `membro_id`, `aula_id`, `tempo_seg`, `texto`
 
+### `produtos_modulos_aulas_sugestoes` — src/lib/db/schema/sugestoes-ia.ts
+`id`, `criador_id`, `aula_id`, `descricao`, `capitulos`, `perguntas`, `modelo`, `tokens_entrada`, `tokens_saida`, `tokens_cache_leitura`, `tokens_cache_escrita`, `descricao_aplicada_em`, `capitulos_aplicados_em`, `perguntas_aplicadas_em`
+
+### `criadores_tags` — src/lib/db/schema/tags.ts
+`id`, `criador_id`, `nome`, `cor`
+
+### `criadores_membros_tags` — src/lib/db/schema/tags.ts
+`id`, `criador_id`, `membro_id`, `tag_id`
+
 ### `criadores_trilhas` — src/lib/db/schema/trilhas.ts
 `id`, `criador_id`, `titulo`, `descricao`, `tag`, `capa_arquivo_id`, `status`, `publicada_em`
 
@@ -775,6 +828,21 @@ proxy.ts
 ### `criadores_vitrines_versoes` — src/lib/db/schema/vitrines.ts
 `id`, `criador_id`, `vitrine_id`, `numero`, `config`, `publicada_em`, `publicada_por`
 
+### `criadores_vouchers` — src/lib/db/schema/vouchers.ts
+`id`, `criador_id`, `codigo`, `descricao`, `situacao`, `valido_ate`, `limite_usos`, `limite_por_pessoa`, `dias_acesso`
+
+### `criadores_vouchers_produtos` — src/lib/db/schema/vouchers.ts
+`id`, `criador_id`, `voucher_id`, `produto_id`
+
+### `criadores_vouchers_resgates` — src/lib/db/schema/vouchers.ts
+`id`, `criador_id`, `voucher_id`, `membro_id`, `matriculas`
+
+### `criadores_webhooks` — src/lib/db/schema/webhooks.ts
+`id`, `criador_id`, `nome`, `url`, `eventos`, `situacao`, `segredo_cifrado`, `segredo_final`
+
+### `criadores_webhooks_entregas` — src/lib/db/schema/webhooks.ts
+`id`, `criador_id`, `webhook_id`, `evento`, `payload`, `situacao`, `tentativas`, `status_http`, `erro`, `proxima_tentativa_em`, `entregue_em`
+
 ## Rotas de API
 
 | Rota | Metodos |
@@ -808,8 +876,10 @@ proxy.ts
 - `src/lib/actions/configuracoes.ts`: `acaoRenomearArea()`
 - `src/lib/actions/conhecimento.ts`: `acaoCriarTexto()`, `acaoSalvarTexto()`, `acaoExcluirTexto()`, `acaoIncluirDocumento()`, `acaoTestarBusca()`
 - `src/lib/actions/criadores.ts`: `acaoCriarCriador()`, `acaoAlterarSituacaoCriador()`
+- `src/lib/actions/estudio-ia.ts`: `acaoGerarSugestao()`, `acaoAplicarSugestao()`, `acaoDescartarSugestao()`
 - `src/lib/actions/eventos.ts`: `acaoCriarEvento()`, `acaoSalvarEvento()`, `acaoPublicarEvento()`, `acaoCancelarEvento()`, `acaoExcluirEvento()`, `acaoConfirmarPresenca()`, `acaoCancelarPresenca()`
 - `src/lib/actions/favoritos.ts`: `acaoFavoritar()`, `acaoDesfavoritar()`
+- `src/lib/actions/feedbacks.ts`: `acaoDarFeedback()`, `acaoRemoverFeedback()`
 - `src/lib/actions/gamificacao.ts`: `acaoSalvarConfigGamificacao()`, `acaoSalvarDesafio()`, `acaoPublicarDesafio()`, `acaoEncerrarDesafio()`, `acaoExcluirDesafio()`, `acaoMarcarRecompensaEntregue()`, `acaoAjustarPontos()`, `acaoParticiparDoDesafio()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
 - `src/lib/actions/legendas.ts`: `acaoEnviarLegenda()`, `acaoRemoverLegenda()`
@@ -824,11 +894,14 @@ proxy.ts
 - `src/lib/actions/produtos.ts`: `acaoCriarProduto()`, `acaoSalvarProduto()`, `acaoAlterarSituacaoProduto()`, `acaoDefinirCapaProduto()`, `acaoRemoverProduto()`
 - `src/lib/actions/progresso.ts`: `acaoRegistrarProgresso()`, `acaoConcluirAula()`
 - `src/lib/actions/seguranca.ts`: `acaoIniciarTotp()`, `acaoConfirmarTotp()`, `acaoNovosCodigos()`, `acaoTrocarSenha()`, `acaoEncerrarOutrasSessoes()`
+- `src/lib/actions/tags.ts`: `acaoCriarTag()`, `acaoSalvarTag()`, `acaoExcluirTag()`, `acaoAplicarTag()`, `acaoRemoverTag()`
 - `src/lib/actions/tema.ts`: `alterarTema()`
 - `src/lib/actions/trilhas.ts`: `acaoCriarTrilha()`, `acaoSalvarTrilha()`, `acaoDefinirCapaTrilha()`, `acaoAlterarSituacaoTrilha()`, `acaoRemoverTrilha()`, `acaoAdicionarItemTrilha()`, `acaoSalvarItemTrilha()`, `acaoRemoverItemTrilha()`, `acaoReordenarItensTrilha()`
 - `src/lib/actions/usuarios-senha.ts`: `acaoGerarLinkDeSenha()`
 - `src/lib/actions/videos.ts`: `acaoIniciarEnvioVideo()`, `acaoAssinarPartesVideo()`, `acaoConcluirEnvioVideo()`, `acaoCancelarEnvioVideo()`, `acaoReprocessarVideo()`, `acaoIniciarReproducao()`, `acaoRenovarReproducao()`
 - `src/lib/actions/vitrine.ts`: `acaoSalvarRascunhoVitrine()`, `acaoPublicarVitrine()`, `acaoReverterVitrine()`, `acaoDescartarRascunhoVitrine()`, `acaoBuscarConteudoVitrine()`, `acaoPrepararImagemDestaque()`
+- `src/lib/actions/vouchers.ts`: `acaoCriarVoucher()`, `acaoSalvarVoucher()`, `acaoMudarSituacaoVoucher()`, `acaoExcluirVoucher()`, `acaoResgatarVoucher()`
+- `src/lib/actions/webhooks.ts`: `acaoCriarWebhook()`, `acaoSalvarWebhook()`, `acaoMudarSituacaoWebhook()`, `acaoRotacionarSegredoWebhook()`, `acaoExcluirWebhook()`, `acaoReenviarEntrega()`
 
 ## Paginas
 

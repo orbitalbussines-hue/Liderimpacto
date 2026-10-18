@@ -69,9 +69,9 @@ export type SituacaoProcessamento = (typeof SITUACOES_PROCESSAMENTO)[number];
 /**
  * Matricula (SISTEMA.md §4 Enrollment): como entrou e em que situacao esta. EXPIRADA nao e
  * status gravado: e ATIVA com `expira_em` no passado (src/lib/matriculas/regras.ts).
- * COMPRA fica para o webhook do gateway (ainda nao escolhido).
+ * COMPRA fica para o webhook do gateway (ainda nao escolhido). VOUCHER = resgate de codigo (RN-201).
  */
-export const ORIGENS_MATRICULA = ["MANUAL", "IMPORTACAO", "COMPRA"] as const;
+export const ORIGENS_MATRICULA = ["MANUAL", "IMPORTACAO", "COMPRA", "VOUCHER"] as const;
 export type OrigemMatricula = (typeof ORIGENS_MATRICULA)[number];
 
 export const STATUS_MATRICULA = ["ATIVA", "PENDENTE", "CANCELADA"] as const;
@@ -182,3 +182,33 @@ export type FonteConhecimento = (typeof FONTES_CONHECIMENTO)[number];
 /** Quem escreveu a mensagem da conversa com o assistente (ADR-0014). */
 export const PAPEIS_MENSAGEM_ASSISTENTE = ["USUARIO", "ASSISTENTE"] as const;
 export type PapelMensagemAssistente = (typeof PAPEIS_MENSAGEM_ASSISTENTE)[number];
+
+/** Vouchers (ADR-0018, RN-201): ENCERRADO não volta; PAUSADO volta a ATIVO. */
+export const SITUACOES_VOUCHER = ["ATIVO", "PAUSADO", "ENCERRADO"] as const;
+export type SituacaoVoucher = (typeof SITUACOES_VOUCHER)[number];
+
+/** E-mails que o sistema envia (registro em `emails_disparos`, ADR-0018 item 4). */
+export const TIPOS_EMAIL = ["DEFINIR_SENHA", "PRIMEIRO_ACESSO", "AVISO_SEGURANCA"] as const;
+export type TipoEmail = (typeof TIPOS_EMAIL)[number];
+
+export const SITUACOES_EMAIL = ["ENVIADO", "FALHOU", "NAO_CONFIGURADO"] as const;
+export type SituacaoEmail = (typeof SITUACOES_EMAIL)[number];
+
+/** Eventos que saem pelos webhooks do criador (ADR-0018 item 5, RN-204). */
+export const EVENTOS_WEBHOOK = [
+  "MATRICULA_CRIADA",
+  "MATRICULA_CANCELADA",
+  "AULA_CONCLUIDA",
+  "CURSO_CONCLUIDO",
+  "CERTIFICADO_EMITIDO",
+  "AVALIACAO_APROVADA",
+  "MEMBRO_CADASTRADO",
+] as const;
+export type EventoWebhook = (typeof EVENTOS_WEBHOOK)[number];
+
+export const SITUACOES_WEBHOOK = ["ATIVO", "PAUSADO"] as const;
+export type SituacaoWebhook = (typeof SITUACOES_WEBHOOK)[number];
+
+/** Entrega: PENDENTE = na fila (ou aguardando nova tentativa); FALHOU = esgotou as tentativas (DLQ). */
+export const SITUACOES_ENTREGA_WEBHOOK = ["PENDENTE", "ENTREGUE", "FALHOU"] as const;
+export type SituacaoEntregaWebhook = (typeof SITUACOES_ENTREGA_WEBHOOK)[number];

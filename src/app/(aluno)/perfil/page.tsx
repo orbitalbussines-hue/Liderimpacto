@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { LayoutDashboard, LogOut, Trophy } from "lucide-react";
+import { LayoutDashboard, LogOut, Ticket, Trophy } from "lucide-react";
 import { duracaoCurta, mesAno } from "@/components/aluno/formatos";
 import { CartaoPerfil } from "@/components/engajamento/cartao-perfil";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -53,6 +53,10 @@ async function Perfil() {
             Conquistas
           </Link>
         )}
+        <Link href="/resgatar" className={buttonVariants({ variant: "contorno", size: "40", larguraTotal: true })}>
+          <Ticket aria-hidden />
+          Resgatar voucher
+        </Link>
         {EQUIPE.includes(q.membro.papel) && (
           // Atalho da equipe para o painel (no desktop ele tambem fica no header; no celular so aqui).
           <Link href="/admin" className={buttonVariants({ variant: "contorno", size: "40", larguraTotal: true })}>

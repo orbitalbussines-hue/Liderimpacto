@@ -16,6 +16,7 @@ import {
   type DadosCertificado,
 } from "@/lib/db/schema";
 import { MSG_COLISAO, travaDeColisao, vivos } from "@/lib/db/soft-delete";
+import { webhookCertificadoEmitido } from "@/lib/webhooks/emitir";
 import { enfileirarCertificadoComPrazo } from "./fila";
 import { cargaHorariaTexto, corDoCertificado, dataPorExtenso, gerarCodigo, MODELO_PADRAO, preencherTexto, urlDeVerificacao } from "./regras";
 import { notificarCertificado } from "@/lib/notificacoes/gerar";
@@ -147,7 +148,10 @@ export async function emitir(criadorId: string, membroId: string, produtoId: str
   if (!r) return null;
   if (r.versaoId) await enfileirarCertificadoComPrazo(r.versaoId);
   // Depois do commit; nunca lança (RN-134).
-  if (r.novo) await notificarCertificado(criadorId, r.certificadoId);
+  if (r.novo) {
+    await notificarCertificado(criadorId, r.certificadoId);
+    await webhookCertificadoEmitido(criadorId, r.certificadoId); // nunca lança (RN-204)
+  }
   return { certificadoId: r.certificadoId, novo: r.novo };
 }
 

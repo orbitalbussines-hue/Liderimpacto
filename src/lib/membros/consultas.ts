@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { criadores_grupos, criadores_grupos_membros, criadores_membros, usuarios } from "@/lib/db/schema";
+import { criadores_grupos, criadores_grupos_membros, criadores_membros, criadores_membros_tags, criadores_tags, usuarios } from "@/lib/db/schema";
 import type { PapelCriador } from "@/lib/db/schema/_enums";
 import { vivos } from "@/lib/db/soft-delete";
 
@@ -17,6 +17,8 @@ export interface FiltrosMembros {
   busca?: string;
   situacao?: FiltroSituacao;
   grupoId?: string;
+  /** Só quem tem esta tag (RN-200). */
+  tagId?: string;
   /** Só estes papéis (Configurações > Equipe e acesso = DONO e ADMIN). */
   papeis?: readonly PapelCriador[];
   pagina: number;
@@ -49,6 +51,11 @@ export async function listarMembros(criadorId: string, f: FiltrosMembros) {
   if (f.grupoId) {
     condicoes.push(
       sql`exists (select 1 from criadores_grupos_membros gm where gm.membro_id = "criadores_membros"."id" and gm.grupo_id = ${f.grupoId} and gm.criador_id = ${criadorId} and gm.is_deleted = false)`,
+    );
+  }
+  if (f.tagId) {
+    condicoes.push(
+      sql`exists (select 1 from criadores_membros_tags mt where mt.membro_id = "criadores_membros"."id" and mt.tag_id = ${f.tagId} and mt.criador_id = ${criadorId} and mt.is_deleted = false)`,
     );
   }
   const onde = and(...condicoes);
@@ -92,10 +99,48 @@ export async function listarMembros(criadorId: string, f: FiltrosMembros) {
         )
         .orderBy(asc(criadores_grupos.nome))
     : [];
+  const tags = await tagsDosMembros(criadorId, linhas.map((l) => l.id));
   return {
     total,
-    linhas: linhas.map((l) => ({ ...l, grupos: grupos.filter((g) => g.membroId === l.id).map(({ id, nome }) => ({ id, nome })) })),
+    linhas: linhas.map((l) => ({ ...l, grupos: grupos.filter((g) => g.membroId === l.id).map(({ id, nome }) => ({ id, nome })), tags: tags.get(l.id) ?? [] })),
   };
+}
+
+export interface TagDoMembro {
+  id: string;
+  nome: string;
+  cor: string;
+}
+
+/** Tags vivas de cada membro (RN-200), em ordem de nome. */
+export async function tagsDosMembros(criadorId: string, membroIds: readonly string[]): Promise<Map<string, TagDoMembro[]>> {
+  const mapa = new Map<string, TagDoMembro[]>();
+  if (!membroIds.length) return mapa;
+  const linhas = await db
+    .select({ membroId: criadores_membros_tags.membro_id, id: criadores_tags.id, nome: criadores_tags.nome, cor: criadores_tags.cor })
+    .from(criadores_membros_tags)
+    .innerJoin(criadores_tags, eq(criadores_tags.id, criadores_membros_tags.tag_id))
+    .where(and(eq(criadores_membros_tags.criador_id, criadorId), inArray(criadores_membros_tags.membro_id, [...membroIds]), vivos(criadores_membros_tags), vivos(criadores_tags)))
+    .orderBy(asc(sql`lower(${criadores_tags.nome})`));
+  for (const { membroId, ...tag } of linhas) mapa.set(membroId, [...(mapa.get(membroId) ?? []), tag]);
+  return mapa;
+}
+
+/** Aba "Tags" de Membros: todas as tags vivas com quantos membros (vivos) têm cada uma. */
+export async function listarTags(criadorId: string) {
+  return db
+    .select({
+      id: criadores_tags.id,
+      nome: criadores_tags.nome,
+      cor: criadores_tags.cor,
+      criadoEm: criadores_tags.created_at,
+      versao: criadores_tags.updated_at,
+      membros: sql<number>`(select count(*)::int from criadores_membros_tags mt join criadores_membros m on m.id = mt.membro_id and m.is_deleted = false
+        where mt.tag_id = "criadores_tags"."id" and mt.criador_id = ${criadorId} and mt.is_deleted = false)`,
+    })
+    .from(criadores_tags)
+    .where(and(eq(criadores_tags.criador_id, criadorId), vivos(criadores_tags)))
+    .orderBy(asc(sql`lower(${criadores_tags.nome})`));
 }
 
 export async function listarGrupos(criadorId: string) {
