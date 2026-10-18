@@ -1,8 +1,8 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { eduzzContrato, eduzzFatura, hotmartAssinaturaCancelada, hotmartCompra } from "../../../tests/integracoes/exemplos";
-import { assinaturaEduzzConfere, hottokConfere } from "./autenticidade";
-import { acessoAte, chaveDoAcesso, DIA_MS, normalizarEduzz, normalizarHotmart, referenciaDoAcesso, urlDoWebhook } from "./regras";
+import { eduzzContrato, eduzzFatura, hotmartAssinaturaCancelada, hotmartCompra } from "./exemplos";
+import { assinaturaEduzzConfere, hottokConfere } from "@/lib/integracoes/autenticidade";
+import { acessoAte, chaveDoAcesso, DIA_MS, normalizarEduzz, normalizarHotmart, referenciaDoAcesso, urlDoWebhook } from "@/lib/integracoes/regras";
 
 describe("autenticidade", () => {
   it("hottok: só o token exato", () => {

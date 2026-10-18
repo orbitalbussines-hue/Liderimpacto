@@ -1452,7 +1452,7 @@ convenção das fases anteriores: `executar()` → `Resultado`, criador do HOST,
 | `processar.ts` | `processarEventoIntegracao(eventoId, tentativa, max)` → situação, `eventosPendentes()` (reenfileirados ao subir o worker) |
 
 Testes: `tests/integracao/integracoes-hotmart-eduzz.test.ts` (Postgres real, fila injetada) e
-`src/lib/integracoes/regras.test.ts`, com os payloads de exemplo anonimizados de `tests/integracoes/exemplos.ts`.
+`tests/integracoes/regras.test.ts` (fora de `src/`: a imagem Docker não leva `tests/`, e o build checa os tipos de todo `src/`), com os payloads de exemplo anonimizados de `tests/integracoes/exemplos.ts`.
 
 ## Páginas e funis (ADR-0022, RN-240 a RN-247) — DONO e ADMIN
 

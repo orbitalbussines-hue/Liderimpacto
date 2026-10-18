@@ -6,12 +6,12 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 851 |
-| Tabelas (Drizzle) | 79 |
-| Server Actions (arquivos) | 42 |
-| Rotas de API | 14 |
-| Paginas | 101 |
-| Componentes | 155 |
+| Arquivos TS/TSX | 968 |
+| Tabelas (Drizzle) | 94 |
+| Server Actions (arquivos) | 48 |
+| Rotas de API | 20 |
+| Paginas | 122 |
+| Componentes | 161 |
 
 ## Arvore (profundidade 3)
 
@@ -44,8 +44,10 @@ app/
     analytics/
     area-de-membros/
     assistente-do-professor/
+    automacoes/
     avaliacoes/
     base-de-conhecimento/
+    campanhas/
     certificados/
     comunidade/
     configuracoes/
@@ -54,16 +56,21 @@ app/
     desafios/
     estudio-de-video/
     eventos/
+    funis/
     matriculas/
     membros/
+    paginas/
     trilhas/
     vendas/
     layout.tsx
     page.tsx
   api/
     assistente/
+    email/
+    integracoes/
     legendas/
     notificacoes/
+    paginas/
     progresso/
     saude/
     stripe/
@@ -78,15 +85,23 @@ app/
     page.tsx
   conta/
     seguranca/
+  descadastro/
+    acoes.ts
+    confirmar.tsx
+    page.tsx
   login/
     _components/
     verificar/
     page.tsx
+  p/
+    [slug]/
   plataforma/
     _components/
     novo/
     layout.tsx
     page.tsx
+  previa-pagina/
+    [id]/
   primeiro-acesso/
     form-definir-senha.tsx
     page.tsx
@@ -229,6 +244,13 @@ components/
     tempo.test.ts
     tempo.ts
     use-contagem.ts
+  paginas/
+    blocos.test.tsx
+    blocos.tsx
+    formulario-captura.tsx
+    moldura-pagina.tsx
+    ponte-previa-pagina.tsx
+    registrar-visita.tsx
   player/
     acumulador.test.ts
     acumulador.ts
@@ -310,8 +332,10 @@ lib/
     assistente.ts
     aulas.ts
     auth.ts
+    automacoes.ts
     avaliacoes-aluno.ts
     avaliacoes.ts
+    campanhas.ts
     certificados.ts
     comunidade-moderacao.ts
     comunidade.ts
@@ -324,6 +348,7 @@ lib/
     feedbacks.ts
     gamificacao.ts
     grupos.ts
+    integracoes.ts
     legendas.ts
     matriculas-importacao.ts
     matriculas.ts
@@ -332,6 +357,7 @@ lib/
     notificacoes.ts
     ofertas.ts
     pagamentos.ts
+    paginas.ts
     perfil.ts
     preferencias.ts
     produtos-estrutura.ts
@@ -498,6 +524,14 @@ lib/
     recalcular.ts
     regras.test.ts
     regras.ts
+  integracoes/
+    autenticidade.ts
+    consultas.ts
+    fila.ts
+    processar.ts
+    receber.ts
+    regras.ts
+    servico.ts
   legendas/
     consultas.ts
     entrega.ts
@@ -508,6 +542,24 @@ lib/
     paleta.test.ts
     paleta.ts
     predefinicoes.ts
+  marketing/
+    automacoes.ts
+    campanhas.ts
+    consultas.ts
+    descadastro.ts
+    envio.ts
+    execucoes.ts
+    fila.ts
+    gatilhos.ts
+    modelos.ts
+    provedor-falso.ts
+    provedor.ts
+    publico.ts
+    reenvio.ts
+    regras.test.ts
+    regras.ts
+    rotas.ts
+    tokens.ts
   matriculas/
     abas.ts
     consultas.ts
@@ -546,6 +598,19 @@ lib/
     stripe.ts
     vendas.ts
     webhook.ts
+  paginas/
+    config.test.ts
+    config.ts
+    consultas.ts
+    funis.ts
+    leads.ts
+    metricas.ts
+    modelos.ts
+    paginas.ts
+    publico.ts
+    render-tipos.ts
+    rota-visita.ts
+    visita.ts
   painel/
     cache.ts
     consultas.ts
@@ -586,10 +651,13 @@ lib/
     feedbacks.ts
     gamificacao.ts
     ia.ts
+    integracoes.ts
     legendas.ts
+    marketing.ts
     matriculas.ts
     membros.ts
     pagamentos.ts
+    paginas.ts
     perfil.test.ts
     perfil.ts
     progresso.ts
@@ -770,8 +838,38 @@ proxy.ts
 ### `criadores_desafios_participacoes` — src/lib/db/schema/gamificacao.ts
 `id`, `criador_id`, `desafio_id`, `membro_id`, `concluido_em`, `recompensa_entregue_em`, `recompensa_entregue_por`
 
+### `criadores_integracoes` — src/lib/db/schema/integracoes.ts
+`id`, `criador_id`, `plataforma`, `segredo_cifrado`, `segredo_final`
+
+### `criadores_integracoes_produtos` — src/lib/db/schema/integracoes.ts
+`id`, `criador_id`, `integracao_id`, `produto_externo`, `nome_externo`, `produto_id`, `dias_acesso`
+
+### `integracoes_recibos` — src/lib/db/schema/integracoes.ts
+`id`, `criador_id`, `integracao_id`, `plataforma`, `evento_id`, `evento`, `tipo`, `transacao`, `assinatura`, `produto_externo`, `recusa`, `ocorrido_em`, `created_at`
+
+### `criadores_integracoes_eventos` — src/lib/db/schema/integracoes.ts
+`id`, `criador_id`, `recibo_id`, `situacao`, `erro`, `comprador_email`, `comprador_nome`, `proxima_cobranca`, `membro_id`, `matriculas`, `processado_em`
+
 ### `produtos_modulos_aulas_legendas` — src/lib/db/schema/legendas.ts
 `id`, `criador_id`, `aula_id`, `idioma`, `rotulo`, `nome_original`, `chave`, `texto`, `trechos`, `duracao_seg`, `enviado_por`
+
+### `criadores_emails_modelos` — src/lib/db/schema/marketing.ts
+`id`, `criador_id`, `nome`, `conteudo`
+
+### `criadores_campanhas` — src/lib/db/schema/marketing.ts
+`id`, `criador_id`, `nome`, `conteudo`, `publico`, `situacao`, `agendada_para`, `iniciada_em`, `concluida_em`, `cancelada_em`, `total_destinatarios`
+
+### `criadores_automacoes` — src/lib/db/schema/marketing.ts
+`id`, `criador_id`, `nome`, `gatilho`, `produto_id`, `dias`, `atraso_minutos`, `conteudo`, `tag_id`, `situacao`
+
+### `criadores_emails_envios` — src/lib/db/schema/marketing.ts
+`id`, `criador_id`, `membro_id`, `origem`, `campanha_id`, `automacao_id`, `chave`, `situacao`, `motivo`, `tentativas`, `enviado_em`, `aberto_em`, `aberturas`, `clicado_em`, `cliques`
+
+### `criadores_automacoes_execucoes` — src/lib/db/schema/marketing.ts
+`id`, `criador_id`, `automacao_id`, `membro_id`, `referencia`, `situacao`, `executar_em`, `executada_em`, `tag_aplicada`, `envio_id`, `motivo`
+
+### `criadores_emails_descadastros` — src/lib/db/schema/marketing.ts
+`id`, `criador_id`, `destinatario_hash`, `destinatario_mascarado`, `origem`
 
 ### `produtos_matriculas` — src/lib/db/schema/matriculas.ts
 `id`, `criador_id`, `membro_id`, `produto_id`, `origem`, `status`, `iniciada_em`, `concluida_em`, `expira_em`, `referencia_externa`, `motivo_cancelamento`
@@ -790,6 +888,21 @@ proxy.ts
 
 ### `criadores_afiliados` — src/lib/db/schema/pagamentos.ts
 `id`, `criador_id`, `nome`, `email`, `codigo`, `comissao_bps`, `situacao`
+
+### `criadores_paginas` — src/lib/db/schema/paginas.ts
+`id`, `criador_id`, `slug`, `titulo`, `modelo`, `situacao`, `rascunho`, `publicada`, `publicada_em`, `publicacoes`
+
+### `criadores_funis` — src/lib/db/schema/paginas.ts
+`id`, `criador_id`, `nome`, `etapas`
+
+### `criadores_paginas_visitas` — src/lib/db/schema/paginas.ts
+`id`, `criador_id`, `pagina_id`, `funil_id`, `dia`, `visitas`
+
+### `criadores_paginas_checkouts` — src/lib/db/schema/paginas.ts
+`id`, `criador_id`, `pagina_id`, `funil_id`, `venda_id`
+
+### `criadores_leads` — src/lib/db/schema/paginas.ts
+`id`, `criador_id`, `nome`, `email`, `pagina_id`, `funil_id`, `tag_id`, `utm`, `consentimento_texto`, `consentimento_em`, `capturas`, `ultima_captura_em`
 
 ### `produtos` — src/lib/db/schema/produtos.ts
 `id`, `criador_id`, `codigo`, `titulo`, `slug`, `descricao`, `tipo`, `capa_3x4_arquivo_id`, `capa_16x9_arquivo_id`, `status`, `publicado_em`, `professor_membro_id`, `cor_marca`
@@ -896,8 +1009,13 @@ proxy.ts
 |------|---------|
 | `/admin/analytics/exportar` | GET |
 | `/api/assistente` | POST |
+| `/api/email/abertura` | GET |
+| `/api/email/clique` | GET |
+| `/api/email/descadastro` | POST |
+| `/api/integracoes/[plataforma]/[id]` | POST |
 | `/api/legendas/[id]` | GET |
 | `/api/notificacoes/contagem` | GET |
+| `/api/paginas/visita` | POST |
 | `/api/progresso` | POST |
 | `/api/saude` | GET |
 | `/api/stripe/checkout` | GET |
@@ -908,17 +1026,22 @@ proxy.ts
 | `/certificado/[codigo]/pdf` | GET |
 | `/componentes/emails/bruto` | — |
 | `/eventos/[id]/agenda.ics` | GET |
+| `/p/[slug]/imagem` | GET |
 
 ## Server Actions
 
+- `src/app/descadastro/acoes.ts`: `confirmarDescadastro()`
+- `src/app/p/[slug]/acoes.ts`: `enviarCaptura()`
 - `src/lib/actions/anotacoes.ts`: `acaoCriarAnotacao()`, `acaoEditarAnotacao()`, `acaoRemoverAnotacao()`
 - `src/lib/actions/aparencia.ts`: `acaoSalvarCorDaMarca()`
 - `src/lib/actions/arquivos.ts`: `acaoIniciarEnvio()`, `acaoConfirmarEnvio()`
 - `src/lib/actions/assistente.ts`: `acaoSalvarConfigAssistente()`, `acaoApagarConversa()`
 - `src/lib/actions/aulas.ts`: `acaoSalvarAula()`, `acaoDefinirThumbAula()`, `acaoAdicionarMaterial()`, `acaoRenomearMaterial()`, `acaoRemoverMaterial()`, `acaoLinkDoMaterial()`
 - `src/lib/actions/auth.ts`: `entrar()`, `verificarCodigo()`, `sair()`, `pedirLinkDeSenha()`, `definirNovaSenha()`
+- `src/lib/actions/automacoes.ts`: `acaoCriarAutomacao()`, `acaoSalvarAutomacao()`, `acaoMudarSituacaoAutomacao()`, `acaoExcluirAutomacao()`
 - `src/lib/actions/avaliacoes-aluno.ts`: `acaoIniciarTentativa()`, `acaoResponder()`, `acaoFinalizarTentativa()`
 - `src/lib/actions/avaliacoes.ts`: `acaoCriarAvaliacao()`, `acaoSalvarAvaliacao()`, `acaoAlterarSituacaoAvaliacao()`, `acaoRemoverAvaliacao()`, `acaoCriarQuestao()`, `acaoSalvarQuestao()`, `acaoRemoverQuestao()`, `acaoReordenarQuestoes()`, `acaoConcederTentativa()`
+- `src/lib/actions/campanhas.ts`: `acaoCriarModeloEmail()`, `acaoSalvarModeloEmail()`, `acaoExcluirModeloEmail()`, `acaoCriarCampanha()`, `acaoSalvarCampanha()`, `acaoContarPublico()`, `acaoEnviarTesteEmail()`, `acaoAgendarCampanha()`, `acaoCancelarCampanha()`, `acaoExcluirCampanha()`, `acaoContarReenvioPrimeiroAcesso()`, `acaoReenviarPrimeiroAcesso()`
 - `src/lib/actions/certificados.ts`: `acaoSalvarModeloCertificado()`, `acaoGerarNovaVersaoCertificado()`, `acaoRevogarCertificado()`, `acaoBaixarCertificado()`
 - `src/lib/actions/comunidade-moderacao.ts`: `acaoFixarPublicacao()`, `acaoOcultar()`, `acaoResolverDenuncia()`, `acaoSilenciarMembro()`, `acaoDessilenciarMembro()`, `acaoCriarCanal()`, `acaoSalvarCanal()`, `acaoRemoverCanal()`
 - `src/lib/actions/comunidade.ts`: `acaoPublicar()`, `acaoEditarPublicacao()`, `acaoRemoverPublicacao()`, `acaoVotarEnquete()`, `acaoCurtir()`, `acaoComentar()`, `acaoEditarComentario()`, `acaoRemoverComentario()`, `acaoDenunciar()`, `acaoIniciarEnvioAnexo()`, `acaoConfirmarEnvioAnexo()`, `acaoLinkDoAnexo()`, `acaoMaisPublicacoes()`
@@ -931,6 +1054,7 @@ proxy.ts
 - `src/lib/actions/feedbacks.ts`: `acaoDarFeedback()`, `acaoRemoverFeedback()`
 - `src/lib/actions/gamificacao.ts`: `acaoSalvarConfigGamificacao()`, `acaoSalvarDesafio()`, `acaoPublicarDesafio()`, `acaoEncerrarDesafio()`, `acaoExcluirDesafio()`, `acaoMarcarRecompensaEntregue()`, `acaoAjustarPontos()`, `acaoParticiparDoDesafio()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
+- `src/lib/actions/integracoes.ts`: `acaoConectarIntegracao()`, `acaoTrocarSegredoIntegracao()`, `acaoDesconectarIntegracao()`, `acaoCriarMapeamento()`, `acaoExcluirMapeamento()`, `acaoReprocessarEventoIntegracao()`
 - `src/lib/actions/legendas.ts`: `acaoEnviarLegenda()`, `acaoRemoverLegenda()`
 - `src/lib/actions/matriculas-importacao.ts`: `acaoImportarMatriculas()`
 - `src/lib/actions/matriculas.ts`: `acaoMatricular()`, `acaoCancelarMatricula()`, `acaoAlterarExpiracao()`, `acaoReativarMatricula()`, `acaoBuscarMembros()`
@@ -939,6 +1063,7 @@ proxy.ts
 - `src/lib/actions/notificacoes.ts`: `acaoMarcarNotificacoesLidas()`, `acaoMaisNotificacoes()`
 - `src/lib/actions/ofertas.ts`: `acaoCriarOferta()`, `acaoSalvarOferta()`, `acaoMudarSituacaoOferta()`, `acaoExcluirOferta()`, `acaoCriarCupom()`, `acaoSalvarCupom()`, `acaoMudarSituacaoCupom()`, `acaoExcluirCupom()`, `acaoCriarAfiliado()`, `acaoSalvarAfiliado()`, `acaoMudarSituacaoAfiliado()`, `acaoExcluirAfiliado()`
 - `src/lib/actions/pagamentos.ts`: `acaoConectarStripe()`, `acaoAtualizarContaStripe()`, `acaoReembolsarVenda()`, `acaoMudarTaxaCriador()`
+- `src/lib/actions/paginas.ts`: `acaoCriarPagina()`, `acaoSalvarRascunhoPagina()`, `acaoPublicarPagina()`, `acaoDespublicarPagina()`, `acaoExcluirPagina()`, `acaoPrepararImagemPagina()`, `acaoCriarFunil()`, `acaoSalvarFunil()`, `acaoExcluirFunil()`
 - `src/lib/actions/perfil.ts`: `acaoSalvarPerfil()`
 - `src/lib/actions/preferencias.ts`: `acaoSalvarPreferencias()`
 - `src/lib/actions/produtos-estrutura.ts`: `acaoCriarModulo()`, `acaoEditarModulo()`, `acaoRemoverModulo()`, `acaoReordenarModulos()`, `acaoCriarAula()`, `acaoRemoverAula()`, `acaoReordenarAulas()`
@@ -983,6 +1108,10 @@ proxy.ts
 - `src/app/admin/assistente-do-professor/page.tsx`
 - `src/app/admin/assistente-do-professor/perguntas/page.tsx`
 - `src/app/admin/assistente-do-professor/testar/page.tsx`
+- `src/app/admin/automacoes/[id]/page.tsx`
+- `src/app/admin/automacoes/historico/page.tsx`
+- `src/app/admin/automacoes/nova/page.tsx`
+- `src/app/admin/automacoes/page.tsx`
 - `src/app/admin/avaliacoes/[id]/alunos/page.tsx`
 - `src/app/admin/avaliacoes/[id]/page.tsx`
 - `src/app/admin/avaliacoes/nova/page.tsx`
@@ -991,6 +1120,14 @@ proxy.ts
 - `src/app/admin/base-de-conhecimento/testar/page.tsx`
 - `src/app/admin/base-de-conhecimento/textos/[id]/page.tsx`
 - `src/app/admin/base-de-conhecimento/textos/novo/page.tsx`
+- `src/app/admin/campanhas/[id]/editar/page.tsx`
+- `src/app/admin/campanhas/[id]/page.tsx`
+- `src/app/admin/campanhas/descadastros/page.tsx`
+- `src/app/admin/campanhas/modelos/[id]/page.tsx`
+- `src/app/admin/campanhas/modelos/novo/page.tsx`
+- `src/app/admin/campanhas/modelos/page.tsx`
+- `src/app/admin/campanhas/nova/page.tsx`
+- `src/app/admin/campanhas/page.tsx`
 - `src/app/admin/certificados/modelo/page.tsx`
 - `src/app/admin/certificados/page.tsx`
 - `src/app/admin/comunidade/page.tsx`
@@ -1021,6 +1158,8 @@ proxy.ts
 - `src/app/admin/eventos/[id]/page.tsx`
 - `src/app/admin/eventos/novo/page.tsx`
 - `src/app/admin/eventos/page.tsx`
+- `src/app/admin/funis/[id]/page.tsx`
+- `src/app/admin/funis/page.tsx`
 - `src/app/admin/matriculas/avaliacoes/page.tsx`
 - `src/app/admin/matriculas/feedbacks/page.tsx`
 - `src/app/admin/matriculas/importar/page.tsx`
@@ -1036,6 +1175,9 @@ proxy.ts
 - `src/app/admin/membros/vouchers/[voucherId]/page.tsx`
 - `src/app/admin/membros/vouchers/page.tsx`
 - `src/app/admin/page.tsx`
+- `src/app/admin/paginas/[id]/page.tsx`
+- `src/app/admin/paginas/leads/page.tsx`
+- `src/app/admin/paginas/page.tsx`
 - `src/app/admin/trilhas/[id]/page.tsx`
 - `src/app/admin/trilhas/nova/page.tsx`
 - `src/app/admin/trilhas/page.tsx`
@@ -1043,6 +1185,7 @@ proxy.ts
 - `src/app/admin/vendas/assinaturas/page.tsx`
 - `src/app/admin/vendas/cupons/page.tsx`
 - `src/app/admin/vendas/financeiro/page.tsx`
+- `src/app/admin/vendas/integracoes/page.tsx`
 - `src/app/admin/vendas/ofertas/page.tsx`
 - `src/app/admin/vendas/page.tsx`
 - `src/app/certificado/[codigo]/page.tsx`
@@ -1051,9 +1194,12 @@ proxy.ts
 - `src/app/componentes/emails/page.tsx`
 - `src/app/componentes/page.tsx`
 - `src/app/conta/seguranca/page.tsx`
+- `src/app/descadastro/page.tsx`
 - `src/app/login/page.tsx`
 - `src/app/login/verificar/page.tsx`
+- `src/app/p/[slug]/page.tsx`
 - `src/app/plataforma/novo/page.tsx`
 - `src/app/plataforma/page.tsx`
+- `src/app/previa-pagina/[id]/page.tsx`
 - `src/app/primeiro-acesso/page.tsx`
 - `src/app/recuperar-senha/page.tsx`
