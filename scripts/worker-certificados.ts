@@ -89,6 +89,7 @@ import {
 } from "../src/lib/pagamentos/fila";
 import { processarEventoStripe } from "../src/lib/pagamentos/processar";
 import { gatewayStripe } from "../src/lib/pagamentos/stripe";
+import { emailConfigurado } from "../src/lib/email/enviar";
 import { entregasPendentes, processarEntrega } from "../src/lib/webhooks/entrega";
 import {
   CONCORRENCIA_WORKER_WEBHOOKS,
@@ -297,7 +298,7 @@ async function principal() {
       ? `[pagamentos] worker ouvindo ${prefix}:${NOME_FILA_PAGAMENTOS} (concorrência ${CONCORRENCIA_WORKER_PAGAMENTOS}).`
       : "[pagamentos] STRIPE_SECRET_KEY ausente: worker de pagamentos desligado (eventos aguardam na fila).",
   );
-  console.log(`[emails] worker ouvindo ${prefix}:${NOME_FILA_EMAILS} (concorrência ${CONCORRENCIA_WORKER_EMAILS}); ${pendentesEmail.length} envio(s) pendente(s) reenfileirado(s).`);
+  console.log(`[emails] worker ouvindo ${prefix}:${NOME_FILA_EMAILS} (concorrência ${CONCORRENCIA_WORKER_EMAILS}); ${pendentesEmail.length} envio(s) pendente(s) reenfileirado(s); SMTP ${emailConfigurado() ? "configurado" : "AUSENTE (envios esperam)"}; BETTER_AUTH_SECRET ${process.env.BETTER_AUTH_SECRET ? "ok" : "AUSENTE"}.`);
   console.log(`[marketing] worker ouvindo ${prefix}:${NOME_FILA_MARKETING}; ${agendadas.length} agendamento(s) (re)enfileirado(s); varredura ${VARREDURA_DIARIA.pattern} ${VARREDURA_DIARIA.tz}.`);
   console.log(`[webhooks] worker ouvindo ${prefix}:${NOME_FILA_WEBHOOKS} (concorrência ${CONCORRENCIA_WORKER_WEBHOOKS}); ${entregas.length} entrega(s) pendente(s) reenfileirada(s).`);
 }
