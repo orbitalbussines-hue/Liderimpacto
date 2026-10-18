@@ -720,6 +720,126 @@ Cada regra segue este formato:
 - **Comportamento esperado**: descadastrado não recebe campanha nem automação (aparece como "não enviado"); link adulterado ou de outra área não descadastra ninguém.
 - **Impacto se descumprida**: descumprimento da LGPD; reclamação de spam bloqueando a caixa da plataforma.
 
+### RN-230 - Conexão com a Hotmart e a Eduzz
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Vendas > Integrações (só DONO)
+- **Descricao**: O criador que vende na **Hotmart** ou na **Eduzz** conecta a plataforma colando o token dela (Hotmart: **Hottok**, em Ferramentas › Webhook › Autenticação; Eduzz: a **chave secreta** gerada em Webhook › Segurança no Console). Uma conexão por plataforma por área. Ao conectar, a tela mostra a **URL do webhook** própria da conexão para colar na plataforma, com o passo a passo de cada uma. O token nunca volta à tela (só os 4 últimos caracteres) e pode ser trocado; desconectar faz a URL parar de funcionar e remove os mapeamentos (quem já tem acesso continua).
+- **Comportamento esperado**: conectar, trocar e desconectar na trilha, sem o token.
+- **Impacto se descumprida**: token vazado; venda de uma área liberando curso de outra.
+
+### RN-231 - Mapeamento de produtos externos
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Vendas > Integrações (só DONO)
+- **Descricao**: Cada **produto** da Hotmart/Eduzz (pelo id do produto lá) é mapeado para **um ou mais cursos** daqui, com **dias de acesso** ou **vitalício** (vazio). Remover um curso do mapeamento vale para as próximas compras; quem já foi matriculado continua.
+- **Comportamento esperado**: curso de outra área recusado; o mesmo curso duas vezes no mesmo produto não duplica.
+- **Impacto se descumprida**: compra liberando o curso errado ou nenhum curso.
+
+### RN-232 - Aviso autêntico e uma vez só
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Webhook da Hotmart e da Eduzz (automático)
+- **Descricao**: Só vale o aviso com o token certo daquela conexão (Hotmart: cabeçalho com o Hottok; Eduzz: assinatura do conteúdo com a chave). Aviso com token errado é **recusado** e aparece como "Recusado" em Últimos eventos (até 20 a cada 10 minutos por conexão). O mesmo aviso repetido não matricula duas vezes. A plataforma guarda um **recibo** de cada aviso, sem nome nem e-mail do comprador; o e-mail fica só enquanto o aviso pode ser reprocessado.
+- **Comportamento esperado**: reenvio da plataforma = 1 matrícula; recusa visível ao dono.
+- **Impacto se descumprida**: qualquer pessoa liberando curso pago com um aviso falso; acesso em dobro.
+
+### RN-233 - Compra aprovada libera o acesso
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Webhook (automático) e Admin > Vendas > Integrações
+- **Descricao**: Compra aprovada (Hotmart: aprovada ou completa; Eduzz: fatura paga) de produto mapeado: a pessoa vira **aluna** da área (conta nova sem senha recebe o e-mail de primeiro acesso; conta existente entra com a senha que já usa) e é matriculada nos cursos do produto (origem "Compra"), com os dias do mapeamento ou vitalício. Quem já tem o curso sem expiração fica como está; prazo menor é estendido. A Eduzz que manda vários produtos numa fatura libera cada um pelo seu mapeamento.
+- **Comportamento esperado**: aluno com acesso em segundos; trilha de cada passo pelo sistema.
+- **Impacto se descumprida**: aluno pagando e sem acesso.
+
+### RN-234 - Produto sem mapeamento não se perde
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Vendas > Integrações (só DONO)
+- **Descricao**: Compra de produto ainda **não mapeado** fica guardada como "Sem mapeamento" em Últimos eventos (com o e-mail mascarado). Depois de mapear o produto, o dono clica em **Reprocessar** e a pessoa é matriculada. Evento com **erro** (sem e-mail, falha) também pode ser reprocessado. Processado não reprocessa.
+- **Comportamento esperado**: reprocessar depois de mapear = 1 matrícula; reprocessar duas vezes não duplica.
+- **Impacto se descumprida**: venda paga sem acesso e sem rastro.
+
+### RN-235 - Reembolso, chargeback e cancelamento
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Webhook (automático)
+- **Descricao**: Reembolso, chargeback ou cancelamento da compra na Hotmart/Eduzz **encerram o acesso daquela compra** (só o que ela liberou; acesso vindo de outro lugar fica). Aviso de aprovação que chega **depois** do reembolso da mesma compra é ignorado.
+- **Comportamento esperado**: matrícula "Cancelada" com o motivo ("Reembolso na Hotmart").
+- **Impacto se descumprida**: dinheiro devolvido e acesso mantido.
+
+### RN-236 - Assinatura vendida fora
+- **Definida por**: dono do produto (mesma regra da RN-217)
+- **Data**: 2026-10-18
+- **Modulo**: Webhook (automático)
+- **Descricao**: Assinatura da Hotmart: o acesso vai até a **próxima cobrança mais 3 dias** e cada renovação estende a mesma matrícula. **Atrasada** não corta (o acesso vence sozinho). **Cancelada** vale até o fim do período já pago (data da cobrança que não vai acontecer) e então acaba. Na Eduzz, a assinatura é o contrato: contrato cancelado, finalizado ou suspenso encerra o acesso; como a fatura da Eduzz não traz a data do próximo vencimento, use os **dias de acesso** do mapeamento (ex.: 33 para mensal) ou deixe vitalício até o cancelamento.
+- **Comportamento esperado**: renovação = mesma matrícula com prazo maior; cancelamento não corta antes do fim do período pago.
+- **Impacto se descumprida**: assinante inadimplente com acesso para sempre; assinante cortado antes do fim do período pago.
+
+### RN-240 - Página de venda e de captura por blocos
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Marketing > Páginas (DONO e ADMIN)
+- **Descricao**: A equipe cria a página a partir de um modelo pronto ("Página de vendas de curso" ou "Captura de e-mail") e monta com blocos: capa, benefícios, módulos do curso (puxados do curso), sobre o autor, depoimentos, preço (ligado a uma oferta), garantia, perguntas frequentes, chamada final e formulário de captura (um por página). Os blocos se reordenam, mostram/ocultam e têm só campos de texto; não existe HTML livre. Imagens vêm do envio de imagens da área. O rascunho se salva sozinho; duas pessoas editando ao mesmo tempo: a segunda é avisada para recarregar.
+- **Comportamento esperado**: texto que parece código aparece como texto; imagem, curso, oferta ou tag de outra área é recusada.
+- **Impacto se descumprida**: script na página da área (sessões de alunos expostas); página vendendo oferta de outro criador.
+
+### RN-241 - Endereço público e SEO
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: `/p/<endereço>` na área do criador (sem login)
+- **Descricao**: Cada página tem um endereço único dentro da área (minúsculas, números e hífen). Só a versão PUBLICADA abre; rascunho, página tirada do ar, excluída ou de outra área mostram "página não encontrada". A página usa o tema escolhido nela (claro ou escuro) e a cor da marca da área. Título, descrição e imagem de compartilhamento são configuráveis; a opção "esconder dos buscadores" marca a página como `noindex`. Mudar o endereço vale na hora.
+- **Comportamento esperado**: excluir a página libera o endereço; o mesmo endereço pode existir em áreas diferentes.
+- **Impacto se descumprida**: rascunho exposto ao público; página de um criador aberta pelo endereço de outro.
+
+### RN-242 - Publicar, tirar do ar e versões
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Editor da página (confirmação de 3 s)
+- **Descricao**: "Publicar" copia o rascunho para o ar como a versão seguinte (1, 2, 3...); só publica com a oferta escolhida no bloco Preço e o curso no bloco Módulos (quando visíveis). "Tirar do ar" esconde a página sem perder o conteúdo. Excluir é lógico, e página que é etapa de um funil só sai depois de removida do funil.
+- **Comportamento esperado**: o que está no ar só muda ao publicar; trilha com o conteúdo de cada publicação.
+- **Impacto se descumprida**: página no ar mudando enquanto a equipe edita; botão de compra sem oferta.
+
+### RN-243 - Captura de lead com consentimento (LGPD)
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Formulário de captura da página (sem login)
+- **Descricao**: Nome, e-mail e a caixa de consentimento (obrigatória, com o texto configurado no bloco) viram um lead da área, com o texto do consentimento e a data, a página e o funil de origem, os parâmetros UTM da URL e a tag do bloco (se houver). O mesmo e-mail na mesma área atualiza o lead (nome, consentimento e data) em vez de duplicar. Sem CAPTCHA: armadilha invisível para robôs e no máximo 10 envios a cada 10 minutos por IP. O lead NÃO ganha conta nem acesso à área de membros.
+- **Comportamento esperado**: sem marcar o consentimento não envia; robô que preenche a armadilha "passa" sem gravar; a trilha não guarda o e-mail.
+- **Impacto se descumprida**: lista sem prova de consentimento (LGPD); spam enchendo a lista; conta criada para e-mail de terceiros.
+
+### RN-244 - Botão de preço e checkout
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Bloco Preço da página pública
+- **Descricao**: O botão abre o pagamento da oferta escolhida (o link de compra da Fase 2, RN-212). Cupom e afiliado que vieram no link da página seguem para o pagamento (e para a próxima etapa do funil). Oferta pausada ou excluída esconde o bloco Preço. Na prévia da equipe o botão não abre pagamento.
+- **Comportamento esperado**: a venda nasce ligada à página (e ao funil, quando a visita veio por ele); página de outra área no link é ignorada.
+- **Impacto se descumprida**: venda sem origem; cupom do afiliado perdido no caminho.
+
+### RN-245 - Funil de páginas
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Marketing > Funis (DONO e ADMIN)
+- **Descricao**: Um funil é uma sequência de 1 a 10 páginas da área (ex.: captura → vendas → obrigado), cada uma uma vez. O link de entrada é o da primeira etapa com `?funil=`; o formulário de captura leva à próxima etapa publicada. Excluir o funil é lógico: métricas e leads ficam.
+- **Comportamento esperado**: página de outra área não entra no funil; funil de outra área na URL é ignorado.
+- **Impacto se descumprida**: métricas misturadas entre áreas.
+
+### RN-246 - Métricas por etapa sem rastreador
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Funis > (funil)
+- **Descricao**: Por etapa e por período (7, 30 ou 90 dias): visitas (uma por abertura da página, contadas sem cookie e sem guardar IP), leads, cliques no pagamento, vendas pagas e receita (já sem reembolsos), com a conversão de uma etapa para a outra e a do funil inteiro (vendas ÷ visitas na entrada). Visitas fora de funil contam só na lista de páginas.
+- **Comportamento esperado**: abrir a página de outra área ou com funil inexistente não soma no funil.
+- **Impacto se descumprida**: decisão de marketing em número errado; rastreio que exigiria banner de cookies.
+
+### RN-247 - Lista de leads
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Páginas > Leads (DONO e ADMIN)
+- **Descricao**: Lista com nome, e-mail, página e funil de origem, tag, UTM, data do consentimento (o texto aparece ao passar o mouse) e se o e-mail se descadastrou do marketing da área (RN-227). Busca por nome ou e-mail e filtro por página. Envio de campanha para leads ainda não existe (ADR-0022).
+- **Comportamento esperado**: só leads da própria área; descadastrado aparece marcado.
+- **Impacto se descumprida**: contato com quem pediu para sair.
+
 <!-- Exemplo de registro: -->
 
 <!--

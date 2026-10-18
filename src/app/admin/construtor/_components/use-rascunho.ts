@@ -9,15 +9,16 @@ export type EstadoGravacao = "salvo" | "pendente" | "salvando" | "erro" | "confl
 export const ESPERA_AUTOSAVE_MS = 800;
 const CONFLITO = /alterou|alterado por outro/i;
 
-type Salvar = (e: { versao: string | null; config: ConfigVitrine }) => Promise<Resultado<{ versao: string }>>;
+type Salvar<T> = (e: { versao: string | null; config: T }) => Promise<Resultado<{ versao: string }>>;
 
 /**
  * Rascunho do construtor com AUTOSAVE: cada mudança espera 800 ms parada e grava com a versão
  * (trava otimista). As gravações vão numa fila (nunca duas ao mesmo tempo, sempre com a versão
  * mais nova). Conflito = outra pessoa gravou: para de salvar e a tela pede para recarregar.
  * `substituir` troca o rascunho por um que JÁ está no servidor (reverter/descartar), sem regravar.
+ * Genérico: o editor de páginas (ADR-0022) usa o mesmo autosave.
  */
-export function useRascunho(inicial: { config: ConfigVitrine; versao: string | null }, salvar: Salvar) {
+export function useRascunho<T = ConfigVitrine>(inicial: { config: T; versao: string | null }, salvar: Salvar<T>) {
   const [config, setConfig] = useState(inicial.config);
   const [versao, setVersao] = useState(inicial.versao);
   const [estado, setEstado] = useState<EstadoGravacao>("salvo");
@@ -55,7 +56,7 @@ export function useRascunho(inicial: { config: ConfigVitrine; versao: string | n
   }, [salvar]);
 
   const mudar = useCallback(
-    (f: (c: ConfigVitrine) => ConfigVitrine) => {
+    (f: (c: T) => T) => {
       if (travado.current) return;
       const novo = f(atual.current);
       atual.current = novo;
@@ -67,7 +68,7 @@ export function useRascunho(inicial: { config: ConfigVitrine; versao: string | n
     [gravarAgora],
   );
 
-  const substituir = useCallback((c: ConfigVitrine, v: string) => {
+  const substituir = useCallback((c: T, v: string) => {
     if (timer.current) clearTimeout(timer.current);
     atual.current = c;
     gravado.current = JSON.stringify(c);

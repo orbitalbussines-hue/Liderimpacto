@@ -32,3 +32,5 @@ export * from "./sugestoes-ia";
 export * from "./pagamentos";
 export * from "./vendas";
 export * from "./marketing";
+export * from "./integracoes";
+export * from "./paginas";

@@ -31,7 +31,11 @@ function compradorDe(s: Stripe.Checkout.Session): Comprador {
   return { email: email.success ? email.data : null, nome: nome.success ? nome.data : "Aluno" };
 }
 
-async function depoisDaVenda(criadorId: string, r: VendaConfirmada | null) {
+/**
+ * Efeitos depois do commit de um acesso liberado por compra (notificação, webhooks de saída e e-mail
+ * de primeiro acesso), sem lançar. Usado também pelas integrações Hotmart/Eduzz (ADR-0021).
+ */
+export async function depoisDaVenda(criadorId: string, r: Pick<VendaConfirmada, "novas" | "membroId" | "contaNova" | "membroNovo"> | null) {
   if (!r) return;
   await notificarMatriculas(criadorId, r.novas, null);
   await webhookMatriculas(criadorId, r.novas, "MATRICULA_CRIADA", null);

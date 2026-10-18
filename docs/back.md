@@ -1382,7 +1382,7 @@ Filtros da tela: `filtrosCampanhasSchema`, `filtrosDestinatariosSchema`. Prévia
 
 - `GET /api/email/abertura?e=<envio>&s=<assinatura>` → GIF 1×1 sempre (assinatura ruim ou outra área = não conta).
 - `GET /api/email/clique?e=<envio>&u=<url>&s=<assinatura>` → 302 para `u` só se HMAC(envio, URL) confere, a URL é https e o envio é da área; senão 404.
-- `GET /api/email/descadastro?t=<token>` → 303 para a página `/descadastro?t=` (confirmação com a marca da área; GET nunca descadastra); `POST` (formulário
+- `GET /api/email/descadastro?t=<token>` → 303 para a página `/descadastro?t=` (confirmação com a marca da área; o botão chama a server action `confirmarDescadastro` em `src/app/descadastro/acoes.ts`, que confere o token e o criador pelo host; GET nunca descadastra); `POST` (formulário
   ou `List-Unsubscribe=One-Click`, RFC 8058) → descadastra (idempotente). Token adulterado ou de outra área = 404.
 
 ### Serviços (`src/lib/marketing/`)
@@ -1402,3 +1402,117 @@ Filtros da tela: `filtrosCampanhasSchema`, `filtrosDestinatariosSchema`. Prévia
 
 Testes: `tests/integracao/fase3-campanhas.test.ts`, `fase3-automacoes.test.ts` (Postgres real + Redis;
 `ProvedorFalso`, nunca SMTP) e `src/lib/marketing/regras.test.ts` (conteúdo, escape, validadores, teto).
+
+## Integrações: Hotmart e Eduzz (ADR-0021, RN-230 a RN-236) — só DONO
+
+Migração `0015_integracoes_hotmart_eduzz` (só aditiva: 4 tabelas, `integracoes_recibos` append-only).
+Tela `/admin/vendas/integracoes` (aba "Integrações" de Vendas; card "Integrações" do hub). Mesma
+convenção das fases anteriores: `executar()` → `Resultado`, criador do HOST, Zod `strictObject` de
+`src/lib/validators/integracoes.ts`, `versao` = `updated_at` ISO, trilha na transação (sem o token).
+
+| Tabela | Colunas |
+|--------|---------|
+| `criadores_integracoes` | `plataforma` HOTMART/EDUZZ (uma viva por criador), `segredo_cifrado` (`v1:` AES-256-GCM, AAD `integracao:<id>`), `segredo_final` (4) |
+| `criadores_integracoes_produtos` | `integracao_id` (FK composta), `produto_externo` (`^[A-Za-z0-9_-]{1,64}$`), `nome_externo?`, `produto_id` (FK composta), `dias_acesso?` (1–3650; nulo = vitalício); um vivo por (integração, externo, curso) |
+| `integracoes_recibos` (**append-only**) | `integracao_id`, `plataforma`, `evento_id?` (único por integração), `evento` (nome original), `tipo` (`TIPOS_EVENTO_INTEGRACAO`), `transacao?`, `assinatura?`, `produto_externo?`, `recusa?` (TOKEN_INVALIDO/FORMATO_INVALIDO), `ocorrido_em?`, `created_at` — sem payload nem dado pessoal |
+| `criadores_integracoes_eventos` | `recibo_id` (único), `situacao` (`SITUACOES_EVENTO_INTEGRACAO`), `erro?` (nota ≤ 300), `comprador_email?`/`comprador_nome?` (só até PROCESSADO/IGNORADO), `proxima_cobranca?`, `membro_id?`, `matriculas` jsonb, `processado_em?` |
+
+| Action (`src/lib/actions/integracoes.ts`) | Entrada → saída |
+|-------------------------------------------|-----------------|
+| `acaoConectarIntegracao` | `{ plataforma, segredo }` → `{ id, url, versao }` (2ª da mesma plataforma = "A Hotmart já está conectada nesta área.") |
+| `acaoTrocarSegredoIntegracao` | `{ integracaoId, versao, segredo }` → `{ versao }` |
+| `acaoDesconectarIntegracao` | `{ integracaoId, versao }` → `{ mapeamentos }` (ModalConfirmacaoBlock; URL vira 404) |
+| `acaoCriarMapeamento` | `{ integracaoId, produtoExterno, nomeExterno?, produtoIds[1..20], diasAcesso: number \| null }` → `{ criados }` |
+| `acaoExcluirMapeamento` | `{ mapeamentoId, versao }` (ModalConfirmacaoBlock) |
+| `acaoReprocessarEventoIntegracao` | `{ eventoId, versao }` → `{ versao, naFila }` (só SEM_MAPEAMENTO/ERRO) |
+
+| Leitura (`src/lib/integracoes/consultas.ts`) | Devolve |
+|----------------------------------------------|---------|
+| `integracoesDoCriador(criadorId)` | `[{ id, plataforma, segredoFinal, criadoEm, versao }]` (nunca a cifra) |
+| `mapeamentosDoCriador(criadorId)` | `[{ id, integracaoId, plataforma, produtoExterno, nomeExterno, produtoId, produto, diasAcesso, versao }]` |
+| `eventosRecentes(criadorId, limite = 50)` | `[{ reciboId, eventoId, plataforma, evento, tipo, transacao, assinatura, produtoExterno, recusa, recebidoEm, situacao (+ RECUSADO), nota, pessoa (e-mail mascarado ou nome do aluno), versao }]` |
+
+### Rota
+
+- `POST /api/integracoes/hotmart/<id>` e `POST /api/integracoes/eduzz/<id>` (apex; `id` = conexão).
+  Hotmart: `X-HOTMART-HOTTOK` = hottok. Eduzz: `x-signature` = HMAC-SHA256(chave, corpo cru), hex ou base64.
+  Respostas: 200 recebido (também reentrega e evento não tratado), 401 token inválido (recibo RECUSADO,
+  teto 20/10 min por conexão), 400 formato, 404 conexão inexistente/desconectada ou plataforma errada,
+  413 corpo > 64 KB, 500 fila fora do ar (a plataforma reenvia).
+
+### Serviços (`src/lib/integracoes/`)
+
+| Arquivo | Funções |
+|---------|---------|
+| `regras.ts` (puro, tela) | `normalizarHotmart`, `normalizarEduzz`, `normalizar`, `chaveDoAcesso` (`hotmart:<transação>` / `hotmart-assinatura:<código>`), `referenciaDoAcesso`, `acessoAte` (próxima cobrança + 3 dias, senão dias do mapeamento, senão vitalício), `urlDoWebhook`, rótulos, `REPROCESSAVEIS`, `TETO_RECUSAS_POR_CONEXAO`, `TAMANHO_MAXIMO_CORPO` |
+| `autenticidade.ts` | `iguaisEmTempoConstante`, `hottokConfere`, `assinaturaEduzzConfere` |
+| `servico.ts` | `conectarIntegracao`, `trocarSegredoIntegracao`, `desconectarIntegracao`, `criarMapeamento`, `excluirMapeamento`, `reprocessarEvento` — todos `(tx, p)` |
+| `receber.ts` | `receberEventoIntegracao({ segmento, integracaoId, corpo, cabecalhos }, enfileirar?)` |
+| `fila.ts` | fila `integracoes`/`integracoes-dlq` (8º Worker de `worker:certificados`), `enfileirarComPrazo` |
+| `processar.ts` | `processarEventoIntegracao(eventoId, tentativa, max)` → situação, `eventosPendentes()` (reenfileirados ao subir o worker) |
+
+Testes: `tests/integracao/integracoes-hotmart-eduzz.test.ts` (Postgres real, fila injetada) e
+`src/lib/integracoes/regras.test.ts`, com os payloads de exemplo anonimizados de `tests/integracoes/exemplos.ts`.
+
+## Páginas e funis (ADR-0022, RN-240 a RN-247) — DONO e ADMIN
+
+Migração `0016_paginas_funis_leads` (só aditiva: 5 tabelas). Mesma convenção das Fases 1 a 3: `"use
+server"`, `executar()` → `Resultado`, criador do HOST, Zod `strictObject` de `src/lib/validators/paginas.ts`
+(as telas importam os MESMOS schemas), `versao` = `updated_at` ISO, trilha na transação, ação crítica
+(publicar, tirar do ar, excluir, remover bloco) com `ModalConfirmacaoBlock`. A configuração da página é
+`ConfigPagina` (`src/lib/paginas/config.ts`, PURO): `{ tema: ESCURO|CLARO, seo: { titulo ≤70, descricao ≤160,
+imagemArquivoId?, noindex }, blocos[≤30] }`; bloco = `{ id, visivel, tipo, ...campos do tipo }` com
+`TIPOS_BLOCO` = CAPA (título, subtítulo, mídia NENHUMA/IMAGEM/VIDEO YouTube|Vimeo por id, botão?), BENEFICIOS,
+MODULOS (`produtoId`, `mostrarAulas`), AUTOR (foto?), DEPOIMENTOS, PRECO (`ofertaId`, itens, texto do botão),
+GARANTIA (`dias`), FAQ, CHAMADA (botão), FORMULARIO (consentimento 10–400, `tagId?`, mensagem de sucesso; um
+por página). Botão = `{ texto, acao: PRECO|FORMULARIO|LINK, url (só LINK, https) }`. Tudo TEXTO.
+
+| Tabela | Colunas |
+|--------|---------|
+| `criadores_paginas` | `slug` (`^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])$`, único vivo por criador), `titulo` (2–80, interno), `modelo` VENDA/CAPTURA, `situacao` RASCUNHO/PUBLICADA, `rascunho` jsonb, `publicada` jsonb?, `publicada_em?`, `publicacoes` (nº da versão) |
+| `criadores_funis` | `nome` (2–80), `etapas` jsonb `[{ paginaId, nome }]` (1–10, páginas do criador, sem repetir) |
+| `criadores_paginas_visitas` | `pagina_id`, `funil_id?` (FKs compostas), `dia` (Brasília), `visitas` — `UNIQUE NULLS NOT DISTINCT (pagina, funil, dia)` |
+| `criadores_paginas_checkouts` | `pagina_id`, `funil_id?` (FKs compostas), `venda_id` (único, FK `criadores_vendas`) |
+| `criadores_leads` | `nome`, `email` (minúsculo, único vivo por criador), `pagina_id`, `funil_id?`, `tag_id?` (FKs compostas), `utm` jsonb (source/medium/campaign/term/content), `consentimento_texto`, `consentimento_em`, `capturas`, `ultima_captura_em` |
+
+### Actions (`src/lib/actions/paginas.ts`; público: `src/app/p/[slug]/acoes.ts`)
+
+| Action | Entrada → saída |
+|--------|-----------------|
+| `acaoCriarPagina` | `{ modelo, titulo, slug }` → `{ id, versao }` (rascunho do modelo; 1º curso e 1ª oferta ATIVA já ligados) |
+| `acaoSalvarRascunhoPagina` | `{ paginaId, versao, titulo, slug, config }` → `{ versao }` (autosave; o endereço novo vale na hora) |
+| `acaoPublicarPagina` | `{ paginaId, versao }` → `{ versao, numero, publicadaEm }` (recusa com `pendenciasParaPublicar`) |
+| `acaoDespublicarPagina` / `acaoExcluirPagina` | `{ paginaId, versao }` → `{ versao }` / `null` (excluir recusa se a página é etapa de funil vivo) |
+| `acaoPrepararImagemPagina` | `{ arquivoId }` → `{ url }` (imagem IMAGEM desta área, recém-enviada por `acaoIniciarEnvio`/`acaoConfirmarEnvio`) |
+| `acaoCriarFunil` / `acaoSalvarFunil` / `acaoExcluirFunil` | `{ nome, etapas }` → `{ id, versao }` / `{ funilId, versao, nome, etapas }` → `{ versao }` / `{ funilId, versao }` |
+| `enviarCaptura(estado, FormData)` (público, `useActionState`) | campos `slug`, `pagina`, `nome`, `email`, `consentimento=sim`, `site` (honeypot), `funil?`, `cupom?`, `afiliado?`, `utm_*` → `{ ok: true, proxima: "/p/<próxima>?funil=…" \| null }` ou `{ ok: false, erro }` |
+
+### Leituras (`src/lib/paginas/consultas.ts` e `publico.ts`)
+
+| Função | Devolve |
+|--------|---------|
+| `listarPaginas(criadorId)` | `[{ id, titulo, slug, modelo, situacao, publicacoes, publicadaEm, atualizadaEm, alterada, visitas (30 dias), leads, versao }]` |
+| `paginaParaEditar(criadorId, id)` / `opcoesDoEditor(criadorId)` | página com `rascunho`, `publicada`, `imagens` (id → URL) / `{ cursos, ofertas, tags }` |
+| `listarLeads(criadorId, { paginaId?, funilId?, busca?, pagina })` | `{ total, linhas: [{ id, nome, email, pagina, funil, tag, utm, consentimentoTexto, consentimentoEm, capturas, criadoEm, ultimaCapturaEm, descadastrado }] }` (50 por página) |
+| `listarFunis(criadorId)` | `[{ id, nome, etapas, versao, criadoEm, visitas, leads, vendas }]` (30 dias) |
+| `metricasDoFunil(criadorId, funilId, dias)` | `{ id, nome, versao, etapasBrutas, etapas: [{ paginaId, nome, titulo, slug, publicada, visitas, leads, cliques, vendas, receitaCentavos, daAnterior, taxaLead, taxaClique, taxaVenda }] }` ou `null` |
+| `paginaPublicada(criadorId, slug)` / `paginaEmRascunho(criadorId, id)` | `{ id, slug, titulo, config }` ou `null` |
+| `dadosParaRender(criadorId, config)` | `DadosRender` (`render-tipos.ts`): imagens assinadas, módulos PUBLICADOS do curso com títulos das aulas, ofertas ATIVAS |
+| `src/lib/paginas/metricas.ts` (puro) | `conversoes`, `conversaoTotal`, `percentual`, `textoPercentual` |
+| `src/lib/paginas/visita.ts` (puro) | `lerParametros` (funil, cupom, afiliado, UTM validados), `consultaDaVisita` |
+
+Render: `BlocosDaPagina` (`src/components/paginas/blocos.tsx`, server, sem `dangerouslySetInnerHTML`),
+`MolduraPagina` (tema + `EstiloMarca`), `FormularioCaptura` e `RegistrarVisita` (client).
+
+### Rotas
+
+- `/p/<slug>` (pública, host da área; `p` em `PUBLICAS` do proxy): só a PUBLICADA; `?funil=&cupom=&afiliado=&utm_*`
+  validados e repassados; `generateMetadata` com título, descrição, canônica, Open Graph e `noindex` opcional.
+- `GET /p/<slug>/imagem` (`src/app/p/[slug]/imagem/route.ts`, rota `/p/[slug]/imagem`) → 302 para a URL assinada da imagem de compartilhamento (link estável do `og:image`); 404 sem imagem.
+- `POST /api/paginas/visita` (`rota-visita.ts`) corpo `{ p: paginaId, f: funilId \| null }` → sempre 204; conta só
+  página PUBLICADA do host (funil inválido conta fora de funil); teto 60/IP/10 min; sem cookie, sem IP gravado.
+- `/previa-pagina/<id>` (equipe): o RASCUNHO com os mesmos blocos, no iframe do editor (preço e formulário inertes).
+- Link de compra da Fase 2 aceita `pagina=` e `funil=` (`registrarCheckoutDaPagina`, nunca lança): só atribuição.
+
+Testes: `tests/integracao/paginas.test.ts`, `paginas-leads-funis.test.ts` (Postgres real, `StripeFalso`) e
+`src/lib/paginas/config.test.ts`, `src/components/paginas/blocos.test.tsx` (schema, vídeo, escape, links).

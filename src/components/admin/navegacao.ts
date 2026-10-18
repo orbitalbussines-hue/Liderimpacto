@@ -171,24 +171,9 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
   {
     titulo: "Marketing",
     itens: [
-      item(
-        "paginas", "Páginas", PanelsTopLeft, 3,
-        tabela(
-          "Páginas", ["Páginas", "Templates", "Domínios"],
-          [{ titulo: "Página" }, { titulo: "URL", largura: 160 }, { titulo: "Status", largura: 120 }, { titulo: "Atualização", largura: 120 }, ACOES_COL],
-          { acaoPrincipal: novo("Nova página") }
-        ),
-        { selo: "Em breve" }
-      ),
-      item(
-        "funis", "Funis", Filter, 3,
-        tabela(
-          "Funis", ["Funis"],
-          [{ titulo: "Funil" }, { titulo: "Etapas", largura: 100 }, { titulo: "Status", largura: 120 }, ACOES_COL],
-          { acaoPrincipal: novo("Novo funil") }
-        ),
-        { selo: "Em breve" }
-      ),
+      // ADR-0022: telas próprias em /admin/paginas (Páginas · Leads) e /admin/funis.
+      item("paginas", "Páginas", PanelsTopLeft, 3, { tipo: "proprio" }),
+      item("funis", "Funis", Filter, 3, { tipo: "proprio" }),
       // ADR-0020: telas próprias em /admin/automacoes e /admin/campanhas (abas Campanhas · Modelos · Descadastros).
       item("automacoes", "Automações", Zap, 3, { tipo: "proprio" }),
       item("campanhas", "Campanhas", Send, 3, { tipo: "proprio" }),
@@ -249,7 +234,7 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
             { icone: Activity, titulo: "Financeiro", descricao: "Resumo, taxas e reembolsos", href: "/admin/vendas/financeiro" },
             { icone: Percent, titulo: "Meus afiliados", descricao: "Gerencie os afiliados e comissões", href: "/admin/vendas/afiliados" },
             { icone: Tag, titulo: "Ofertas e cupons", descricao: "Preços, assinaturas e descontos", href: "/admin/vendas/ofertas" },
-            { icone: Link2, titulo: "Integrações", descricao: "Stripe e webhooks", href: "/admin/configuracoes/pagamentos" },
+            { icone: Link2, titulo: "Integrações", descricao: "Hotmart, Eduzz e Stripe", href: "/admin/vendas/integracoes" },
           ],
         },
         { papelMinimo: "DONO" }

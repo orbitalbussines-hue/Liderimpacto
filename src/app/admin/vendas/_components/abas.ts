@@ -8,4 +8,5 @@ export const ABAS_VENDAS: AbaTabela[] = [
   { rotulo: "Ofertas", href: "/admin/vendas/ofertas" },
   { rotulo: "Cupons", href: "/admin/vendas/cupons" },
   { rotulo: "Afiliados", href: "/admin/vendas/afiliados" },
+  { rotulo: "Integrações", href: "/admin/vendas/integracoes" },
 ];

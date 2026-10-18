@@ -18,8 +18,9 @@ import { alvoDosCabecalhos } from "@/lib/criador/area";
  * serve ao `sendBeacon` do progresso nem ao player. `/certificado/<codigo>` e a verificacao
  * publica do QR do PDF (o host continua validado; `/certificados`, a lista do aluno, NAO e publica).
  * `/descadastro?t=` e a confirmacao do descadastro dos e-mails de marketing (RN-227, sem login).
+ * `/p/<slug>` e a pagina de venda/captura PUBLICADA do criador (RN-241); rascunho = 404 na propria pagina.
  */
-const PUBLICAS = /^\/(login|primeiro-acesso|recuperar-senha|componentes|api|certificado|descadastro)(\/|$)/;
+const PUBLICAS = /^\/(login|primeiro-acesso|recuperar-senha|componentes|api|certificado|descadastro|p)(\/|$)/;
 
 // Nome do cookie do Better Auth com `cookiePrefix: "li"` (com ou sem o prefixo __Secure-).
 const temCookieDeSessao = (req: NextRequest) => req.cookies.getAll().some((c) => /(^|-)li\.session_token$/.test(c.name));

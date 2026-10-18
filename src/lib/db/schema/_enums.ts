@@ -281,3 +281,27 @@ export type SituacaoEnvio = (typeof SITUACOES_ENVIO)[number];
 /** LINK = página de confirmação; UM_CLIQUE = POST do cliente de e-mail (RFC 8058). */
 export const ORIGENS_DESCADASTRO = ["LINK", "UM_CLIQUE"] as const;
 export type OrigemDescadastro = (typeof ORIGENS_DESCADASTRO)[number];
+
+/** Páginas de venda/captura e funis (ADR-0022, RN-240 a RN-247). Modelo = de que esqueleto a página nasceu. */
+export const MODELOS_PAGINA = ["VENDA", "CAPTURA"] as const;
+export type ModeloPagina = (typeof MODELOS_PAGINA)[number];
+
+/** RASCUNHO = nunca publicada ou despublicada (fora do ar); PUBLICADA = `/p/<slug>` no ar. */
+export const SITUACOES_PAGINA = ["RASCUNHO", "PUBLICADA"] as const;
+export type SituacaoPagina = (typeof SITUACOES_PAGINA)[number];
+
+/** Integrações de venda externa — Hotmart e Eduzz (ADR-0021, RN-230 a RN-236). */
+export const PLATAFORMAS_INTEGRACAO = ["HOTMART", "EDUZZ"] as const;
+export type PlataformaIntegracao = (typeof PLATAFORMAS_INTEGRACAO)[number];
+
+/** O que o evento externo significa para o acesso (src/lib/integracoes/normalizar.ts). OUTRO = só registrado. */
+export const TIPOS_EVENTO_INTEGRACAO = ["COMPRA_APROVADA", "REEMBOLSO", "CHARGEBACK", "CANCELAMENTO", "ASSINATURA_CANCELADA", "ASSINATURA_ATRASADA", "OUTRO"] as const;
+export type TipoEventoIntegracao = (typeof TIPOS_EVENTO_INTEGRACAO)[number];
+
+/** Recibo recusado: token/assinatura não confere ou corpo fora do formato (não vira processamento). */
+export const RECUSAS_INTEGRACAO = ["TOKEN_INVALIDO", "FORMATO_INVALIDO"] as const;
+export type RecusaIntegracao = (typeof RECUSAS_INTEGRACAO)[number];
+
+/** Processamento do evento: SEM_MAPEAMENTO e ERRO podem ser reprocessados (voltam a PENDENTE). */
+export const SITUACOES_EVENTO_INTEGRACAO = ["PENDENTE", "PROCESSADO", "SEM_MAPEAMENTO", "IGNORADO", "ERRO"] as const;
+export type SituacaoEventoIntegracao = (typeof SITUACOES_EVENTO_INTEGRACAO)[number];

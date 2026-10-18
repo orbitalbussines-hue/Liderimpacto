@@ -26,6 +26,9 @@
  * falta (`rateLimit`) — o que passa do teto sai na janela seguinte. Um 7º consome a fila `marketing`
  * (iniciar campanha agendada, executar automação, varredura diária de inatividade às 09:00 de Brasília).
  * Ao subir, reenfileira envios PENDENTES, execuções e campanhas AGENDADAS.
+ * Um 8º `Worker` consome a fila `integracoes` (webhooks da Hotmart e da Eduzz, ADR-0021): aplica o evento
+ * (acesso, reembolso, assinatura) pelo `matricular`; DLQ `integracoes-dlq`; ao subir, reenfileira os
+ * eventos PENDENTES.
  */
 import { DelayedError, type Job, Queue, Worker } from "bullmq";
 import {
@@ -92,6 +95,17 @@ import { gatewayStripe } from "../src/lib/pagamentos/stripe";
 import { emailConfigurado } from "../src/lib/email/enviar";
 import { entregasPendentes, processarEntrega } from "../src/lib/webhooks/entrega";
 import {
+  CONCORRENCIA_WORKER_INTEGRACOES,
+  criarFilaIntegracoes,
+  enfileirarEventoIntegracao,
+  esquemaJobIntegracao,
+  type JobIntegracao,
+  NOME_FILA_INTEGRACOES,
+  NOME_FILA_INTEGRACOES_DLQ,
+  OPCOES_JOB_INTEGRACAO,
+} from "../src/lib/integracoes/fila";
+import { eventosPendentes, processarEventoIntegracao } from "../src/lib/integracoes/processar";
+import {
   CONCORRENCIA_WORKER_WEBHOOKS,
   criarFilaWebhooks,
   enfileirarEntrega,
@@ -142,6 +156,13 @@ async function processarPagamento(job: Job<JobPagamento>): Promise<string> {
   if (!gateway) throw new Error("STRIPE_SECRET_KEY ausente.");
   const r = await processarEventoStripe(gateway, eventoId, contaId);
   console.log(`[pagamentos] ${eventoId}: ${r} (tentativa ${job.attemptsMade + 1})`);
+  return r;
+}
+
+async function processarIntegracao(job: Job<JobIntegracao>): Promise<string> {
+  const { eventoId } = esquemaJobIntegracao.parse(job.data);
+  const r = await processarEventoIntegracao(eventoId, job.attemptsMade + 1, job.opts.attempts ?? OPCOES_JOB_INTEGRACAO.attempts);
+  console.log(`[integracoes] ${eventoId}: ${r} (tentativa ${job.attemptsMade + 1})`);
   return r;
 }
 
@@ -267,6 +288,20 @@ async function principal() {
   const agendadas = [...(await execucoesAgendadas()).map((x) => ({ job: { tipo: "execucao" as const, execucaoId: x.id }, quando: x.quando })), ...(await campanhasAgendadas()).map((c) => ({ job: { tipo: "campanha" as const, campanhaId: c.id }, quando: c.quando }))];
   for (const a of agendadas) await enfileirarMarketing(filaMarketing, a.job, a.quando);
 
+  const dlqIntegracoes = new Queue(NOME_FILA_INTEGRACOES_DLQ, { connection: conexao, prefix });
+  const workerIntegracoes = new Worker<JobIntegracao>(NOME_FILA_INTEGRACOES, processarIntegracao, { connection: conexao, prefix, concurrency: CONCORRENCIA_WORKER_INTEGRACOES });
+  workerIntegracoes.on("failed", (job, erro) => {
+    if (!job) return;
+    console.error(`[integracoes] ${job.id}: falhou (${job.attemptsMade}/${job.opts.attempts}): ${erro.message.slice(0, 200)}`);
+    // Só o id vai para a DLQ (o comprador fica no banco).
+    if (ehFalhaDefinitiva(job.attemptsMade, job.opts.attempts)) void dlqIntegracoes.add("falhou", { ...job.data, erro: erro.message.slice(0, 200), falhouEm: new Date().toISOString() });
+  });
+  workerIntegracoes.on("error", (e) => console.error("[integracoes] erro do worker:", e.message));
+  const filaInt = criarFilaIntegracoes(conexao);
+  const eventosInt = await eventosPendentes();
+  for (const eventoId of eventosInt) await enfileirarEventoIntegracao(filaInt, { eventoId });
+  await filaInt.close();
+
   const fila = criarFilaCertificados(conexao);
   const pendentes = await versoesPendentes();
   for (const versaoId of pendentes) await enfileirarCertificado(fila, { versaoId });
@@ -284,8 +319,8 @@ async function principal() {
 
   const desligar = async () => {
     console.log("[certificados] desligando: termina os jobs atuais e para.");
-    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close(), workerWebhooks.close(), workerPagamentos?.close(), workerEmails.close(), workerMarketing.close()]);
-    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close(), dlqWebhooks.close(), dlqPagamentos.close(), dlqEmails.close(), dlqMarketing.close(), filaEmails.close(), filaMarketing.close()]);
+    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close(), workerWebhooks.close(), workerPagamentos?.close(), workerEmails.close(), workerMarketing.close(), workerIntegracoes.close()]);
+    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close(), dlqWebhooks.close(), dlqPagamentos.close(), dlqEmails.close(), dlqMarketing.close(), filaEmails.close(), filaMarketing.close(), dlqIntegracoes.close()]);
     process.exit(0);
   };
   process.on("SIGTERM", desligar);
@@ -300,6 +335,7 @@ async function principal() {
   );
   console.log(`[emails] worker ouvindo ${prefix}:${NOME_FILA_EMAILS} (concorrência ${CONCORRENCIA_WORKER_EMAILS}); ${pendentesEmail.length} envio(s) pendente(s) reenfileirado(s); SMTP ${emailConfigurado() ? "configurado" : "AUSENTE (envios esperam)"}; BETTER_AUTH_SECRET ${process.env.BETTER_AUTH_SECRET ? "ok" : "AUSENTE"}.`);
   console.log(`[marketing] worker ouvindo ${prefix}:${NOME_FILA_MARKETING}; ${agendadas.length} agendamento(s) (re)enfileirado(s); varredura ${VARREDURA_DIARIA.pattern} ${VARREDURA_DIARIA.tz}.`);
+  console.log(`[integracoes] worker ouvindo ${prefix}:${NOME_FILA_INTEGRACOES} (concorrência ${CONCORRENCIA_WORKER_INTEGRACOES}); ${eventosInt.length} evento(s) pendente(s) reenfileirado(s).`);
   console.log(`[webhooks] worker ouvindo ${prefix}:${NOME_FILA_WEBHOOKS} (concorrência ${CONCORRENCIA_WORKER_WEBHOOKS}); ${entregas.length} entrega(s) pendente(s) reenfileirada(s).`);
 }
 
