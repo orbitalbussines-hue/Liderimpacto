@@ -59,8 +59,15 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U dev" --health-interval 5s --health-timeout 5s --health-retries 10
+      # Filas BullMQ (webhooks de saída enfileiram de verdade nos testes de integração).
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL_TESTE: postgres://dev:dev@localhost:5432/lider_impacto_teste
+      REDIS_URL: redis://localhost:6379
       # O build carrega o Better Auth: segredo e URL de mentira so para compilar.
       BETTER_AUTH_SECRET: segredo-de-ci-so-para-compilar-e-testar-0123456789
       BETTER_AUTH_URL: https://ci.invalido
