@@ -27,3 +27,7 @@ delete process.env.VIDEO_LIMITE_SESSOES;
 // de modelo injeta o ClienteFalso; sem chave, a rota responde "IA não configurada".
 delete process.env.ANTHROPIC_API_KEY;
 delete process.env.ASSISTENTE_TETO_DIARIO_CRIADOR;
+// Stripe (ADR-0019): o teste NUNCA chama a API real (o .env local pode ter a chave). Quem precisa usa o
+// StripeFalso; o segredo do webhook é SÓ de teste (assina os eventos que o próprio teste monta).
+delete process.env.STRIPE_SECRET_KEY;
+process.env.STRIPE_WEBHOOK_SECRET = "whsec_somente_de_teste_nao_e_real";

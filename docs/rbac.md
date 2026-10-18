@@ -88,6 +88,11 @@ pura é `papelEfetivo`/`papelAceito` (`src/lib/auth/permissoes.ts`, com teste).
 | Estúdio › Estatísticas (`estatisticasDosVideos`) e IA (`acaoGerarSugestao`, `acaoAplicarSugestao`, `acaoDescartarSugestao`, `sugestoesDaAula`) | `DONO` e `ADMIN`; aula/avaliação de outro criador ou de outro curso = recusa — RN-205, RN-206 |
 | Configurações › Disparos de e-mails (`listarDisparos`, `resumoDisparos`) | só `DONO` (página com `papelMinimo: "DONO"`); só os da própria área — RN-203 |
 | Configurações › Integrações e webhooks (`src/lib/actions/webhooks.ts`; `listarWebhooks`, `entregasDoWebhook`) | só `DONO` (ADMIN e ALUNO: 403 na página e "Sem permissão" na action): o webhook manda dado de pessoas para fora — RN-204 |
+| Pagamentos — conectar Stripe (`acaoConectarStripe`) e reembolsar venda (`acaoReembolsarVenda`) | só `DONO` (ADMIN e ALUNO: "Sem permissão"); venda de outro criador = colisão — RN-210, RN-216 |
+| Pagamentos — status da conta (`acaoAtualizarContaStripe`, `contaStripe`), ofertas, cupons e afiliados (`src/lib/actions/ofertas.ts`; `listarOfertas`, `listarCupons`, `listarAfiliados`) e leituras financeiras (`listarVendas`, `resumoFinanceiro`, `listarAssinaturas`) | `DONO` e `ADMIN` (`ALUNO`: "Sem permissão"); curso, oferta ou registro de outro criador = "não encontrado"/colisão (FK composta) — RN-210, RN-212 a RN-217 |
+| Pagamentos — taxa da plataforma por criador (`acaoMudarTaxaCriador`, `pagamentosDosCriadores`) | só `SUPER_ADMIN` no apex — RN-211 |
+| Link de compra `GET /api/stripe/checkout` | qualquer pessoa, SEM sessão, no host do criador (teto por IP); logado nesta área, a compra é do próprio membro — RN-212 |
+| Webhook `POST /api/stripe/webhook` | só o Stripe: assinatura `Stripe-Signature` conferida; o criador vem da conta conectada (`event.account`) — RN-215 |
 | Criadores (`/plataforma`, `/plataforma/novo`) | só `SUPER_ADMIN` no apex (RN-108) |
 | `/conta/seguranca` | qualquer sessão, inclusive a provisória do SUPER_ADMIN sem TOTP |
 | Link de senha para outra pessoa | ver RN-102 em `docs/regras-negocio.md` |

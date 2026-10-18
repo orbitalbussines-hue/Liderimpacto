@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, pgTable, text, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, index, integer, pgTable, text, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { colunasAuditoria, instante } from "./_compartilhado";
 import { PAPEIS_CRIADOR, STATUS_CRIADOR, STATUS_MEMBRO, listaSql } from "./_enums";
 import { usuarios } from "./usuarios";
@@ -20,6 +20,8 @@ export const criadores = pgTable(
     status: text("status", { enum: STATUS_CRIADOR }).notNull().default("ATIVO"),
     /** Preparado para o dominio proprio (ainda nao ligado: ADR-0003). */
     dominio_proprio: text("dominio_proprio"),
+    /** Taxa da plataforma nas vendas do criador, em basis points (800 = 8%). Só o SUPER_ADMIN muda (ADR-0019). */
+    taxa_plataforma_bps: integer("taxa_plataforma_bps").notNull().default(800),
     ...colunasAuditoria,
   },
   (t) => [
@@ -28,6 +30,7 @@ export const criadores = pgTable(
     check("ck_criadores_slug", sql`slug ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$' and slug <> 'www'`),
     check("ck_criadores_cor_marca", sql`cor_marca is null or cor_marca ~* '^#([0-9a-f]{3}|[0-9a-f]{6})$'`),
     check("ck_criadores_status", sql.raw(`status in (${listaSql(STATUS_CRIADOR)})`)),
+    check("ck_criadores_taxa_plataforma", sql`taxa_plataforma_bps between 0 and 5000`),
   ],
 );
 

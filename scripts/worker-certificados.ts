@@ -18,6 +18,9 @@
  * DLQ `conhecimento-dlq`; o job é idempotente (relê a fonte e compara a assinatura dos trechos).
  * Um 4º `Worker` consome a fila `webhooks` (entregas de saída, ADR-0018 item 5): backoff exponencial,
  * DLQ `webhooks-dlq`; ao subir, reenfileira as entregas PENDENTES (`jobId` = entrega: não duplica).
+ * Um 5º `Worker` consome a fila `pagamentos` (eventos do webhook Connect do Stripe, ADR-0019): relê o
+ * evento na API pela conta conectada e aplica (venda, acesso, reembolso, assinatura, status da conta);
+ * DLQ `pagamentos-dlq`. Só sobe com STRIPE_SECRET_KEY (sem ela os jobs esperam na fila).
  */
 import { type Job, Queue, Worker } from "bullmq";
 import {
@@ -50,6 +53,15 @@ import {
 import { lembretesPendentes, processarLembrete } from "../src/lib/eventos/lembrete";
 import { conexaoRedis, ehFalhaDefinitiva, prefixoFila } from "../src/lib/video/fila";
 import { aguardarEsquema } from "../src/lib/db/migracoes";
+import {
+  CONCORRENCIA_WORKER_PAGAMENTOS,
+  esquemaJobPagamento,
+  type JobPagamento,
+  NOME_FILA_PAGAMENTOS,
+  NOME_FILA_PAGAMENTOS_DLQ,
+} from "../src/lib/pagamentos/fila";
+import { processarEventoStripe } from "../src/lib/pagamentos/processar";
+import { gatewayStripe } from "../src/lib/pagamentos/stripe";
 import { entregasPendentes, processarEntrega } from "../src/lib/webhooks/entrega";
 import {
   CONCORRENCIA_WORKER_WEBHOOKS,
@@ -66,6 +78,15 @@ async function processarWebhook(job: Job<JobWebhook>): Promise<string> {
   const { entregaId } = esquemaJobWebhook.parse(job.data);
   const r = await processarEntrega(entregaId, job.attemptsMade + 1, job.opts.attempts ?? OPCOES_JOB_WEBHOOK.attempts);
   console.log(`[webhooks] ${entregaId}: ${r} (tentativa ${job.attemptsMade + 1})`);
+  return r;
+}
+
+async function processarPagamento(job: Job<JobPagamento>): Promise<string> {
+  const { eventoId, contaId } = esquemaJobPagamento.parse(job.data);
+  const gateway = gatewayStripe();
+  if (!gateway) throw new Error("STRIPE_SECRET_KEY ausente.");
+  const r = await processarEventoStripe(gateway, eventoId, contaId);
+  console.log(`[pagamentos] ${eventoId}: ${r} (tentativa ${job.attemptsMade + 1})`);
   return r;
 }
 
@@ -134,6 +155,19 @@ async function principal() {
   });
   workerWebhooks.on("error", (e) => console.error("[webhooks] erro do worker:", e.message));
 
+  // Sem chave do Stripe o 5º Worker não sobe: os eventos ficam na fila até a chave chegar.
+  const dlqPagamentos = new Queue(NOME_FILA_PAGAMENTOS_DLQ, { connection: conexao, prefix });
+  const workerPagamentos = gatewayStripe()
+    ? new Worker<JobPagamento>(NOME_FILA_PAGAMENTOS, processarPagamento, { connection: conexao, prefix, concurrency: CONCORRENCIA_WORKER_PAGAMENTOS })
+    : null;
+  workerPagamentos?.on("failed", (job, erro) => {
+    if (!job) return;
+    console.error(`[pagamentos] ${job.id}: falhou (${job.attemptsMade}/${job.opts.attempts}): ${erro.message}`);
+    // Só os ids vão para a DLQ (nada de dado do comprador no Redis).
+    if (ehFalhaDefinitiva(job.attemptsMade, job.opts.attempts)) void dlqPagamentos.add("falhou", { ...job.data, erro: erro.message.slice(0, 300), falhouEm: new Date().toISOString() });
+  });
+  workerPagamentos?.on("error", (e) => console.error("[pagamentos] erro do worker:", e.message));
+
   const fila = criarFilaCertificados(conexao);
   const pendentes = await versoesPendentes();
   for (const versaoId of pendentes) await enfileirarCertificado(fila, { versaoId });
@@ -151,8 +185,8 @@ async function principal() {
 
   const desligar = async () => {
     console.log("[certificados] desligando: termina os jobs atuais e para.");
-    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close(), workerWebhooks.close()]);
-    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close(), dlqWebhooks.close()]);
+    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close(), workerWebhooks.close(), workerPagamentos?.close()]);
+    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close(), dlqWebhooks.close(), dlqPagamentos.close()]);
     process.exit(0);
   };
   process.on("SIGTERM", desligar);
@@ -160,6 +194,11 @@ async function principal() {
   console.log(`[certificados] worker ouvindo ${prefix}:${NOME_FILA_CERTIFICADOS} (concorrência ${CONCORRENCIA_WORKER_CERTIFICADOS}); ${pendentes.length} pendente(s) reenfileirada(s).`);
   console.log(`[eventos] worker ouvindo ${prefix}:${NOME_FILA_EVENTOS} (concorrência ${CONCORRENCIA_WORKER_EVENTOS}); ${lembretes.length} lembrete(s) (re)enfileirado(s).`);
   console.log(`[conhecimento] worker ouvindo ${prefix}:${NOME_FILA_CONHECIMENTO} (concorrência ${CONCORRENCIA_WORKER_CONHECIMENTO}).`);
+  console.log(
+    workerPagamentos
+      ? `[pagamentos] worker ouvindo ${prefix}:${NOME_FILA_PAGAMENTOS} (concorrência ${CONCORRENCIA_WORKER_PAGAMENTOS}).`
+      : "[pagamentos] STRIPE_SECRET_KEY ausente: worker de pagamentos desligado (eventos aguardam na fila).",
+  );
   console.log(`[webhooks] worker ouvindo ${prefix}:${NOME_FILA_WEBHOOKS} (concorrência ${CONCORRENCIA_WORKER_WEBHOOKS}); ${entregas.length} entrega(s) pendente(s) reenfileirada(s).`);
 }
 

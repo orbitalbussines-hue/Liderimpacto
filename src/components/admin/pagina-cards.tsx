@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { Cartao, CartaoTitulo } from "@/components/ui/cartao";
 import { IconeQuadrado } from "@/components/ui/icone-quadrado";
@@ -83,10 +83,17 @@ export function PaginaCards({ titulo, subtitulo, acao, cards }: PaginaCardsProps
         acoes={
           acao &&
           Icone && (
-            <Button size="36" className="h-[38px]">
-              <Icone className="size-3.5" aria-hidden />
-              {acao.rotulo}
-            </Button>
+            acao.href ? (
+              <Link href={acao.href} className={buttonVariants({ size: "36", className: "h-[38px]" })}>
+                <Icone className="size-3.5" aria-hidden />
+                {acao.rotulo}
+              </Link>
+            ) : (
+              <Button size="36" className="h-[38px]">
+                <Icone className="size-3.5" aria-hidden />
+                {acao.rotulo}
+              </Button>
+            )
           )
         }
       />

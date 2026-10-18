@@ -10,6 +10,7 @@ import { Cartao } from "@/components/ui/cartao";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { FiltroAtivo } from "@/components/ui/filtro-ativo";
 import { Selo } from "@/components/ui/selo";
+import { cn } from "@/lib/utils";
 import { CelulaTabela } from "./celula-tabela";
 import type { AcaoPagina } from "./navegacao";
 import type { Coluna, Linha } from "./tabela-tipos";
@@ -231,7 +232,7 @@ export function PaginaTabela({
                   key={c.titulo}
                   scope="col"
                   style={c.largura ? { width: c.largura } : { minWidth: LARGURA_FLEX }}
-                  className="px-3 py-2.5 font-normal first:pl-5 last:pr-5"
+                  className={cn("px-3 py-2.5 font-normal first:pl-5 last:pr-5", c.alinhar === "direita" && "text-right")}
                 >
                   {c.titulo === "Ações" || c.titulo === "Capa" ? <span className="sr-only">{c.titulo}</span> : c.titulo}
                 </th>
@@ -242,7 +243,7 @@ export function PaginaTabela({
             {linhas.map((linha, i) => (
               <tr key={chaves?.[i] ?? i} className="border-b border-border last:border-b-0">
                 {linha.map((celula, j) => (
-                  <td key={j} className="px-3 py-2 align-middle first:pl-5 last:pr-5">
+                  <td key={j} className={cn("px-3 py-2 align-middle first:pl-5 last:pr-5", colunas[j]?.alinhar === "direita" && "text-right tabular-nums")}>
                     <CelulaTabela celula={celula} />
                   </td>
                 ))}

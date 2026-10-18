@@ -843,6 +843,8 @@ Quem envia: `solicitarRedefinicao` (`auth/recuperacao.ts`, marca do host do pedi
 | `S3_CORS_ORIGENS` | (opcional) | (opcional) | origens do CORS em `armazenamento:preparar`; sem ela: `BETTER_AUTH_URL` e `*.` do mesmo host |
 | `REDIS_URL` | `redis://localhost:6382` | Redis da VPS backend | fila BullMQ do vídeo (passo 3b) |
 | `REDIS_PORT` / `S3_PORT` | `6382` / `8342` | — | portas do host no `docker-compose` |
+| `STRIPE_SECRET_KEY` | (opcional; vazio = pagamentos desligados) | `sk_live_…` da conta da PLATAFORMA (app e `li-worker-certificados`) | API do Stripe Connect (ADR-0019); testes nunca usam |
+| `STRIPE_WEBHOOK_SECRET` | (opcional) | `whsec_…` do endpoint Connect `/api/stripe/webhook` (só app) | assinatura do webhook |
 
 `next.config.ts` lê `S3_ENDPOINT` e `S3_BUCKET_ARQUIVOS` no build/arranque para o
 `images.remotePatterns`: mudou o storage, reinicie o `next dev` / refaça o build.
@@ -1230,3 +1232,86 @@ Testes: `tests/integracao/fase1-tags-vouchers.test.ts`, `fase1-feedback-disparos
 `fase1-webhooks.test.ts`, `fase1-estudio-ia.test.ts` (Postgres real; IA só com o `ClienteFalso`; o POST
 do webhook é injetado) e os puros `src/lib/vouchers/regras.test.ts`, `src/lib/webhooks/regras.test.ts`
 (SSRF, cifra, assinatura), `src/lib/estudio-ia/regras.test.ts`, `src/lib/email/modelo.test.ts`.
+
+## Fase 2: pagamentos por Stripe Connect (ADR-0019, RN-210 a RN-217)
+
+Migração `0013_fase2_pagamentos_stripe` (só aditiva: 7 tabelas novas, `stripe_eventos` append-only e a
+coluna `criadores.taxa_plataforma_bps` default 800). **Dinheiro em centavos inteiros** (`number` inteiro na
+tela; `formatarCentavos` para exibir); taxa e comissão em **bps** (800 = 8%). Mesma convenção da Fase 1:
+`executar()` → `Resultado`, criador do HOST, Zod `strictObject` de `src/lib/validators/pagamentos.ts` (as
+telas importam os mesmos schemas), `versao` = `updated_at` ISO, trilha na transação. Ação crítica
+(excluir, reembolsar) com `ModalConfirmacaoBlock`. Sem `STRIPE_SECRET_KEY`: as actions que falam com o
+Stripe devolvem "Pagamentos não configurados nesta plataforma." (as de oferta/cupom/afiliado funcionam).
+
+| Tabela | Colunas |
+|--------|---------|
+| `criadores.taxa_plataforma_bps` | 0–5000, default 800 (só SUPER_ADMIN muda) |
+| `criadores_stripe_contas` | `conta_id` (`acct_…`, único), `cobrancas_ativas`, `repasses_ativos`, `dados_enviados`, `status_em`; uma viva por criador |
+| `criadores_ofertas` | `nome` (2–80), `tipo` AVULSO/ASSINATURA (fixo), `preco_centavos` (100–100.000.000), `moeda` BRL, `intervalo` MES/ANO (só assinatura), `dias_acesso?` (só avulso, 1–3650), `situacao` ATIVA/PAUSADA |
+| `criadores_ofertas_produtos` | `oferta_id`, `produto_id` (FKs compostas) |
+| `criadores_cupons` | `codigo` (`^[A-Z0-9]{3,20}$`, único vivo), `tipo` PERCENTUAL (`percentual_bps` 1–10000) ou VALOR (`valor_centavos`), `oferta_id?`, `valido_ate?`, `limite_usos?`, `situacao` ATIVO/PAUSADO |
+| `criadores_afiliados` | `nome`, `email`, `codigo` (`^[A-Z0-9]{4,20}$`, único vivo), `comissao_bps` (0–9000), `situacao` |
+| `criadores_vendas` | `oferta_id`, `tipo`, `membro_id?`, `comprador_email?`, `afiliado_id?`, `cupom_id?`, `assinatura_id?`, `checkout_sessao_id?`/`fatura_id?` (um dos dois; únicos), `payment_intent_id?` (único), `situacao` (`SITUACOES_VENDA`), `valor_centavos` (cobrado), `desconto_centavos`, `taxa_bps`, `taxa_centavos`, `comissao_centavos`, `reembolsado_centavos`, `taxa_devolvida_centavos`, `pago_em?`, `matriculas` jsonb |
+| `criadores_assinaturas` | `oferta_id`, `membro_id`, `stripe_assinatura_id` (`sub_…`, único), `situacao` (`SITUACOES_ASSINATURA`), `taxa_bps`, `periodo_fim?`, `cancelar_no_fim`, `encerrada_em?`, `evento_em?` |
+| `stripe_eventos` (**append-only**) | `evento_id` (único), `tipo`, `conta_id?`, `criador_id?`, `objeto_id?`, `livemode`, `ocorrido_em`, `created_at` — sem payload |
+
+### Actions (`src/lib/actions/pagamentos.ts` e `ofertas.ts`)
+
+| Action | Quem | Entrada → saída |
+|--------|------|-----------------|
+| `acaoConectarStripe()` | DONO | → `{ url }` (Account Link de uso único: redirecione na hora). Retorno em `/admin/configuracoes/pagamentos?stripe=retorno`; link vencido volta em `?stripe=renovar` (chame de novo) |
+| `acaoAtualizarContaStripe()` | DONO, ADMIN | → `{ cobrancasAtivas, repassesAtivos, dadosEnviados }` (relê na API; use no `?stripe=retorno`) |
+| `acaoReembolsarVenda` | DONO | `{ vendaId, versao }` → `{ matriculasCanceladas }` (total; assinatura também é cancelada no Stripe) |
+| `acaoMudarTaxaCriador` | SUPER_ADMIN no apex | `{ criadorId, versao (do criador), taxaBps }` → `{ versao }` |
+| `acaoCriarOferta` | DONO, ADMIN | `{ tipo, nome, precoCentavos, intervalo?, diasAcesso?, produtoIds[1..50] }` → `{ id, versao }` |
+| `acaoSalvarOferta` | DONO, ADMIN | `{ ofertaId, versao, nome, precoCentavos, intervalo?, diasAcesso?, produtoIds }` → `{ versao }` |
+| `acaoMudarSituacaoOferta` / `acaoExcluirOferta` | DONO, ADMIN | `{ ofertaId, versao, situacao }` → `{ versao }` / `{ ofertaId, versao }` |
+| `acaoCriarCupom` | DONO, ADMIN | `{ codigo, tipo, percentualBps?, valorCentavos?, ofertaId?, validoAte?: ISO, limiteUsos? }` → `{ id, versao }` |
+| `acaoSalvarCupom` / `acaoMudarSituacaoCupom` / `acaoExcluirCupom` | DONO, ADMIN | `{ cupomId, versao, ...campos }` / `{ cupomId, versao, situacao }` / `{ cupomId, versao }` |
+| `acaoCriarAfiliado` | DONO, ADMIN | `{ codigo?: string \| null, nome, email, comissaoBps }` → `{ id, codigo, versao }` (código nulo = gerado) |
+| `acaoSalvarAfiliado` / `acaoMudarSituacaoAfiliado` / `acaoExcluirAfiliado` | DONO, ADMIN | `{ afiliadoId, versao, nome, email, comissaoBps }` / `{ afiliadoId, versao, situacao }` / `{ afiliadoId, versao }` |
+
+### Leituras para as telas (`src/lib/pagamentos/consultas.ts`)
+
+| Função | Devolve |
+|--------|---------|
+| `contaStripe(criadorId)` | `{ conectada, contaId, cobrancasAtivas, repassesAtivos, dadosEnviados, taxaBps }` |
+| `pagamentosDosCriadores()` (/plataforma) | `[{ criadorId, slug, nome, taxaBps, versao, contaId, cobrancasAtivas }]` |
+| `listarOfertas(criadorId, slug)` | `[{ id, nome, tipo, precoCentavos, intervalo, diasAcesso, situacao, link, criadoEm, versao, produtos: [{ id, titulo }] }]` |
+| `listarCupons(criadorId)` | `[{ id, codigo, tipo, percentualBps, valorCentavos, ofertaId, validoAte, limiteUsos, situacao, criadoEm, versao, usos }]` |
+| `listarAfiliados(criadorId)` | `[{ id, nome, email, codigo, comissaoBps, situacao, criadoEm, versao, vendas, vendidoCentavos, comissaoCentavos }]` |
+| `listarVendas(criadorId, { situacao?, ofertaId?, afiliadoId?, busca? (e-mail), de?, ate?, pagina, porPagina })` | `{ total, linhas: [{ id, situacao, tipo, ofertaId, oferta, email, nome, membroId, afiliadoId, afiliado, cupom, renovacao, valorCentavos, descontoCentavos, taxaCentavos, comissaoCentavos, reembolsadoCentavos, liquidoEstimadoCentavos, criadaEm, pagoEm, versao }] }` |
+| `resumoFinanceiro(criadorId, { de?, ate? })` | `{ vendas, brutoCentavos, descontosCentavos, reembolsadoCentavos, taxaPlataformaCentavos, comissoesCentavos, liquidoEstimadoCentavos }` (PAGA + REEMBOLSADA; líquido = bruto − reembolsos − taxa efetiva; taxas do Stripe fora) |
+| `listarAssinaturas(criadorId, { situacao?, pagina, porPagina })` | `{ total, linhas: [{ id, situacao, ofertaId, oferta, intervalo, membroId, nome, email, periodoFim, cancelarNoFim, encerradaEm, criadaEm, pagoCentavos }] }` |
+| `linkDeCompra(slug, ofertaId, afiliadoCodigo?)` (`checkout.ts`) | link público da oferta (com `afiliado=` = link do afiliado) |
+| `src/lib/pagamentos/regras.ts` (puro, tela) | `formatarCentavos`, `calcularTaxa`, `calcularComissao`, `descontoDoCupom`, `TEXTO_CUPOM_INVALIDO`, `normalizarCodigo`, `TAXA_PADRAO_BPS`, `PRECO_MINIMO_CENTAVOS` |
+
+Filtros validados pela tela com `filtrosVendasSchema` / `filtrosAssinaturasSchema`.
+
+### Rotas
+
+- `GET /api/stripe/checkout?oferta=<id>[&afiliado=<código>][&cupom=<código>]` (host do criador,
+  `rota-compra.ts`): 303 para o Checkout; 400 com o texto do motivo (cupom, oferta indisponível, vendas
+  fechadas), 404 área/oferta inválida, 429 teto (20/IP/10 min), 503 sem chave. Logado nesta área = compra
+  dele. Retorno do Stripe: `/?compra=sucesso` e `/?compra=cancelada` na área.
+- `POST /api/stripe/webhook` (apex, endpoint **Connect**): `Stripe-Signature` sobre o corpo cru com
+  `STRIPE_WEBHOOK_SECRET` (400 inválida, 503 sem segredo), recibo em `stripe_eventos`, criador por
+  `event.account`, fila `pagamentos` (500 se a fila falhar: o Stripe reenvia). Eventos: `EVENTOS_TRATADOS`
+  em `webhook.ts` (`checkout.session.completed`, `.async_payment_succeeded`, `.async_payment_failed`,
+  `.expired`, `charge.refunded`, `invoice.paid`, `customer.subscription.updated`, `.deleted`, `account.updated`).
+
+### Serviços (`src/lib/pagamentos/`)
+
+| Arquivo | Funções |
+|---------|---------|
+| `stripe.ts` | `GatewayStripe` (interface), `gatewayStripe()` (null sem chave), `usarGatewayStripe` (só testes), `verificarEvento`, `MSG_PAGAMENTOS_DESLIGADOS`; `stripe-falso.ts` = `StripeFalso` (testes) |
+| `conta.ts` | `conectarStripe(gateway, { criador, autor })`, `atualizarStatusConta`, `aplicarStatusConta(tx, …)`, `mudarTaxaDoCriador(tx, …)`, `contaDoCriador` |
+| `ofertas.ts`, `cupons.ts`, `afiliados.ts` | `criar*`, `salvar*`, `mudarSituacao*`, `excluir*` — todos `(tx, p)` com trava e trilha |
+| `checkout.ts` | `criarCheckout(gateway, { criador, ofertaId, afiliadoCodigo, cupomCodigo, comprador })` → `{ vendaId, url }` |
+| `vendas.ts` | `confirmarVenda`, `marcarVenda`, `registrarReembolso`, `renovarAssinatura`, `aplicarAssinatura` (worker), `reembolsarVenda(gateway, …)` |
+| `acesso.ts` | `concederAcesso` (via `matricular`, origem COMPRA), `encerrarAcesso` (por prefixo da referência) |
+| `webhook.ts` + `fila.ts` + `processar.ts` | `receberEventoStripe(corpo, assinatura, enfileirar?)`, fila `pagamentos`/`pagamentos-dlq` (5º Worker de `worker:certificados`, só com chave), `processarEventoStripe(gateway, eventoId, contaId)` |
+
+Testes: `tests/integracao/fase2-pagamentos.test.ts`, `fase2-webhook-stripe.test.ts` (Postgres real,
+`StripeFalso`, eventos assinados com `Stripe.webhooks.generateTestHeaderString`) e
+`src/lib/pagamentos/regras.test.ts` (taxa, comissão, cupom, parâmetros da Checkout Session).

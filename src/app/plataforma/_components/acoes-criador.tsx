@@ -2,22 +2,24 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ExternalLink, MoreVertical, Power } from "lucide-react";
+import { ExternalLink, MoreVertical, Percent, Power } from "lucide-react";
 import { DialogoAdmin } from "@/components/admin/dialogo-admin";
 import { MenuAdmin } from "@/components/admin/menu-admin";
 import { ModalConfirmacaoBlock } from "@/components/modal-confirmacao-block";
 import { Button } from "@/components/ui/button";
 import { acaoAlterarSituacaoCriador } from "@/lib/actions/criadores";
 import type { StatusCriador } from "@/lib/db/schema/_enums";
+import { MudarTaxa } from "./mudar-taxa";
 
 export interface AcoesCriadorProps {
-  criador: { id: string; nome: string; status: StatusCriador; versao: string; url: string };
+  criador: { id: string; nome: string; status: StatusCriador; versao: string; url: string; taxaBps: number };
 }
 
-/** Menu da linha do criador: abrir a área e suspender/reativar (modal block). */
+/** Menu da linha do criador: abrir a área, mudar a taxa da plataforma e suspender/reativar (modal block). */
 export function AcoesCriador({ criador }: AcoesCriadorProps) {
   const router = useRouter();
   const [confirmando, setConfirmando] = useState(false);
+  const [mudandoTaxa, setMudandoTaxa] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
   const suspenso = criador.status === "SUSPENSO";
@@ -34,11 +36,21 @@ export function AcoesCriador({ criador }: AcoesCriadorProps) {
         gatilho={<Button variant="fantasma" size="icone44" aria-label={`Ações de ${criador.nome}`} className="text-muted" />}
         itens={[
           ...(suspenso ? [] : [{ rotulo: "Abrir área", icone: <ExternalLink />, onSelecionar: () => window.open(`${criador.url}/admin`, "_blank", "noopener") }]),
+          { rotulo: "Mudar taxa", icone: <Percent />, onSelecionar: () => setMudandoTaxa(true) },
           { rotulo: suspenso ? "Reativar" : "Suspender", icone: <Power />, perigo: !suspenso, onSelecionar: () => setConfirmando(true) },
         ]}
       >
         <MoreVertical aria-hidden />
       </MenuAdmin>
+      {mudandoTaxa && (
+        <MudarTaxa
+          criador={criador}
+          onFechar={(mudou) => {
+            setMudandoTaxa(false);
+            if (mudou) router.refresh();
+          }}
+        />
+      )}
       <ModalConfirmacaoBlock
         aberto={confirmando}
         titulo={suspenso ? "Reativar criador" : "Suspender criador"}

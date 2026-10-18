@@ -26,6 +26,7 @@ describe("itemAtivo", () => {
   it("subrotas e query ativam a seção", () => {
     expect(itemAtivo("/admin/membros")?.slug).toBe("membros");
     expect(itemAtivo("/admin/membros/42?x=1")?.slug).toBe("membros");
+    expect(itemAtivo("/admin/vendas/assinaturas")?.slug).toBe("vendas-e-financeiro");
   });
   it("fora do admin ou desconhecido = null", () => {
     expect(itemAtivo("/")).toBeNull();

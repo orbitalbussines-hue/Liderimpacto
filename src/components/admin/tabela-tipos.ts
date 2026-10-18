@@ -21,6 +21,8 @@ export interface Coluna {
   titulo: string;
   /** Largura em px. Sem valor = coluna flexível (mín. 220px). */
   largura?: number;
+  /** Números (dinheiro, contagens): cabeçalho e células à direita, com `tabular-nums`. */
+  alinhar?: "direita";
 }
 
 export type Linha = readonly Celula[];

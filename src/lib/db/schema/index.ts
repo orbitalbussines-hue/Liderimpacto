@@ -29,3 +29,5 @@ export * from "./feedbacks";
 export * from "./emails";
 export * from "./webhooks";
 export * from "./sugestoes-ia";
+export * from "./pagamentos";
+export * from "./vendas";

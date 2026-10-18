@@ -50,6 +50,8 @@ x-app-env: &app-env
   ANTHROPIC_WORKSPACE_ID: ${ANTHROPIC_WORKSPACE_ID:-}
   ANTHROPIC_MODELO: ${ANTHROPIC_MODELO:-}
   ASSISTENTE_TETO_DIARIO_CRIADOR: ${ASSISTENTE_TETO_DIARIO_CRIADOR:-500}
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
   SMTP_HOST: ${SMTP_HOST:-}
   SMTP_PORTA: ${SMTP_PORTA:-465}
   SMTP_USUARIO: ${SMTP_USUARIO:-}
@@ -136,6 +138,9 @@ services:
     command: ["node", "--conditions=react-server", "--import", "tsx", "scripts/worker-certificados.ts"]
     environment:
       <<: [*s3, *fila, *plataforma, *banco-app]
+      # Webhooks (segredo cifrado) e pagamentos (ADR-0019: relê o evento no Stripe, primeiro acesso).
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
     depends_on: *depende-dados
     networks: [borda, dados]
     healthcheck: *saude-worker

@@ -592,6 +592,70 @@ Cada regra segue este formato:
 - **Comportamento esperado**: sugestões mais recentes primeiro com o que já foi aplicado; descartar some da lista; toda geração e aplicação na trilha.
 - **Impacto se descumprida**: conteúdo inventado publicado sem revisão; custo sem teto.
 
+### RN-210 - Conta Stripe do criador
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Configurações > Pagamentos (só DONO: conecta e vê o status; a seção de vendas é toda do DONO)
+- **Descricao**: Cada área recebe as vendas na **própria conta Stripe** do criador, com o Dashboard completo do Stripe; as **taxas do Stripe** são do criador. "Conectar Stripe" cria a conta (uma por área) e leva ao cadastro no Stripe; o link expira rápido e a tela pede outro se precisar. A área só vende quando o Stripe libera as **cobranças**; a tela mostra também se os **repasses** e o **cadastro** estão completos (atualizado sozinho pelo Stripe e no botão "Atualizar").
+- **Comportamento esperado**: sem a chave do Stripe na plataforma, aparece "Pagamentos não configurados" e o resto funciona; conectar e cada mudança de status na trilha.
+- **Impacto se descumprida**: venda caindo na conta errada; cobrança aberta numa conta sem cadastro.
+
+### RN-211 - Taxa da plataforma
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Plataforma > Criadores (só SUPER_ADMIN)
+- **Descricao**: A plataforma fica com **8%** de cada venda, por padrão. O SUPER_ADMIN pode mudar a taxa **por criador** (de 0% a 50%, em centésimos de ponto: 8,25% = 825). A taxa sai na mesma cobrança (o comprador vê só o preço). Mudar a taxa vale para as **vendas novas**; assinatura já feita continua com a taxa do dia em que foi assinada. Em reembolso, a taxa volta ao comprador na mesma proporção.
+- **Comportamento esperado**: taxa calculada em centavos, arredondada uma vez por cobrança (meio centavo sobe); toda troca na trilha (de → para, quem).
+- **Impacto se descumprida**: cobrança errada ao criador; diferença de centavos acumulada no fechamento.
+
+### RN-212 - Ofertas e link de compra
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Vendas > Ofertas (DONO e ADMIN)
+- **Descricao**: Uma **oferta** é o que se vende: nome, preço (mínimo R$ 1,00), um ou mais cursos e o tipo — **avulso** (com **dias de acesso**, vazio = sem expiração) ou **assinatura mensal/anual**. O tipo não muda depois de criada; preço e cursos novos valem para as próximas vendas. Situação **ativa** ou **pausada** (pausada não vende); excluir tira da venda e mantém o histórico. Cada oferta tem um **link de compra** que abre o pagamento do Stripe (cartão, Pix e boleto; Pix só onde o Stripe aceita, não em assinatura). Quem está logado compra para si; visitante informa o e-mail no Stripe e recebe a conta ao pagar. Limite de 20 aberturas de pagamento por endereço de internet em 10 minutos.
+- **Comportamento esperado**: venda aberta aparece como "Pendente" até o pagamento; abandonada vira "Expirada".
+- **Impacto se descumprida**: curso liberado sem pagamento; venda em área sem conta liberada.
+
+### RN-213 - Cupons de desconto
+- **Definida por**: Bah! Tech (padrão provisório)
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Vendas > Cupons (DONO e ADMIN)
+- **Descricao**: Código de 3 a 20 letras e números (o comprador pode digitar minúscula, espaço ou hífen), único na área e fixo depois de criado. Desconto em **%** ou em **valor fixo**, para **uma oferta** ou para todas; **validade** e **limite de usos** opcionais; **ativo**/**pausado**. Conta como uso a venda paga ou com Pix/boleto emitido. O preço com desconto não pode ficar abaixo de R$ 1,00. Em assinatura o desconto vale para **todas** as cobranças.
+- **Comportamento esperado**: cupom inválido, vencido, de outra oferta ou esgotado recusa com a mensagem própria; lista com usos.
+- **Impacto se descumprida**: desconto além do combinado; preço zerado.
+
+### RN-214 - Afiliados
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Vendas > Afiliados (DONO e ADMIN)
+- **Descricao**: Afiliado tem nome, e-mail, **código** (gerado com 8 símbolos ou escolhido, fixo depois) e **comissão em %** (0 a 90%). O link do afiliado é o link de compra da oferta com o código; a venda paga por ele fica **atribuída**. A comissão é **calculada** sobre o valor pago menos a taxa da plataforma, congelada na venda, só na **primeira cobrança** (renovação de assinatura não comissiona). O **pagamento ao afiliado é feito pelo criador, fora da plataforma**. Venda reembolsada no total não conta comissão. Código inexistente ou pausado no link não atrapalha a compra (só não atribui).
+- **Comportamento esperado**: lista com vendas pagas, total vendido e comissão devida por afiliado.
+- **Impacto se descumprida**: comissão paga sobre venda devolvida; venda atribuída ao afiliado errado.
+
+### RN-215 - Venda paga libera o acesso
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Webhook do Stripe (automático) e Admin > Vendas
+- **Descricao**: Cartão aprovado libera na hora; **Pix e boleto** ficam "Aguardando pagamento" e liberam quando o Stripe confirma (falha = "Falhou", sem acesso). Ao pagar, a pessoa vira **aluna** da área (conta nova sem senha recebe o link de primeiro acesso por e-mail; conta existente entra com a senha que já usa) e é matriculada em cada curso da oferta (origem "Compra"). Quem já tem o curso **sem expiração** fica como está; prazo menor é **estendido**. O mesmo aviso do Stripe repetido não matricula duas vezes. Só vale o aviso que vem da conta Stripe **da própria área**.
+- **Comportamento esperado**: venda com comprador, valor, desconto, taxa, comissão, líquido estimado (valor − reembolsos − taxa) e situação; trilha de cada passo pelo sistema.
+- **Impacto se descumprida**: aluno pagando e sem acesso; acesso em dobro; venda de uma área liberando curso de outra.
+
+### RN-216 - Reembolso
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Vendas (só DONO, com confirmação de 3 s)
+- **Descricao**: O dono reembolsa o **valor total** de uma venda paga; o Stripe devolve ao comprador e a taxa da plataforma volta na mesma proporção. Venda avulsa reembolsada no total **perde o acesso** dos cursos dela; venda de assinatura reembolsada também **cancela a assinatura**. Reembolso parcial feito no Dashboard do Stripe aparece no valor reembolsado e **não** tira o acesso.
+- **Comportamento esperado**: reembolsar duas vezes não cobra duas vezes; trilha de quem pediu.
+- **Impacto se descumprida**: dinheiro devolvido e acesso mantido; reembolso em dobro.
+
+### RN-217 - Assinaturas
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Vendas > Assinaturas (só DONO) e webhook do Stripe
+- **Descricao**: Assinatura mensal ou anual cobrada pelo Stripe. O acesso vale até o fim do período pago **mais 3 dias** de tolerância e é estendido a cada renovação paga (cada renovação é uma venda). Situações: **ativa**, **atrasada** (cobrança falhou, ainda tentando), **pausada**, **incompleta** e **cancelada**; marcada para "cancelar no fim do período" continua até lá. Cancelada **encerra o acesso** dos cursos da assinatura. Aviso antigo do Stripe chegando fora de ordem não volta a situação.
+- **Comportamento esperado**: lista com assinante, oferta, situação, fim do período e total pago.
+- **Impacto se descumprida**: aluno inadimplente com acesso para sempre; assinante cortado antes do fim do período pago.
+
 <!-- Exemplo de registro: -->
 
 <!--

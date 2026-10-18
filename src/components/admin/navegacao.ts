@@ -1,5 +1,5 @@
 import {
-  Activity, Award, Calendar, ClipboardList, Database, DollarSign, Download, FileText,
+  Activity, Award, Calendar, ClipboardList, CreditCard, Database, DollarSign, Download, FileText,
   Filter, FolderPlus, Globe, House, Inbox, LayoutGrid, LayoutTemplate, Link2, Mail, MessageSquare,
   MessagesSquare, Monitor, PanelsTopLeft, Percent, Palette, Plus, Rocket, Route, Send, Settings, ShieldCheck,
   Tag, Trophy, Upload, Users, Video, Zap,
@@ -256,15 +256,15 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
         {
           tipo: "cards",
           titulo: "Vendas e financeiro",
-          subtitulo: "Vendas, assinaturas e carteira financeira",
-          acao: novo("Nova oferta"),
+          subtitulo: "Vendas, assinaturas e resumo financeiro",
+          acao: { ...novo("Nova oferta"), href: "/admin/vendas/ofertas" },
           cards: [
-            { icone: DollarSign, titulo: "Vendas", descricao: "Gerencie as vendas da plataforma" },
-            { icone: Inbox, titulo: "Assinaturas", descricao: "Gerencie as assinaturas recorrentes" },
-            { icone: Activity, titulo: "Financeiro", descricao: "Saldo, saques e carteira" },
-            { icone: Percent, titulo: "Meus afiliados", descricao: "Gerencie os afiliados e comissões" },
-            { icone: Tag, titulo: "Ofertas e cupons", descricao: "Preços, parcelamento e descontos" },
-            { icone: Link2, titulo: "Integrações", descricao: "Hotmart, Stripe, Pagar.me, Eduzz e webhooks" },
+            { icone: DollarSign, titulo: "Vendas", descricao: "Gerencie as vendas da plataforma", href: "/admin/vendas" },
+            { icone: Inbox, titulo: "Assinaturas", descricao: "Gerencie as assinaturas recorrentes", href: "/admin/vendas/assinaturas" },
+            { icone: Activity, titulo: "Financeiro", descricao: "Resumo, taxas e reembolsos", href: "/admin/vendas/financeiro" },
+            { icone: Percent, titulo: "Meus afiliados", descricao: "Gerencie os afiliados e comissões", href: "/admin/vendas/afiliados" },
+            { icone: Tag, titulo: "Ofertas e cupons", descricao: "Preços, assinaturas e descontos", href: "/admin/vendas/ofertas" },
+            { icone: Link2, titulo: "Integrações", descricao: "Stripe e webhooks", href: "/admin/configuracoes/pagamentos" },
           ],
         },
         { papelMinimo: "DONO" }
@@ -290,6 +290,7 @@ export const RODAPE_NAVEGACAO: ItemNavegacao[] = [
         { icone: Trophy, titulo: "Gamificação", descricao: "Ligar, pontos por ação e níveis", href: "/admin/configuracoes/gamificacao" },
         { icone: Mail, titulo: "Disparos de e-mails", descricao: "E-mails enviados, falhas e busca por destinatário", href: "/admin/configuracoes/disparos" },
         { icone: Link2, titulo: "Integrações e webhooks", descricao: "Eventos da área enviados para outros sistemas", href: "/admin/configuracoes/webhooks" },
+        { icone: CreditCard, titulo: "Pagamentos", descricao: "Conta Stripe, cobranças e taxa da plataforma", href: "/admin/configuracoes/pagamentos" },
       ],
     },
     { papelMinimo: "DONO" }
@@ -303,12 +304,15 @@ export function secaoPorSlug(slug: string): ItemNavegacao | null {
   return TODOS_ITENS.find((i) => i.slug === slug) ?? null;
 }
 
+/** Rotas próprias sob outro slug (as telas de /admin/vendas/** pertencem ao hub "Vendas e financeiro"). */
+const ALIAS_SECAO: Record<string, string> = { vendas: "vendas-e-financeiro" };
+
 /** Item ativo para um pathname ("/admin" = Home; "/admin/membros/123" = Membros). */
 export function itemAtivo(pathname: string): ItemNavegacao | null {
   const limpo = pathname.split(/[?#]/)[0].replace(/\/+$/, "");
   if (limpo === "/admin") return secaoPorSlug("home");
   const m = /^\/admin\/([^/]+)/.exec(limpo);
-  return m ? secaoPorSlug(m[1]) : null;
+  return m ? secaoPorSlug(ALIAS_SECAO[m[1]] ?? m[1]) : null;
 }
 
 /** DONO vê tudo; ADMIN só o que pede `ADMIN`. Regra única (sidebar e rota). */

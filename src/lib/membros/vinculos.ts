@@ -28,11 +28,12 @@ export type ResultadoVinculo =
  * Identidade global (ADR-0002): e-mail que ja existe na plataforma e REAPROVEITADO (nome e senha
  * da pessoa ficam como estao; nada de outros criadores e lido ou devolvido). Senao, cria a
  * conta SEM senha (primeiro acesso pelo link). A trilha e gravada ANTES do vinculo (o id e
- * gerado aqui): dar papel, sobretudo DONO, e conceder poder.
+ * gerado aqui): dar papel, sobretudo DONO, e conceder poder. `autorId` nulo = o SISTEMA (compra pelo
+ * webhook do Stripe): trilha sem usuario e `modified_by` = a propria pessoa (como em `matricular`).
  */
 export async function vincularPessoa(
   tx: Transacao,
-  p: { criadorId: string; autorId: string; nome: string; email: string; papel: PapelCriador },
+  p: { criadorId: string; autorId: string | null; nome: string; email: string; papel: PapelCriador },
 ): Promise<ResultadoVinculo> {
   const email = p.email.toLowerCase();
   const [existente] = await tx
@@ -52,7 +53,7 @@ export async function vincularPessoa(
       detalhes: `Criou a conta de ${p.nome} (sem senha: primeiro acesso pelo link)`,
       dadosNovos: { nome: p.nome, email },
     });
-    await tx.insert(usuarios).values({ id: usuarioId, nome: p.nome, email, modified_by: p.autorId });
+    await tx.insert(usuarios).values({ id: usuarioId, nome: p.nome, email, modified_by: p.autorId ?? usuarioId });
   } else {
     const [vinculo] = await tx
       .select({ id: criadores_membros.id })
@@ -77,7 +78,7 @@ export async function vincularPessoa(
     usuario_id: usuarioId,
     papel: p.papel,
     status: "ATIVO",
-    modified_by: p.autorId,
+    modified_by: p.autorId ?? usuarioId,
   });
   return { tipo: "vinculado", usuarioId, membroId, identidadeNova: !existente };
 }

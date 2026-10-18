@@ -69,7 +69,7 @@ export type SituacaoProcessamento = (typeof SITUACOES_PROCESSAMENTO)[number];
 /**
  * Matricula (SISTEMA.md §4 Enrollment): como entrou e em que situacao esta. EXPIRADA nao e
  * status gravado: e ATIVA com `expira_em` no passado (src/lib/matriculas/regras.ts).
- * COMPRA fica para o webhook do gateway (ainda nao escolhido). VOUCHER = resgate de codigo (RN-201).
+ * COMPRA = pagamento confirmado no webhook do Stripe (ADR-0019). VOUCHER = resgate de codigo (RN-201).
  */
 export const ORIGENS_MATRICULA = ["MANUAL", "IMPORTACAO", "COMPRA", "VOUCHER"] as const;
 export type OrigemMatricula = (typeof ORIGENS_MATRICULA)[number];
@@ -212,3 +212,32 @@ export type SituacaoWebhook = (typeof SITUACOES_WEBHOOK)[number];
 /** Entrega: PENDENTE = na fila (ou aguardando nova tentativa); FALHOU = esgotou as tentativas (DLQ). */
 export const SITUACOES_ENTREGA_WEBHOOK = ["PENDENTE", "ENTREGUE", "FALHOU"] as const;
 export type SituacaoEntregaWebhook = (typeof SITUACOES_ENTREGA_WEBHOOK)[number];
+
+/** Pagamentos por Stripe Connect (ADR-0019, RN-210 a RN-217). */
+export const TIPOS_OFERTA = ["AVULSO", "ASSINATURA"] as const;
+export type TipoOferta = (typeof TIPOS_OFERTA)[number];
+
+export const INTERVALOS_ASSINATURA = ["MES", "ANO"] as const;
+export type IntervaloAssinatura = (typeof INTERVALOS_ASSINATURA)[number];
+
+/** Oferta, cupom e afiliado: PAUSADO volta a ATIVO (excluir = soft delete). */
+export const SITUACOES_OFERTA = ["ATIVA", "PAUSADA"] as const;
+export type SituacaoOferta = (typeof SITUACOES_OFERTA)[number];
+export const SITUACOES_CUPOM = ["ATIVO", "PAUSADO"] as const;
+export type SituacaoCupom = (typeof SITUACOES_CUPOM)[number];
+export const SITUACOES_AFILIADO = ["ATIVO", "PAUSADO"] as const;
+export type SituacaoAfiliado = (typeof SITUACOES_AFILIADO)[number];
+
+export const TIPOS_CUPOM = ["PERCENTUAL", "VALOR"] as const;
+export type TipoCupom = (typeof TIPOS_CUPOM)[number];
+
+/**
+ * Venda: PENDENTE = Checkout aberto; AGUARDANDO_PAGAMENTO = Pix/boleto emitido; PAGA libera o acesso;
+ * REEMBOLSADA = reembolso TOTAL (parcial continua PAGA com o valor reembolsado).
+ */
+export const SITUACOES_VENDA = ["PENDENTE", "AGUARDANDO_PAGAMENTO", "PAGA", "FALHOU", "EXPIRADA", "REEMBOLSADA"] as const;
+export type SituacaoVenda = (typeof SITUACOES_VENDA)[number];
+
+/** Espelho do `status` da assinatura no Stripe (src/lib/pagamentos/regras.ts `situacaoDaAssinatura`). */
+export const SITUACOES_ASSINATURA = ["ATIVA", "ATRASADA", "PAUSADA", "INCOMPLETA", "CANCELADA"] as const;
+export type SituacaoAssinatura = (typeof SITUACOES_ASSINATURA)[number];
