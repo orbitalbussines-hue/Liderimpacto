@@ -188,7 +188,7 @@ export const SITUACOES_VOUCHER = ["ATIVO", "PAUSADO", "ENCERRADO"] as const;
 export type SituacaoVoucher = (typeof SITUACOES_VOUCHER)[number];
 
 /** E-mails que o sistema envia (registro em `emails_disparos`, ADR-0018 item 4). */
-export const TIPOS_EMAIL = ["DEFINIR_SENHA", "PRIMEIRO_ACESSO", "AVISO_SEGURANCA"] as const;
+export const TIPOS_EMAIL = ["DEFINIR_SENHA", "PRIMEIRO_ACESSO", "AVISO_SEGURANCA", "CAMPANHA", "AUTOMACAO"] as const;
 export type TipoEmail = (typeof TIPOS_EMAIL)[number];
 
 export const SITUACOES_EMAIL = ["ENVIADO", "FALHOU", "NAO_CONFIGURADO"] as const;
@@ -241,3 +241,43 @@ export type SituacaoVenda = (typeof SITUACOES_VENDA)[number];
 /** Espelho do `status` da assinatura no Stripe (src/lib/pagamentos/regras.ts `situacaoDaAssinatura`). */
 export const SITUACOES_ASSINATURA = ["ATIVA", "ATRASADA", "PAUSADA", "INCOMPLETA", "CANCELADA"] as const;
 export type SituacaoAssinatura = (typeof SITUACOES_ASSINATURA)[number];
+
+/** Fase 3 — campanhas e automações de e-mail (ADR-0020, RN-220 a RN-227). */
+export const SITUACOES_CAMPANHA = ["RASCUNHO", "AGENDADA", "ENVIANDO", "CONCLUIDA", "CANCELADA"] as const;
+export type SituacaoCampanha = (typeof SITUACOES_CAMPANHA)[number];
+
+/** INATIVIDADE e NUNCA_ACESSOU vêm da varredura diária (com `dias`); os outros, dos ganchos depois do commit. */
+export const GATILHOS_AUTOMACAO = [
+  "MEMBRO_CADASTRADO",
+  "MATRICULA_CRIADA",
+  "AULA_CONCLUIDA",
+  "CURSO_CONCLUIDO",
+  "CERTIFICADO_EMITIDO",
+  "VOUCHER_RESGATADO",
+  "INATIVIDADE",
+  "NUNCA_ACESSOU",
+] as const;
+export type GatilhoAutomacao = (typeof GATILHOS_AUTOMACAO)[number];
+/** Gatilhos que aceitam o filtro "só deste curso". */
+export const GATILHOS_COM_CURSO = ["MATRICULA_CRIADA", "AULA_CONCLUIDA", "CURSO_CONCLUIDO", "CERTIFICADO_EMITIDO"] as const;
+/** Gatilhos da varredura diária: exigem `dias`. */
+export const GATILHOS_COM_DIAS = ["INATIVIDADE", "NUNCA_ACESSOU"] as const;
+
+export const SITUACOES_AUTOMACAO = ["ATIVA", "PAUSADA"] as const;
+export type SituacaoAutomacao = (typeof SITUACOES_AUTOMACAO)[number];
+
+/** Execução: AGENDADA = esperando o atraso (job atrasado na fila `marketing`). */
+export const SITUACOES_EXECUCAO = ["AGENDADA", "CONCLUIDA", "IGNORADA", "FALHOU"] as const;
+export type SituacaoExecucao = (typeof SITUACOES_EXECUCAO)[number];
+
+/** De onde vem um envio da fila `emails` (PRIMEIRO_ACESSO = reenvio em massa, transacional). */
+export const ORIGENS_ENVIO = ["CAMPANHA", "AUTOMACAO", "PRIMEIRO_ACESSO"] as const;
+export type OrigemEnvio = (typeof ORIGENS_ENVIO)[number];
+
+/** IGNORADO = não saiu de propósito (descadastrado, campanha cancelada, membro inativo...). */
+export const SITUACOES_ENVIO = ["PENDENTE", "ENVIADO", "FALHOU", "IGNORADO"] as const;
+export type SituacaoEnvio = (typeof SITUACOES_ENVIO)[number];
+
+/** LINK = página de confirmação; UM_CLIQUE = POST do cliente de e-mail (RFC 8058). */
+export const ORIGENS_DESCADASTRO = ["LINK", "UM_CLIQUE"] as const;
+export type OrigemDescadastro = (typeof ORIGENS_DESCADASTRO)[number];

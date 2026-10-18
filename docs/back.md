@@ -821,7 +821,7 @@ Reprocessar na tela = `acaoReprocessarVideo` (só FALHOU/PROCESSANDO: `podeRepro
 | `enviar.ts` | `enviarEmail({ para, tipo, criadorId, remetente, assunto, html, texto })`: SMTP da Hostinger só por env; sempre multipart (html + texto). `from` = `"<nome da área>" <endereço do EMAIL_REMETENTE>` (nome sem quebra de linha, aspas nem `<>`). Nunca loga o corpo (leva token). Todo caso vira uma linha em `emails_disparos` (`ENVIADO`, `FALHOU` com o código do erro, `NAO_CONFIGURADO`), sem o corpo — RN-203 |
 | `disparos.ts` | `registrarDisparo` (best-effort, nunca lança), `mascararEmail`, `hashDoDestinatario` (HMAC), `listarDisparos`, `resumoDisparos` — ver "Fase 1" abaixo |
 | `modelo.ts` (puro) | `montarEmail(conteudo)` → `{ html, texto }`; `marcaDaArea(criador \| null, URL_PLATAFORMA)`; `urlSegura` (só `https://`, ou `http://` em `localhost`/`*.localhost`; sem credencial na URL; o resto lança); `escaparHtml` em todo texto dinâmico; `coresDoBotao(cor)` |
-| `mensagens.ts` (puro) | `emailDefinirSenha` (validade em minutos), `emailPrimeiroAcesso` (válido até, horário de Brasília), `emailAvisoSeguranca` (o que mudou + quando, botão para `/conta/seguranca` da área) |
+| `mensagens.ts` (puro) | `emailDefinirSenha` (validade em minutos), `emailPrimeiroAcesso` (válido até, horário de Brasília), `emailAvisoSeguranca` (o que mudou + quando, botão para `/conta/seguranca` da área), `emailMarketing(marca, conteudo, nome, { descadastro, linkar?, pixel? })` (Fase 3) |
 
 Quem envia: `solicitarRedefinicao` (`auth/recuperacao.ts`, marca do host do pedido),
 `enviarPrimeiroAcesso` (`membros/primeiro-acesso.ts`, recebe o `CriadorDaRequisicao` da action) e
@@ -845,6 +845,7 @@ Quem envia: `solicitarRedefinicao` (`auth/recuperacao.ts`, marca do host do pedi
 | `REDIS_PORT` / `S3_PORT` | `6382` / `8342` | — | portas do host no `docker-compose` |
 | `STRIPE_SECRET_KEY` | (opcional; vazio = pagamentos desligados) | `sk_live_…` da conta da PLATAFORMA (app e `li-worker-certificados`) | API do Stripe Connect (ADR-0019); testes nunca usam |
 | `STRIPE_WEBHOOK_SECRET` | (opcional) | `whsec_…` do endpoint Connect `/api/stripe/webhook` (só app) | assinatura do webhook |
+| `EMAIL_LIMITE_HORA` / `EMAIL_LIMITE_DIA` | (opcional; padrão 100 / 1000) | idem no `li-worker-certificados` (quem envia) | teto de envio da fila `emails` (ADR-0020); inválido = padrão |
 
 `next.config.ts` lê `S3_ENDPOINT` e `S3_BUCKET_ARQUIVOS` no build/arranque para o
 `images.remotePatterns`: mudou o storage, reinicie o `next dev` / refaça o build.
@@ -1315,3 +1316,89 @@ Filtros validados pela tela com `filtrosVendasSchema` / `filtrosAssinaturasSchem
 Testes: `tests/integracao/fase2-pagamentos.test.ts`, `fase2-webhook-stripe.test.ts` (Postgres real,
 `StripeFalso`, eventos assinados com `Stripe.webhooks.generateTestHeaderString`) e
 `src/lib/pagamentos/regras.test.ts` (taxa, comissão, cupom, parâmetros da Checkout Session).
+
+## Fase 3: campanhas e automações de e-mail (ADR-0020, RN-220 a RN-227) — DONO e ADMIN
+
+Migração `0014_fase3_campanhas_automacoes` (só aditiva: 6 tabelas, índice `ix_emails_disparos_quando`,
+CHECK de `emails_disparos.tipo` com `CAMPANHA`/`AUTOMACAO`). Mesma convenção das Fases 1 e 2: `"use
+server"`, `executar()` → `Resultado`, criador do HOST, Zod `strictObject` de `src/lib/validators/marketing.ts`
+(as telas importam os MESMOS schemas), `versao` = `updated_at` ISO, trilha na transação, ação crítica
+(agendar/enviar agora, cancelar, excluir, reenviar acesso) com `ModalConfirmacaoBlock`. Sem e-mail
+configurado, agendar, testar e reenviar devolvem "E-mail não configurado nesta plataforma." (`MSG_EMAIL_DESLIGADO`).
+
+**Tipos compartilhados** (`src/lib/db/schema/marketing.ts`):
+`ConteudoMarketing = { assunto (1–150), previa (0–150), titulo (1–120), corpo (1–10000; cada linha um
+parágrafo; até 20 links https), botao: { texto (1–40), url https } | null }` — TEXTO, nunca HTML.
+`PublicoCampanha = { grupoIds[], tagIds[], produtoIds[] (até 50 cada), nuncaAcessou }` — E entre
+critérios, OU dentro; vazio = todos os ALUNOS ativos.
+
+| Tabela | Colunas |
+|--------|---------|
+| `criadores_emails_modelos` | `nome` (2–80, único por criador em `lower`), `conteudo` jsonb |
+| `criadores_campanhas` | `nome`, `conteudo`, `publico` jsonb, `situacao` (`SITUACOES_CAMPANHA`: RASCUNHO/AGENDADA/ENVIANDO/CONCLUIDA/CANCELADA), `agendada_para?`, `iniciada_em?`, `concluida_em?`, `cancelada_em?`, `total_destinatarios` |
+| `criadores_automacoes` | `nome`, `gatilho` (`GATILHOS_AUTOMACAO`), `produto_id?` (FK composta; só `GATILHOS_COM_CURSO`), `dias?` (1–365; só INATIVIDADE/NUNCA_ACESSOU), `atraso_minutos` (0–43200), `conteudo?`, `tag_id?` (FK composta; ao menos um dos dois), `situacao` ATIVA/PAUSADA (nasce PAUSADA) |
+| `criadores_automacoes_execucoes` | `automacao_id`, `membro_id` (FKs compostas), `referencia` (única com automação + membro), `situacao` (AGENDADA/CONCLUIDA/IGNORADA/FALHOU), `executar_em`, `executada_em?`, `tag_aplicada`, `envio_id?`, `motivo?` |
+| `criadores_emails_envios` | `membro_id`, `origem` (CAMPANHA/AUTOMACAO/PRIMEIRO_ACESSO), `campanha_id?`/`automacao_id?` (FKs compostas, coerentes com a origem), `chave` (única por criador), `situacao` (PENDENTE/ENVIADO/FALHOU/IGNORADO), `motivo?`, `tentativas`, `enviado_em?`, `aberto_em?`, `aberturas`, `clicado_em?`, `cliques` |
+| `criadores_emails_descadastros` | `destinatario_hash` (HMAC hex, único vivo por criador), `destinatario_mascarado`, `origem` LINK/UM_CLIQUE — nunca o e-mail |
+
+### Actions (`src/lib/actions/campanhas.ts` e `automacoes.ts`)
+
+| Action | Entrada → saída |
+|--------|-----------------|
+| `acaoCriarModeloEmail` / `acaoSalvarModeloEmail` / `acaoExcluirModeloEmail` | `{ nome, conteudo }` → `{ id, versao }` / `{ modeloId, versao, nome, conteudo }` → `{ versao }` / `{ modeloId, versao }` (nome repetido = "Já existe um modelo com este nome.") |
+| `acaoCriarCampanha` | `{ nome, conteudo, publico }` → `{ id, versao }` (RASCUNHO) |
+| `acaoSalvarCampanha` | `{ campanhaId, versao, nome, conteudo, publico }` → `{ versao }` (só RASCUNHO/AGENDADA) |
+| `acaoContarPublico` | `{ publico }` → `{ total, descadastrados, receberao }` — mostrar ANTES de enviar |
+| `acaoEnviarTesteEmail` | `{ conteudo }` → `{ para }` (o e-mail da sessão; "[Teste]" no assunto; 10 a cada 10 min; serve a campanha, automação e modelo) |
+| `acaoAgendarCampanha` | `{ campanhaId, versao, quando: ISO ou null }` → `{ versao, quando }` (`null` = enviar agora; até 1 ano) |
+| `acaoCancelarCampanha` | `{ campanhaId, versao }` → `{ versao, naoEnviados }` (AGENDADA ou ENVIANDO) |
+| `acaoExcluirCampanha` | `{ campanhaId, versao }` (só RASCUNHO) |
+| `acaoContarReenvioPrimeiroAcesso` | `{ publico }` → `{ total, receberao, foraDaRegra }` (regra do link, RN-102) |
+| `acaoReenviarPrimeiroAcesso` | `{ publico }` → `{ lote, enfileirados, foraDaRegra, alemDoLimite }` (link NOVO por pessoa, gerado no envio; 3 lotes a cada 10 min por área; até 5000) |
+| `acaoCriarAutomacao` | `{ nome, gatilho, produtoId?, dias?, atrasoMinutos? = 0, conteudo?, tagId? }` → `{ id, versao }` (PAUSADA) |
+| `acaoSalvarAutomacao` | `{ automacaoId, versao, gatilho (o mesmo), nome, produtoId?, dias?, atrasoMinutos?, conteudo?, tagId? }` → `{ versao }` |
+| `acaoMudarSituacaoAutomacao` | `{ automacaoId, versao, situacao: "ATIVA" ou "PAUSADA" }` → `{ versao }` |
+| `acaoExcluirAutomacao` | `{ automacaoId, versao }` (soft delete; o histórico fica) |
+
+### Leituras para as telas
+
+| Função | Devolve |
+|--------|---------|
+| `listarCampanhas(criadorId, { situacao? })` (`marketing/consultas.ts`) | `[{ id, nome, assunto, situacao, agendadaPara, iniciadaEm, concluidaEm, canceladaEm, destinatarios, criadoEm, versao, total, enviados, falhas, ignorados, pendentes, aberturas, cliques, taxaAbertura, taxaClique }]` (aberturas/cliques = pessoas; taxas em % sobre enviados) |
+| `campanhaDoCriador(criadorId, campanhaId)` | o mesmo + `conteudo`, `publico`; ou `null` |
+| `destinatariosDaCampanha(criadorId, campanhaId, { situacao?, pagina, porPagina })` | `{ total, linhas: [{ envioId, membroId, nome, email, situacao, motivo, enviadoEm, abertoEm, aberturas, clicadoEm, cliques }] }` ou `null` |
+| `listarModelos(criadorId)` | `[{ id, nome, conteudo, criadoEm, versao }]` |
+| `listarAutomacoes(criadorId)` | `[{ id, nome, gatilho, produtoId, produto, dias, atrasoMinutos, conteudo, tagId, tag, situacao, criadoEm, versao, execucoes, agendadas, total, enviados, falhas, ignorados, pendentes, aberturas, cliques, taxaAbertura, taxaClique }]` |
+| `historicoDaAutomacao(criadorId, automacaoId, { pagina, porPagina })` (aba "Histórico") | `{ total, linhas: [{ id, membroId, nome, email, referencia, situacao, motivo, executarEm, executadaEm, tagAplicada, envioSituacao, envioMotivo, abertoEm, clicadoEm, criadoEm }] }` ou `null` |
+| `listarDescadastros(criadorId, { email?, pagina, porPagina })` (`marketing/descadastro.ts`) | `{ total, linhas: [{ id, destinatario (máscara), origem, quando }] }`; `email` = busca EXATA pelo HMAC |
+| `estaDescadastrado(criadorId, email)` | `boolean` (ficha do membro) |
+| `contarPublico` (`publico.ts`), `contarReenvio` (`reenvio.ts`) | o que as actions de contagem devolvem |
+| `src/lib/marketing/regras.ts` (puro, tela) | `ROTULO_SITUACAO_CAMPANHA`, `ROTULO_SITUACAO_ENVIO`, `ROTULO_SITUACAO_EXECUCAO`, `ROTULO_GATILHO`, `campanhaEditavel`, `campanhaCancelavel`, `segmentosComLinks` (prévia), `paragrafosDoCorpo`, `extrairUrls`, `urlsDoConteudo`, `taxa`, `PUBLICO_TODOS`, `MOTIVOS_ENVIO`, `MSG_EMAIL_DESLIGADO`, `limitesDeEnvio` |
+
+Filtros da tela: `filtrosCampanhasSchema`, `filtrosDestinatariosSchema`. Prévia na tela (pura):
+`emailMarketing(marcaDaArea(criador, url), conteudo, nome, { descadastro: <url da área>, linkar: (u) => u })`.
+
+### Rotas públicas (sem sessão, no host da área; `src/lib/marketing/rotas.ts`)
+
+- `GET /api/email/abertura?e=<envio>&s=<assinatura>` → GIF 1×1 sempre (assinatura ruim ou outra área = não conta).
+- `GET /api/email/clique?e=<envio>&u=<url>&s=<assinatura>` → 302 para `u` só se HMAC(envio, URL) confere, a URL é https e o envio é da área; senão 404.
+- `GET /api/email/descadastro?t=<token>` → 303 para a página `/descadastro?t=` (confirmação com a marca da área; GET nunca descadastra); `POST` (formulário
+  ou `List-Unsubscribe=One-Click`, RFC 8058) → descadastra (idempotente). Token adulterado ou de outra área = 404.
+
+### Serviços (`src/lib/marketing/`)
+
+| Arquivo | Funções |
+|---------|---------|
+| `provedor.ts` | `ProvedorEmail` (interface `configurado()`, `enviar(email)`), `provedorSmtp` (= `enviarEmail`), `provedorEmail()`, `usarProvedorEmail` (testes / troca de provedor), `esperaParaEnviar(agora?, limites?)` (teto por janela deslizante em `emails_disparos`); `provedor-falso.ts` = `ProvedorFalso` (testes) |
+| `fila.ts` | filas `emails` (6º Worker, concorrência 1, `jobId` = envio, `rateLimit` no teto) e `marketing` (7º: `campanha`, `execucao`, `varredura` às 09:00 de Brasília), DLQs `emails-dlq`/`marketing-dlq`, `enfileirarEnviosComPrazo`, `enfileirarMarketingComPrazo` |
+| `campanhas.ts` | `criarCampanha`, `salvarCampanha`, `agendarCampanha`, `cancelarCampanha`, `excluirCampanha` (todos `(tx, p)`), `iniciarCampanha(id)` (worker), `concluirCampanhaSeTerminou`, `campanhasAgendadas` |
+| `modelos.ts`, `automacoes.ts` | `criarModelo`, `salvarModelo`, `excluirModelo`; `criarAutomacao`, `salvarAutomacao`, `mudarSituacaoAutomacao`, `excluirAutomacao` |
+| `publico.ts` | `condicaoDoPublico` (a regra única), `conferirPublico`, `pessoasDoPublico`, `descadastradosEntre`, `contarPublico` |
+| `envio.ts` | `processarEnvio(envioId, tentativa, max, { provedor?, espera? })` → `enviado` / `ignorado` / `adiado` (worker), `enviosPendentes`, `linksDoEnvio`, `enviarTeste` |
+| `gatilhos.ts` | `dispararAutomacoes(criadorId, gatilho, alvos)` e `automacaoMembrosCadastrados`, `automacaoMatriculas`, `automacaoAulaConcluida`, `automacaoCursoConcluido`, `automacaoCertificadoEmitido` (chamadas DENTRO das funções de `webhooks/emitir.ts`), `automacaoVoucherResgatado` (`actions/vouchers.ts`) — depois do commit, nunca lançam; `execucoesAgendadas` |
+| `execucoes.ts` | `processarExecucao(execucaoId)` (tag + envio; worker), `varreduraDiaria()` (INATIVIDADE por episódio, NUNCA_ACESSOU uma vez) |
+| `reenvio.ts` | `atorDoLink`, `alvosDoLink`, `contarReenvio`, `criarLoteDeReenvio` (regra `motivoParaNaoGerarLink`) |
+| `descadastro.ts`, `tokens.ts` | `descadastrar(criadorId, hash, origem)`; `tokenDescadastro`, `lerTokenDescadastro`, `assinaturaAbertura`, `aberturaValida`, `assinaturaClique`, `cliqueValido` (HKDF do `BETTER_AUTH_SECRET`, `timingSafeEqual`) |
+
+Testes: `tests/integracao/fase3-campanhas.test.ts`, `fase3-automacoes.test.ts` (Postgres real + Redis;
+`ProvedorFalso`, nunca SMTP) e `src/lib/marketing/regras.test.ts` (conteúdo, escape, validadores, teto).

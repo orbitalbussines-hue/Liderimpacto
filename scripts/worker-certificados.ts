@@ -21,8 +21,13 @@
  * Um 5º `Worker` consome a fila `pagamentos` (eventos do webhook Connect do Stripe, ADR-0019): relê o
  * evento na API pela conta conectada e aplica (venda, acesso, reembolso, assinatura, status da conta);
  * DLQ `pagamentos-dlq`. Só sobe com STRIPE_SECRET_KEY (sem ela os jobs esperam na fila).
+ * Um 6º `Worker` consome a fila `emails` (campanhas, automações e reenvio do primeiro acesso, ADR-0020):
+ * concorrência 1 e o TETO de envio (EMAIL_LIMITE_HORA / EMAIL_LIMITE_DIA) para a fila pelo tempo que
+ * falta (`rateLimit`) — o que passa do teto sai na janela seguinte. Um 7º consome a fila `marketing`
+ * (iniciar campanha agendada, executar automação, varredura diária de inatividade às 09:00 de Brasília).
+ * Ao subir, reenfileira envios PENDENTES, execuções e campanhas AGENDADAS.
  */
-import { type Job, Queue, Worker } from "bullmq";
+import { DelayedError, type Job, Queue, Worker } from "bullmq";
 import {
   CONCORRENCIA_WORKER_CONHECIMENTO,
   esquemaJobConhecimento,
@@ -51,6 +56,28 @@ import {
   NOME_FILA_EVENTOS_DLQ,
 } from "../src/lib/eventos/fila";
 import { lembretesPendentes, processarLembrete } from "../src/lib/eventos/lembrete";
+import { campanhasAgendadas, iniciarCampanha } from "../src/lib/marketing/campanhas";
+import { enviosPendentes, processarEnvio } from "../src/lib/marketing/envio";
+import { execucoesAgendadas } from "../src/lib/marketing/gatilhos";
+import { processarExecucao, varreduraDiaria } from "../src/lib/marketing/execucoes";
+import {
+  CONCORRENCIA_WORKER_EMAILS,
+  CONCORRENCIA_WORKER_MARKETING,
+  criarFilaEmails,
+  criarFilaMarketing,
+  enfileirarEnvios,
+  enfileirarMarketing,
+  esquemaJobEnvio,
+  esquemaJobMarketing,
+  type JobEnvio,
+  type JobMarketing,
+  NOME_FILA_EMAILS,
+  NOME_FILA_EMAILS_DLQ,
+  NOME_FILA_MARKETING,
+  NOME_FILA_MARKETING_DLQ,
+  OPCOES_JOB_ENVIO,
+  VARREDURA_DIARIA,
+} from "../src/lib/marketing/fila";
 import { conexaoRedis, ehFalhaDefinitiva, prefixoFila } from "../src/lib/video/fila";
 import { aguardarEsquema } from "../src/lib/db/migracoes";
 import {
@@ -79,6 +106,33 @@ async function processarWebhook(job: Job<JobWebhook>): Promise<string> {
   const r = await processarEntrega(entregaId, job.attemptsMade + 1, job.opts.attempts ?? OPCOES_JOB_WEBHOOK.attempts);
   console.log(`[webhooks] ${entregaId}: ${r} (tentativa ${job.attemptsMade + 1})`);
   return r;
+}
+
+/** Fila `marketing`: o que ela gera (envios, execuções) volta para as filas pelo próprio worker. */
+async function processarMarketing(job: Job<JobMarketing>, token: string | undefined, filaEmails: Queue<JobEnvio>, filaMarketing: Queue<JobMarketing>): Promise<string> {
+  const j = esquemaJobMarketing.parse(job.data);
+  // Saiu antes da hora (relógio, reagendamento): o MESMO job volta a esperar, sem gastar tentativa.
+  const adiar = async (quando: Date): Promise<never> => {
+    await job.moveToDelayed(quando.getTime(), token);
+    throw new DelayedError();
+  };
+  if (j.tipo === "campanha") {
+    const r = await iniciarCampanha(j.campanhaId);
+    if (r.r === "iniciada") await enfileirarEnvios(filaEmails, r.envioIds);
+    if (r.r === "cedo") return adiar(r.quando);
+    console.log(`[marketing] campanha ${j.campanhaId}: ${r.r}${r.r === "iniciada" ? ` (${r.envioIds.length} envio(s))` : ""}`);
+    return r.r;
+  }
+  if (j.tipo === "execucao") {
+    const r = await processarExecucao(j.execucaoId);
+    if (r.r === "executada" && r.envioId) await enfileirarEnvios(filaEmails, [r.envioId]);
+    if (r.r === "cedo") return adiar(r.quando);
+    return r.r;
+  }
+  const novas = await varreduraDiaria();
+  for (const n of novas) await enfileirarMarketing(filaMarketing, { tipo: "execucao", execucaoId: n.id }, n.quando);
+  console.log(`[marketing] varredura diária: ${novas.length} execução(ões) nova(s)`);
+  return `${novas.length}`;
 }
 
 async function processarPagamento(job: Job<JobPagamento>): Promise<string> {
@@ -168,6 +222,50 @@ async function principal() {
   });
   workerPagamentos?.on("error", (e) => console.error("[pagamentos] erro do worker:", e.message));
 
+  // 6º e 7º: e-mail de marketing (ADR-0020). O teto para a fila `emails` inteira; o job volta sem gastar tentativa.
+  const filaEmails = criarFilaEmails(conexao);
+  const filaMarketing = criarFilaMarketing(conexao);
+  const dlqEmails = new Queue(NOME_FILA_EMAILS_DLQ, { connection: conexao, prefix });
+  const workerEmails: Worker<JobEnvio> = new Worker<JobEnvio>(
+    NOME_FILA_EMAILS,
+    async (job) => {
+      const { envioId } = esquemaJobEnvio.parse(job.data);
+      const r = await processarEnvio(envioId, job.attemptsMade + 1, job.opts.attempts ?? OPCOES_JOB_ENVIO.attempts);
+      if (r.r === "adiado") {
+        console.log(`[emails] teto de envio atingido: fila parada por ${Math.ceil(r.esperaMs / 1000)} s`);
+        await workerEmails.rateLimit(r.esperaMs);
+        throw Worker.RateLimitError();
+      }
+      return r.r;
+    },
+    { connection: conexao, prefix, concurrency: CONCORRENCIA_WORKER_EMAILS },
+  );
+  workerEmails.on("failed", (job, erro) => {
+    if (!job) return;
+    console.error(`[emails] ${job.id}: falhou (${job.attemptsMade}/${job.opts.attempts}): ${erro.message}`);
+    // Só o id vai para a DLQ (nada de e-mail no Redis).
+    if (ehFalhaDefinitiva(job.attemptsMade, job.opts.attempts)) void dlqEmails.add("falhou", { ...job.data, erro: erro.message.slice(0, 200), falhouEm: new Date().toISOString() });
+  });
+  workerEmails.on("error", (e) => console.error("[emails] erro do worker:", e.message));
+
+  const dlqMarketing = new Queue(NOME_FILA_MARKETING_DLQ, { connection: conexao, prefix });
+  const workerMarketing = new Worker<JobMarketing>(NOME_FILA_MARKETING, (job, token) => processarMarketing(job, token, filaEmails, filaMarketing), {
+    connection: conexao,
+    prefix,
+    concurrency: CONCORRENCIA_WORKER_MARKETING,
+  });
+  workerMarketing.on("failed", (job, erro) => {
+    if (!job) return;
+    console.error(`[marketing] ${job.id}: falhou (${job.attemptsMade}/${job.opts.attempts}): ${erro.message}`);
+    if (ehFalhaDefinitiva(job.attemptsMade, job.opts.attempts)) void dlqMarketing.add("falhou", { ...job.data, erro: erro.message.slice(0, 200), falhouEm: new Date().toISOString() });
+  });
+  workerMarketing.on("error", (e) => console.error("[marketing] erro do worker:", e.message));
+  await filaMarketing.upsertJobScheduler(VARREDURA_DIARIA.id, { pattern: VARREDURA_DIARIA.pattern, tz: VARREDURA_DIARIA.tz }, { name: "varredura", data: { tipo: "varredura" } });
+  const pendentesEmail = await enviosPendentes();
+  await enfileirarEnvios(filaEmails, pendentesEmail);
+  const agendadas = [...(await execucoesAgendadas()).map((x) => ({ job: { tipo: "execucao" as const, execucaoId: x.id }, quando: x.quando })), ...(await campanhasAgendadas()).map((c) => ({ job: { tipo: "campanha" as const, campanhaId: c.id }, quando: c.quando }))];
+  for (const a of agendadas) await enfileirarMarketing(filaMarketing, a.job, a.quando);
+
   const fila = criarFilaCertificados(conexao);
   const pendentes = await versoesPendentes();
   for (const versaoId of pendentes) await enfileirarCertificado(fila, { versaoId });
@@ -185,8 +283,8 @@ async function principal() {
 
   const desligar = async () => {
     console.log("[certificados] desligando: termina os jobs atuais e para.");
-    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close(), workerWebhooks.close(), workerPagamentos?.close()]);
-    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close(), dlqWebhooks.close(), dlqPagamentos.close()]);
+    await Promise.all([worker.close(), workerEventos.close(), workerConhecimento.close(), workerWebhooks.close(), workerPagamentos?.close(), workerEmails.close(), workerMarketing.close()]);
+    await Promise.all([dlq.close(), dlqEventos.close(), dlqConhecimento.close(), dlqWebhooks.close(), dlqPagamentos.close(), dlqEmails.close(), dlqMarketing.close(), filaEmails.close(), filaMarketing.close()]);
     process.exit(0);
   };
   process.on("SIGTERM", desligar);
@@ -199,6 +297,8 @@ async function principal() {
       ? `[pagamentos] worker ouvindo ${prefix}:${NOME_FILA_PAGAMENTOS} (concorrência ${CONCORRENCIA_WORKER_PAGAMENTOS}).`
       : "[pagamentos] STRIPE_SECRET_KEY ausente: worker de pagamentos desligado (eventos aguardam na fila).",
   );
+  console.log(`[emails] worker ouvindo ${prefix}:${NOME_FILA_EMAILS} (concorrência ${CONCORRENCIA_WORKER_EMAILS}); ${pendentesEmail.length} envio(s) pendente(s) reenfileirado(s).`);
+  console.log(`[marketing] worker ouvindo ${prefix}:${NOME_FILA_MARKETING}; ${agendadas.length} agendamento(s) (re)enfileirado(s); varredura ${VARREDURA_DIARIA.pattern} ${VARREDURA_DIARIA.tz}.`);
   console.log(`[webhooks] worker ouvindo ${prefix}:${NOME_FILA_WEBHOOKS} (concorrência ${CONCORRENCIA_WORKER_WEBHOOKS}); ${entregas.length} entrega(s) pendente(s) reenfileirada(s).`);
 }
 

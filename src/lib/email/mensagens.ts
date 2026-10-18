@@ -1,3 +1,5 @@
+import type { ConteudoMarketing } from "@/lib/db/schema/marketing";
+import { paragrafosDoCorpo } from "@/lib/marketing/regras";
 import { montarEmail, type Marca } from "./modelo";
 
 /**
@@ -66,6 +68,34 @@ export function emailAvisoSeguranca(marca: Marca, nome: string, oQueMudou: strin
       ],
       botao: { texto: "Revisar a segurança da conta", url: `${marca.url}/conta/seguranca` },
       motivo: "Você recebeu este aviso porque ele é enviado sempre que a senha ou o segundo fator da sua conta muda.",
+    }),
+  };
+}
+
+/**
+ * Campanha e automação (ADR-0020): o texto do criador no MESMO modelo, com links rastreados
+ * (`linkar`), pixel de abertura e descadastro no rodapé. Teste/prévia: sem `linkar` nem `pixel`.
+ */
+export function emailMarketing(
+  marca: Marca,
+  c: ConteudoMarketing,
+  nome: string,
+  o: { descadastro: string; linkar?: (url: string) => string; pixel?: string },
+): MensagemPronta {
+  return {
+    remetente: marca.nome,
+    assunto: c.assunto,
+    ...montarEmail({
+      marca,
+      nome,
+      titulo: c.titulo,
+      previa: c.previa,
+      paragrafos: paragrafosDoCorpo(c.corpo),
+      botao: c.botao ? { texto: c.botao.texto, url: o.linkar ? o.linkar(c.botao.url) : c.botao.url } : undefined,
+      motivo: `Você recebeu este e-mail porque participa de ${marca.nome}.`,
+      linkar: o.linkar,
+      descadastro: o.descadastro,
+      pixel: o.pixel,
     }),
   };
 }

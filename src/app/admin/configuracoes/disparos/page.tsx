@@ -28,6 +28,8 @@ const ROTULO_TIPO: Record<TipoEmail, string> = {
   DEFINIR_SENHA: "Definir senha",
   PRIMEIRO_ACESSO: "Primeiro acesso",
   AVISO_SEGURANCA: "Aviso de segurança",
+  CAMPANHA: "Campanha",
+  AUTOMACAO: "Automação",
 };
 const ROTULO_SITUACAO: Record<SituacaoEmail, string> = { ENVIADO: "Enviado", FALHOU: "Falhou", NAO_CONFIGURADO: "Não configurado" };
 const TOM_SITUACAO: Record<SituacaoEmail, TomSelo> = { ENVIADO: "ok", FALHOU: "warn", NAO_CONFIGURADO: "neutro" };

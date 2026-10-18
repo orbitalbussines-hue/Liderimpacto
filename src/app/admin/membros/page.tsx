@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { Plus, Upload } from "lucide-react";
 import { PaginaTabela } from "@/components/admin/pagina-tabela";
 import type { Coluna, Linha } from "@/components/admin/tabela-tipos";
+import { buttonVariants } from "@/components/ui/button";
 import { Selo } from "@/components/ui/selo";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { EQUIPE } from "@/lib/auth/permissoes";
+import { provedorEmail } from "@/lib/marketing/provedor";
+import { limitesDeEnvio } from "@/lib/marketing/regras";
 import { matriculasPorMembro, produtosParaMatricular } from "@/lib/matriculas/consultas";
 import { FILTROS_SITUACAO, contadoresDeMembros, listarGrupos, listarMembros, listarTags, type FiltroSituacao } from "@/lib/membros/consultas";
 import { AcoesMembro } from "./_components/acoes-membro";
 import { TagsDaLinha } from "./_components/chip-tag";
 import { ABAS_MEMBROS, ROTULO_PAPEL, dataCurta } from "./_components/comum";
 import { FiltrosMembros } from "./_components/filtros-membros";
+import { ReenviarAcesso } from "./_components/reenviar-acesso";
 
 export const metadata: Metadata = { title: "Membros" };
 
@@ -145,8 +150,24 @@ async function Membros({ searchParams }: { searchParams: Busca }) {
           ]}
         />
       }
-      acaoSecundaria={{ rotulo: "Importar CSV", icone: Upload, href: "/admin/membros/importar" }}
-      acaoPrincipal={{ rotulo: "Cadastrar", icone: Plus, href: "/admin/membros/cadastrar" }}
+      acoes={
+        <>
+          <ReenviarAcesso
+            grupos={grupos.map((g) => ({ id: g.id, nome: g.nome }))}
+            grupoInicial={filtros.grupoId}
+            emailLigado={provedorEmail().configurado()}
+            limite={limitesDeEnvio()}
+          />
+          <Link href="/admin/membros/importar" className={buttonVariants({ variant: "contorno", size: "36" })}>
+            <Upload className="size-3.5" aria-hidden />
+            Importar CSV
+          </Link>
+          <Link href="/admin/membros/cadastrar" className={buttonVariants({ variant: "primario", size: "36" })}>
+            <Plus className="size-3.5" aria-hidden />
+            Cadastrar
+          </Link>
+        </>
+      }
       colunas={COLUNAS}
       linhas={linhas}
       chaves={lista.linhas.map((m) => m.id)}

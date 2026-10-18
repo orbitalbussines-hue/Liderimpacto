@@ -189,24 +189,9 @@ export const GRUPOS_NAVEGACAO: { titulo: string; itens: ItemNavegacao[] }[] = [
         ),
         { selo: "Em breve" }
       ),
-      item(
-        "automacoes", "Automações", Zap, 3,
-        tabela(
-          "Automações", ["Automações", "Histórico"],
-          [{ titulo: "Automação" }, { titulo: "Gatilho", largura: 180 }, { titulo: "Execuções", largura: 110 }, { titulo: "Status", largura: 110 }, ACOES_COL],
-          { acaoPrincipal: novo("Nova automação") }
-        ),
-        { selo: "Em breve" }
-      ),
-      item(
-        "campanhas", "Campanhas", Send, 3,
-        tabela(
-          "Campanhas", ["Campanhas", "Listas", "Modelos"],
-          [{ titulo: "Campanha" }, { titulo: "Enviados", largura: 120 }, { titulo: "Abertura", largura: 110 }, { titulo: "Cliques", largura: 110 }, { titulo: "Status", largura: 110 }, ACOES_COL],
-          { acaoPrincipal: novo("Nova campanha") }
-        ),
-        { selo: "Em breve" }
-      ),
+      // ADR-0020: telas próprias em /admin/automacoes e /admin/campanhas (abas Campanhas · Modelos · Descadastros).
+      item("automacoes", "Automações", Zap, 3, { tipo: "proprio" }),
+      item("campanhas", "Campanhas", Send, 3, { tipo: "proprio" }),
       // Eventos ao vivo (ADR-0011): tela própria em /admin/eventos.
       item("eventos", "Eventos", Calendar, 2, { tipo: "proprio" }),
     ],

@@ -18,6 +18,13 @@ import {
   type PayloadWebhook,
 } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
+import {
+  automacaoAulaConcluida,
+  automacaoCertificadoEmitido,
+  automacaoCursoConcluido,
+  automacaoMatriculas,
+  automacaoMembrosCadastrados,
+} from "@/lib/marketing/gatilhos";
 import { enfileirarEntregasComPrazo } from "./fila";
 
 /**
@@ -26,6 +33,8 @@ import { enfileirarEntregasComPrazo } from "./fila";
  * evento = uma consulta e pronto. Senão: uma ENTREGA por webhook (payload fixo, reusado em toda
  * tentativa) e o job na fila `webhooks`. Dados da pessoa: id, nome e e-mail (o receptor é o sistema
  * do próprio criador, que já tem esses dados).
+ * Os MESMOS pontos disparam as automações de e-mail (ADR-0020, `marketing/gatilhos.ts`, também nunca
+ * lançam): cada função abaixo chama o gatilho da automação antes do webhook.
  */
 
 async function seguro(rotulo: string, f: () => Promise<number>): Promise<number> {
@@ -79,6 +88,7 @@ async function dadosDoMembro(criadorId: string, membroId: string) {
 /** MATRICULA_CRIADA (criada/reativada) ou MATRICULA_CANCELADA, uma por matrícula. */
 export async function webhookMatriculas(criadorId: string, matriculaIds: readonly string[], evento: "MATRICULA_CRIADA" | "MATRICULA_CANCELADA", autorId: string | null): Promise<number> {
   if (!matriculaIds.length) return 0;
+  if (evento === "MATRICULA_CRIADA") await automacaoMatriculas(criadorId, matriculaIds);
   return seguro(evento, async () => {
     if (!(await temInscritos(criadorId, evento))) return 0;
     const linhas = await db
@@ -98,6 +108,7 @@ export async function webhookMatriculas(criadorId: string, matriculaIds: readonl
 
 export async function webhookMembrosCadastrados(criadorId: string, membroIds: readonly string[], autorId: string): Promise<number> {
   if (!membroIds.length) return 0;
+  await automacaoMembrosCadastrados(criadorId, membroIds);
   return seguro("MEMBRO_CADASTRADO", async () => {
     if (!(await temInscritos(criadorId, "MEMBRO_CADASTRADO"))) return 0;
     const linhas = await db
@@ -110,6 +121,7 @@ export async function webhookMembrosCadastrados(criadorId: string, membroIds: re
 }
 
 export async function webhookAulaConcluida(criadorId: string, membroId: string, aulaId: string): Promise<number> {
+  await automacaoAulaConcluida(criadorId, membroId, aulaId);
   return seguro("AULA_CONCLUIDA", async () => {
     if (!(await temInscritos(criadorId, "AULA_CONCLUIDA"))) return 0;
     const membro = await dadosDoMembro(criadorId, membroId);
@@ -125,6 +137,7 @@ export async function webhookAulaConcluida(criadorId: string, membroId: string, 
 }
 
 export async function webhookCursoConcluido(criadorId: string, membroId: string, produtoId: string): Promise<number> {
+  await automacaoCursoConcluido(criadorId, membroId, produtoId);
   return seguro("CURSO_CONCLUIDO", async () => {
     if (!(await temInscritos(criadorId, "CURSO_CONCLUIDO"))) return 0;
     const membro = await dadosDoMembro(criadorId, membroId);
@@ -148,6 +161,7 @@ export async function webhookAvaliacaoAprovada(criadorId: string, membroId: stri
 }
 
 export async function webhookCertificadoEmitido(criadorId: string, certificadoId: string): Promise<number> {
+  await automacaoCertificadoEmitido(criadorId, certificadoId);
   return seguro("CERTIFICADO_EMITIDO", async () => {
     if (!(await temInscritos(criadorId, "CERTIFICADO_EMITIDO"))) return 0;
     const [c] = await db

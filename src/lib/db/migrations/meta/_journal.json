@@ -99,6 +99,13 @@
       "when": 1792300459352,
       "tag": "0013_fase2_pagamentos_stripe",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792335880200,
+      "tag": "0014_fase3_campanhas_automacoes",
+      "breakpoints": true
     }
   ]
 }

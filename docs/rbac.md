@@ -93,6 +93,10 @@ pura é `papelEfetivo`/`papelAceito` (`src/lib/auth/permissoes.ts`, com teste).
 | Pagamentos — taxa da plataforma por criador (`acaoMudarTaxaCriador`, `pagamentosDosCriadores`) | só `SUPER_ADMIN` no apex — RN-211 |
 | Link de compra `GET /api/stripe/checkout` | qualquer pessoa, SEM sessão, no host do criador (teto por IP); logado nesta área, a compra é do próprio membro — RN-212 |
 | Webhook `POST /api/stripe/webhook` | só o Stripe: assinatura `Stripe-Signature` conferida; o criador vem da conta conectada (`event.account`) — RN-215 |
+| Campanhas e modelos de e-mail (`src/lib/actions/campanhas.ts`: criar, salvar, contar público, enviar teste, agendar/enviar agora, cancelar, excluir; modelos; `listarCampanhas`, `campanhaDoCriador`, `destinatariosDaCampanha`, `listarModelos`) | `DONO` e `ADMIN` (`ALUNO`: "Sem permissão"); grupo, tag, curso ou campanha de outro criador = "não encontrado"/colisão (FK composta). O teste vai SÓ para o e-mail da sessão — RN-220 a RN-223 |
+| Automações (`src/lib/actions/automacoes.ts`: criar, salvar, ativar/pausar, excluir; `listarAutomacoes`, `historicoDaAutomacao`) e descadastros (`listarDescadastros`, `estaDescadastrado`) | `DONO` e `ADMIN`; curso, tag ou automação de outro criador = recusa — RN-224, RN-227 |
+| Reenviar primeiro acesso em massa (`acaoContarReenvioPrimeiroAcesso`, `acaoReenviarPrimeiroAcesso`) | `DONO` e `ADMIN`; cada pessoa passa pela regra do link (RN-102: só membro desta área, papel abaixo do de quem pede, sem vínculo em outra área), conferida no lote e de novo no envio — RN-226 |
+| Rotas públicas dos e-mails (`GET /api/email/abertura`, `GET /api/email/clique`, `GET`/`POST /api/email/descadastro`) | qualquer pessoa, SEM sessão, no host do criador: só com assinatura HMAC válida (clique = envio + URL assinados; descadastro = token da área). Envio/token de outra área = 404/não conta — RN-223, RN-227 |
 | Criadores (`/plataforma`, `/plataforma/novo`) | só `SUPER_ADMIN` no apex (RN-108) |
 | `/conta/seguranca` | qualquer sessão, inclusive a provisória do SUPER_ADMIN sem TOTP |
 | Link de senha para outra pessoa | ver RN-102 em `docs/regras-negocio.md` |

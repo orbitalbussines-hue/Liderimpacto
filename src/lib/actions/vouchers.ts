@@ -8,6 +8,7 @@ import { notificarMatriculas } from "@/lib/notificacoes/gerar";
 import { violouUnico } from "@/lib/membros/vinculos";
 import { criarVoucherSchema, excluirVoucherSchema, resgatarVoucherSchema, salvarVoucherSchema, situacaoVoucherSchema } from "@/lib/validators/vouchers";
 import { criarVoucher, excluirVoucher, mudarSituacaoVoucher, resgatarVoucher, salvarVoucher } from "@/lib/vouchers/servico";
+import { automacaoVoucherResgatado } from "@/lib/marketing/gatilhos";
 import { webhookMatriculas } from "@/lib/webhooks/emitir";
 
 /**
@@ -69,6 +70,7 @@ export async function acaoResgatarVoucher(entrada: unknown) {
     // Depois do commit; nunca lançam (RN-134, RN-204).
     await notificarMatriculas(criador.id, r.novas, usuario.id);
     await webhookMatriculas(criador.id, r.novas, "MATRICULA_CRIADA", usuario.id);
+    await automacaoVoucherResgatado(criador.id, r.resgateId); // nunca lança (RN-225)
     return { resgateId: r.resgateId, matriculas: r.matriculas };
   });
 }

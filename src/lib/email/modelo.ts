@@ -1,5 +1,6 @@
 import { urlDaArea } from "@/lib/criador/host";
 import { PALETA_PADRAO, contraste, gerarPaleta, validarHex } from "@/lib/marca/paleta";
+import { segmentosComLinks } from "@/lib/marketing/regras";
 
 /**
  * Modelo UNICO dos e-mails do sistema (puro, sem servidor): devolve `{ html, texto }` para o
@@ -35,6 +36,12 @@ export interface ConteudoEmail {
   observacao?: string;
   /** Rodape: "Você recebeu este e-mail porque ...". */
   motivo: string;
+  /** Marketing (ADR-0020): URLs https dos parágrafos viram link; `href` = endereço rastreado. */
+  linkar?: (url: string) => string;
+  /** Marketing: link de descadastro no rodapé (obrigatório em campanha e automação). */
+  descadastro?: string;
+  /** Marketing: pixel de abertura 1×1 (só no HTML). */
+  pixel?: string;
 }
 
 /** Marca pela cascata plataforma -> criador do host (a mesma da area do aluno). */
@@ -95,6 +102,16 @@ export function montarEmail(e: ConteudoEmail): { html: string; texto: string } {
 
   const p = (t: string, estilo = "") =>
     `<p style="margin:0 0 16px;font-family:${SANS};font-size:16px;line-height:26px;color:${C.corpo};${estilo}">${x(t)}</p>`;
+  // Marketing: o texto do criador continua TEXTO; só as URLs (https, conferidas) viram <a>.
+  const linkar = e.linkar;
+  const paragrafo = (t: string) =>
+    linkar
+      ? `<p style="margin:0 0 16px;font-family:${SANS};font-size:16px;line-height:26px;color:${C.corpo}">${segmentosComLinks(t)
+          .map((s) => ("url" in s ? `<a href="${x(urlSegura(linkar(urlSegura(s.url))))}" target="_blank" rel="noopener" style="color:${C.texto};text-decoration:underline;word-break:break-all">${x(s.url)}</a>` : x(s.texto)))
+          .join("")}</p>`
+      : p(t);
+  const descadastro = e.descadastro ? urlSegura(e.descadastro) : null;
+  const pixel = e.pixel ? urlSegura(e.pixel) : null;
   const marcaTopo = logo
     ? `<img src="${x(logo)}" alt="${x(e.marca.nome)}" height="32" style="display:block;height:32px;width:auto;border:0;outline:none;text-decoration:none">`
     : `<span style="font-family:${SERIFA};font-size:15px;line-height:20px;letter-spacing:3px;text-transform:uppercase;color:${C.texto}">${x(e.marca.nome)}</span>`;
@@ -130,16 +147,18 @@ ${e.observacao ? p(e.observacao, `font-size:14px;line-height:22px;color:${C.suav
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${fundo}" style="width:40px;height:2px;line-height:2px;font-size:2px;background-color:${fundo}">&nbsp;</td></tr></table>
 <h1 style="margin:24px 0 24px;font-family:${SERIFA};font-size:28px;line-height:36px;font-weight:normal;color:${C.texto}">${x(e.titulo)}</h1>
 ${p(saudacao)}
-${e.paragrafos.map((t) => p(t)).join("\n")}
+${e.paragrafos.map(paragrafo).join("\n")}
 ${blocoBotao}
 </td></tr>
 <tr><td style="padding:24px 4px 0">
 <p style="margin:0 0 8px;font-family:${SANS};font-size:12px;line-height:19px;color:${C.suave}">${x(e.motivo)}</p>
 <p style="margin:0;font-family:${SANS};font-size:12px;line-height:19px;color:${C.suave}">${x(e.marca.nome)} · <a href="${x(area)}" target="_blank" rel="noopener" style="color:${C.suave};text-decoration:underline">${x(host)}</a> · Mensagem automática, não responda.</p>
+${descadastro ? `<p style="margin:8px 0 0;font-family:${SANS};font-size:12px;line-height:19px;color:${C.suave}">Não quer mais receber estes e-mails? <a href="${x(descadastro)}" target="_blank" rel="noopener" style="color:${C.suave};text-decoration:underline">Descadastrar</a></p>` : ""}
 </td></tr>
 </table>
 </td></tr>
 </table>
+${pixel ? `<img src="${x(pixel)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">` : ""}
 </body>
 </html>`;
 
@@ -150,7 +169,7 @@ ${blocoBotao}
     ...e.paragrafos,
     ...(botao ? [`${botao.texto}:\n${botao.url}`] : []),
     ...(e.observacao ? [e.observacao] : []),
-    `--\n${e.motivo}\n${e.marca.nome} · ${host} · Mensagem automática, não responda.`,
+    `--\n${e.motivo}\n${e.marca.nome} · ${host} · Mensagem automática, não responda.${descadastro ? `\nPara não receber mais: ${descadastro}` : ""}`,
   ].join("\n\n");
 
   return { html, texto };

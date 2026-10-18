@@ -28,6 +28,8 @@ export const emails_disparos = pgTable(
   (t) => [
     index("ix_emails_disparos_criador").on(t.criador_id, t.created_at),
     index("ix_emails_disparos_destinatario").on(t.destinatario_hash),
+    // Teto de envio (ADR-0020): quantos sairam na ultima hora / no ultimo dia, da plataforma toda.
+    index("ix_emails_disparos_quando").on(t.created_at),
     check("ck_emails_disparos_tipo", sql.raw(`tipo in (${listaSql(TIPOS_EMAIL)})`)),
     check("ck_emails_disparos_situacao", sql.raw(`situacao in (${listaSql(SITUACOES_EMAIL)})`)),
     check("ck_emails_disparos_hash", sql`destinatario_hash ~ '^[0-9a-f]{64}$'`),

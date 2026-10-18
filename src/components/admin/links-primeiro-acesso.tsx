@@ -43,7 +43,7 @@ export function LinksPrimeiroAcesso({ links }: LinksPrimeiroAcessoProps) {
       </div>
       <ul className="m-0 flex max-h-72 list-none flex-col gap-1 overflow-y-auto rounded-lg border border-border bg-bg p-3 text-[13px]">
         {links.map((l) => (
-          <li key={l.email} className="truncate">
+          <li key={l.email} className="shrink-0 truncate">
             <b>{l.nome}</b> · <span className="text-muted">{l.email}</span>
           </li>
         ))}

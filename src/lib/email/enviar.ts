@@ -10,7 +10,12 @@ export interface Email extends MensagemPronta {
   /** Para o registro de disparos (RN-203): que e-mail é e de qual área saiu (nulo = plataforma). */
   tipo: TipoEmail;
   criadorId: string | null;
+  /** Cabeçalhos extras montados pelo sistema (marketing: `List-Unsubscribe`, RFC 8058). */
+  cabecalhos?: Record<string, string>;
 }
+
+/** Valor de cabeçalho sem quebra de linha (injeção de cabeçalho). */
+const semQuebra = (c: Record<string, string> | undefined) => (c ? Object.fromEntries(Object.entries(c).map(([k, v]) => [k.replace(/[^A-Za-z0-9-]/g, ""), v.replace(/[\r\n]/g, "")])) : undefined);
 
 /** Só o NOME/código do erro vai para o registro (a mensagem do SMTP pode ecoar o destinatário). */
 const codigoDoErro = (e: unknown) => {
@@ -62,7 +67,7 @@ export async function enviarEmail(e: Email): Promise<boolean> {
   const nome = e.remetente.replace(/[\r\n"<>]/g, "").trim();
   const from = nome ? { name: nome, address: endereco } : c.remetente;
   try {
-    await transporte.sendMail({ from, to: e.para, subject: e.assunto, text: e.texto, html: e.html });
+    await transporte.sendMail({ from, to: e.para, subject: e.assunto, text: e.texto, html: e.html, headers: semQuebra(e.cabecalhos) });
   } catch (erro) {
     await registrarDisparo({ ...registro, situacao: "FALHOU", erro: codigoDoErro(erro) });
     throw erro;

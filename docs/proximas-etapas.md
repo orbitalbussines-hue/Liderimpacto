@@ -17,17 +17,20 @@ Falta, fora do código:
   trocar o nome no perfil.
 - Logo oficial: quando chegar, hospedar em https e passar `logoUrl` na marca.
 
-## 2. E-mail marketing (Campanhas e Automações)
+## 2. E-mail marketing (Campanhas e Automações) — camada de dados feita em 18/10/2026
 
-Telas já previstas no menu ("Em breve"). Antes de construir, decidir o provedor de envio em massa: o
-SMTP da Hostinger tem limite diário de envio e não é feito para disparo em massa (risco de bloquear
-também os e-mails de senha). Candidatos: Brevo, Amazon SES, Resend (domínio próprio com SPF/DKIM).
+ADR-0020, RN-220 a RN-227, `docs/back.md` ("Fase 3"), migração `0014`. Provedor atrás da interface
+`ProvedorEmail` (hoje o SMTP da Hostinger) com teto `EMAIL_LIMITE_HORA`/`EMAIL_LIMITE_DIA` (100/1000).
 
-- Modelos visuais com a marca (mesma base do item 1), editor simples de blocos.
-- Público por grupo, curso, matrícula, progresso, inatividade.
-- Automações: boas-vindas, aluno parado há N dias, curso concluído, evento ao vivo.
-- LGPD: consentimento registrado, descadastro em um clique em todo e-mail, lista de supressão.
-- Fila BullMQ com ritmo de envio, métricas (entregue, aberto, clique, descadastro) e trilha.
+- **URGENTE (Valmer, 138 importados)**: tela "Reenviar acesso" em Membros (filtro grupo + "nunca
+  acessou", contagem, `ModalConfirmacaoBlock`) chamando `acaoContarReenvioPrimeiroAcesso` e
+  `acaoReenviarPrimeiroAcesso`. Antes de usar em produção: SMTP preenchido também no
+  `li-worker-certificados` (é ele que envia agora), conferir no hPanel o limite do plano e ajustar o teto.
+- Telas: Campanhas (lista com métricas, editor com prévia e "Enviar teste", público com contagem,
+  agendar/enviar agora, destinatários), Modelos, Automações (+ aba "Histórico") e Descadastros.
+- Provedor de envio em massa (Brevo, Amazon SES, Resend) com domínio próprio (SPF/DKIM/DMARC) e webhook
+  de bounce/reclamação → supressão automática; trocar = nova implementação de `ProvedorEmail`.
+- Depois: editor de blocos, variáveis no texto (`{nome}`), reinscrição pelo aluno, retenção dos envios antigos.
 
 ## 3. Pendências da produção
 

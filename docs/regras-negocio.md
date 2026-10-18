@@ -656,6 +656,70 @@ Cada regra segue este formato:
 - **Comportamento esperado**: lista com assinante, oferta, situação, fim do período e total pago.
 - **Impacto se descumprida**: aluno inadimplente com acesso para sempre; assinante cortado antes do fim do período pago.
 
+### RN-220 - Campanhas de e-mail e modelos
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Campanhas (DONO e ADMIN)
+- **Descricao**: A equipe escreve a campanha em **texto** (assunto, prévia, título, parágrafos com links **https** e um botão opcional) e ela sai no modelo de e-mail com a marca da área; nenhum HTML do criador entra no e-mail. Situações: **rascunho** → **agendada** (data e hora, até 1 ano) ou "enviar agora" → **enviando** → **concluída**; **cancelada** a qualquer momento antes do fim (o que ainda não saiu não sai). Só rascunho se exclui; campanha agendada ainda se edita. Modelos guardam um conteúdo pronto para copiar em campanhas e automações.
+- **Comportamento esperado**: lista com enviados, falhas, não enviados, aberturas e cliques; detalhe com cada destinatário; trilha de quem criou, agendou e cancelou.
+- **Impacto se descumprida**: e-mail com HTML malicioso na marca da área; campanha cancelada continuando a sair.
+
+### RN-221 - Público da campanha
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Campanhas
+- **Descricao**: Recebem só **alunos** com vínculo ativo e conta ativa da própria área. Filtros: grupos/turmas, tags, matriculados (matrícula valendo) em cursos e "nunca acessou"; critérios diferentes somam (E), vários itens do mesmo critério são alternativas (OU); sem filtro = todos os alunos. A tela mostra **antes de enviar** quantos estão no público, quantos se descadastraram e quantos receberão. O público é lido na hora em que o envio começa.
+- **Comportamento esperado**: grupo, tag ou curso de outra área é recusado; equipe e membro inativo nunca recebem campanha.
+- **Impacto se descumprida**: e-mail para quem não é aluno da área ou de uma área para alunos de outra.
+
+### RN-222 - Teto de envio
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Envio de e-mails (automático)
+- **Descricao**: Campanhas, automações e reenvio de acesso saem por uma fila com **teto da plataforma** (padrão 100 por hora e 1000 por dia, ajustável pela operação). O que passa do teto **espera a janela seguinte**, nunca é descartado. O teto conta todo e-mail que sai pela caixa, inclusive os de senha; os de senha nunca esperam o teto.
+- **Comportamento esperado**: 138 e-mails de acesso saem em cerca de 1h30; a caixa do SMTP não é bloqueada por volume.
+- **Impacto se descumprida**: caixa de e-mail bloqueada e alunos sem conseguir recuperar a senha.
+
+### RN-223 - Envio de teste e métricas
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Campanhas e Automações
+- **Descricao**: "Enviar teste" manda o conteúdo da tela, na hora, só para o e-mail de quem pediu, com "[Teste]" no assunto (até 10 a cada 10 minutos). Métricas: **aberturas** (estimadas por imagem invisível; clique também conta) e **cliques** (link rastreado que leva só aos endereços que estavam no e-mail), contadas por pessoa.
+- **Comportamento esperado**: link adulterado não redireciona; métricas de uma área não aparecem em outra.
+- **Impacto se descumprida**: link do e-mail usado para redirecionar a site malicioso; métrica de uma área vazando.
+
+### RN-224 - Automações
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Automações (DONO e ADMIN)
+- **Descricao**: Gatilhos: membro cadastrado, matrícula criada, aula concluída, curso concluído, certificado emitido (estes quatro podem ser "só deste curso"), voucher resgatado, **sem acessar há N dias** e **nunca acessou após N dias** (verificados uma vez por dia, às 9h de Brasília). Atraso opcional (enviar X minutos/horas/dias depois, até 30 dias). Ação: enviar e-mail (mesmo modelo das campanhas) e/ou aplicar uma tag. A automação nasce **pausada**; ativar vale para o que acontecer dali em diante. Pausada ou excluída antes da hora marcada = a ação não acontece. Vale só para **alunos**.
+- **Comportamento esperado**: aba "Histórico" com cada execução (quem, referência, quando, tag aplicada, e-mail enviado/aberto/clicado).
+- **Impacto se descumprida**: aluno recebendo o mesmo e-mail várias vezes; automação pausada continuando a agir.
+
+### RN-225 - Uma vez por evento
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Automações (automático)
+- **Descricao**: Cada automação age **uma vez por pessoa por evento** (a mesma matrícula, aula, curso, certificado ou resgate). "Sem acessar há N dias" age uma vez por período de ausência: se a pessoa volta e some de novo, age de novo. "Nunca acessou" age uma vez. A automação nunca atrapalha a ação que a disparou (matrícula, conclusão, certificado continuam valendo se o e-mail falhar).
+- **Comportamento esperado**: repetir o evento (reprocessamento, reativação da matrícula) não repete a ação.
+- **Impacto se descumprida**: e-mails em dobro; matrícula ou certificado falhando por causa do e-mail.
+
+### RN-226 - Reenviar o primeiro acesso em massa
+- **Definida por**: dono do produto (urgente: 138 alunos importados pelo Valmer)
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Membros (DONO e ADMIN, confirmação de 3 s)
+- **Descricao**: Para um filtro (ex.: grupo + "nunca acessou"), cada pessoa recebe por e-mail um **link novo** de criar a senha; o link anterior de cada uma **deixa de valer**. Só recebe quem a regra do link permite (RN-102: membro só desta área, papel abaixo de quem pede, sem vínculo em outra área); a tela mostra antes quantas serão enviadas e quantas ficam de fora. O link é gerado na hora em que o e-mail sai (vale 24 h a partir daí). É e-mail de conta: chega mesmo para quem se descadastrou do marketing. Até 3 reenvios a cada 10 minutos por área e 5000 pessoas por vez.
+- **Comportamento esperado**: trilha do lote e de cada link gerado; quem ganhou vínculo em outra área entre o pedido e o envio não recebe.
+- **Impacto se descumprida**: equipe de uma área abrindo a conta de quem também é de outra; link vencido antes de chegar.
+
+### RN-227 - Descadastro (LGPD)
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Rodapé dos e-mails (sem login) e Admin > Descadastros
+- **Descricao**: Todo e-mail de campanha e de automação tem o link "Descadastrar" e o botão de descadastro do próprio cliente de e-mail (Gmail, Apple Mail). O link abre uma confirmação; confirmar tira a pessoa **das campanhas e automações daquela área** (outras áreas não mudam). E-mails de conta (senha, primeiro acesso, avisos de segurança) continuam chegando. A plataforma guarda um código derivado do e-mail, não o endereço; a lista mostra o e-mail mascarado e quando.
+- **Comportamento esperado**: descadastrado não recebe campanha nem automação (aparece como "não enviado"); link adulterado ou de outra área não descadastra ninguém.
+- **Impacto se descumprida**: descumprimento da LGPD; reclamação de spam bloqueando a caixa da plataforma.
+
 <!-- Exemplo de registro: -->
 
 <!--
