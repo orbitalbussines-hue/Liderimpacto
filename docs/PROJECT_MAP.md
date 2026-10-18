@@ -6,11 +6,11 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 769 |
-| Tabelas (Drizzle) | 71 |
-| Server Actions (arquivos) | 40 |
-| Rotas de API | 12 |
-| Paginas | 81 |
+| Arquivos TS/TSX | 851 |
+| Tabelas (Drizzle) | 79 |
+| Server Actions (arquivos) | 42 |
+| Rotas de API | 14 |
+| Paginas | 101 |
 | Componentes | 155 |
 
 ## Arvore (profundidade 3)
@@ -34,6 +34,7 @@ app/
     notificacoes/
     perfil/
     previa-vitrine/
+    resgatar/
     trilhas/
     layout.tsx
     page.tsx
@@ -56,6 +57,7 @@ app/
     matriculas/
     membros/
     trilhas/
+    vendas/
     layout.tsx
     page.tsx
   api/
@@ -64,6 +66,7 @@ app/
     notificacoes/
     progresso/
     saude/
+    stripe/
     video/
   certificado/
     [codigo]/
@@ -327,6 +330,8 @@ lib/
     membros-gestao.ts
     membros.ts
     notificacoes.ts
+    ofertas.ts
+    pagamentos.ts
     perfil.ts
     preferencias.ts
     produtos-estrutura.ts
@@ -524,6 +529,23 @@ lib/
     regras.test.ts
     regras.ts
     rota.ts
+  pagamentos/
+    acesso.ts
+    afiliados.ts
+    checkout.ts
+    consultas.ts
+    conta.ts
+    cupons.ts
+    fila.ts
+    ofertas.ts
+    processar.ts
+    regras.test.ts
+    regras.ts
+    rota-compra.ts
+    stripe-falso.ts
+    stripe.ts
+    vendas.ts
+    webhook.ts
   painel/
     cache.ts
     consultas.ts
@@ -567,6 +589,7 @@ lib/
     legendas.ts
     matriculas.ts
     membros.ts
+    pagamentos.ts
     perfil.test.ts
     perfil.ts
     progresso.ts
@@ -709,7 +732,7 @@ proxy.ts
 `id`, `criador_id`, `grupo_id`, `membro_id`
 
 ### `criadores` — src/lib/db/schema/criadores.ts
-`id`, `slug`, `nome`, `cor_marca`, `status`, `dominio_proprio`
+`id`, `slug`, `nome`, `cor_marca`, `status`, `dominio_proprio`, `taxa_plataforma_bps`
 
 ### `criadores_membros` — src/lib/db/schema/criadores.ts
 `id`, `criador_id`, `usuario_id`, `papel`, `status`, `ultimo_acesso_em`
@@ -752,6 +775,21 @@ proxy.ts
 
 ### `produtos_matriculas` — src/lib/db/schema/matriculas.ts
 `id`, `criador_id`, `membro_id`, `produto_id`, `origem`, `status`, `iniciada_em`, `concluida_em`, `expira_em`, `referencia_externa`, `motivo_cancelamento`
+
+### `criadores_stripe_contas` — src/lib/db/schema/pagamentos.ts
+`id`, `criador_id`, `conta_id`, `cobrancas_ativas`, `repasses_ativos`, `dados_enviados`, `status_em`
+
+### `criadores_ofertas` — src/lib/db/schema/pagamentos.ts
+`id`, `criador_id`, `nome`, `tipo`, `preco_centavos`, `moeda`, `intervalo`, `dias_acesso`, `situacao`
+
+### `criadores_ofertas_produtos` — src/lib/db/schema/pagamentos.ts
+`id`, `criador_id`, `oferta_id`, `produto_id`
+
+### `criadores_cupons` — src/lib/db/schema/pagamentos.ts
+`id`, `criador_id`, `codigo`, `tipo`, `percentual_bps`, `valor_centavos`, `oferta_id`, `valido_ate`, `limite_usos`, `situacao`
+
+### `criadores_afiliados` — src/lib/db/schema/pagamentos.ts
+`id`, `criador_id`, `nome`, `email`, `codigo`, `comissao_bps`, `situacao`
 
 ### `produtos` — src/lib/db/schema/produtos.ts
 `id`, `criador_id`, `codigo`, `titulo`, `slug`, `descricao`, `tipo`, `capa_3x4_arquivo_id`, `capa_16x9_arquivo_id`, `status`, `publicado_em`, `professor_membro_id`, `cor_marca`
@@ -813,6 +851,15 @@ proxy.ts
 ### `usuarios` — src/lib/db/schema/usuarios.ts
 `id`, `nome`, `email`, `email_verificado`, `imagem`, `papel_plataforma`, `ativo`, `tema`, `reproducao_automatica`, `lembretes`, `aparecer_no_ranking`, `whatsapp`, `empresa_cargo`, `ultimo_acesso_em`, `falhas_login`, `bloqueado_ate`, `two_factor_enabled`
 
+### `criadores_assinaturas` — src/lib/db/schema/vendas.ts
+`id`, `criador_id`, `oferta_id`, `membro_id`, `stripe_assinatura_id`, `situacao`, `taxa_bps`, `periodo_fim`, `cancelar_no_fim`, `encerrada_em`, `evento_em`
+
+### `criadores_vendas` — src/lib/db/schema/vendas.ts
+`id`, `criador_id`, `oferta_id`, `tipo`, `membro_id`, `comprador_email`, `afiliado_id`, `cupom_id`, `assinatura_id`, `checkout_sessao_id`, `fatura_id`, `payment_intent_id`, `situacao`, `valor_centavos`, `desconto_centavos`, `taxa_bps`, `taxa_centavos`, `comissao_centavos`, `reembolsado_centavos`, `taxa_devolvida_centavos`, `pago_em`, `matriculas`
+
+### `stripe_eventos` — src/lib/db/schema/vendas.ts
+`id`, `evento_id`, `tipo`, `conta_id`, `criador_id`, `objeto_id`, `livemode`, `ocorrido_em`, `created_at`
+
 ### `produtos_modulos_aulas_videos` — src/lib/db/schema/videos.ts
 `id`, `criador_id`, `aula_id`, `situacao`, `nome_original`, `mime`, `tamanho_bytes`, `chave_origem`, `upload_id`, `prefixo_hls`, `chave_cifrada`, `duracao_seg`, `resolucoes`, `thumb_chave`, `erro`, `tentativas`, `processado_em`
 
@@ -853,6 +900,8 @@ proxy.ts
 | `/api/notificacoes/contagem` | GET |
 | `/api/progresso` | POST |
 | `/api/saude` | GET |
+| `/api/stripe/checkout` | GET |
+| `/api/stripe/webhook` | POST |
 | `/api/video/[id]/chave` | GET |
 | `/api/video/[id]/hls/[...caminho]` | GET |
 | `/api/video/[id]/situacao` | GET |
@@ -888,6 +937,8 @@ proxy.ts
 - `src/lib/actions/membros-gestao.ts`: `acaoMudarPapel()`, `acaoAlterarSituacaoMembro()`, `acaoRemoverMembro()`, `acaoDefinirGruposDoMembro()`
 - `src/lib/actions/membros.ts`: `acaoCadastrarMembro()`, `acaoImportarMembros()`
 - `src/lib/actions/notificacoes.ts`: `acaoMarcarNotificacoesLidas()`, `acaoMaisNotificacoes()`
+- `src/lib/actions/ofertas.ts`: `acaoCriarOferta()`, `acaoSalvarOferta()`, `acaoMudarSituacaoOferta()`, `acaoExcluirOferta()`, `acaoCriarCupom()`, `acaoSalvarCupom()`, `acaoMudarSituacaoCupom()`, `acaoExcluirCupom()`, `acaoCriarAfiliado()`, `acaoSalvarAfiliado()`, `acaoMudarSituacaoAfiliado()`, `acaoExcluirAfiliado()`
+- `src/lib/actions/pagamentos.ts`: `acaoConectarStripe()`, `acaoAtualizarContaStripe()`, `acaoReembolsarVenda()`, `acaoMudarTaxaCriador()`
 - `src/lib/actions/perfil.ts`: `acaoSalvarPerfil()`
 - `src/lib/actions/preferencias.ts`: `acaoSalvarPreferencias()`
 - `src/lib/actions/produtos-estrutura.ts`: `acaoCriarModulo()`, `acaoEditarModulo()`, `acaoRemoverModulo()`, `acaoReordenarModulos()`, `acaoCriarAula()`, `acaoRemoverAula()`, `acaoReordenarAulas()`
@@ -922,6 +973,7 @@ proxy.ts
 - `src/app/(aluno)/page.tsx`
 - `src/app/(aluno)/perfil/page.tsx`
 - `src/app/(aluno)/previa-vitrine/page.tsx`
+- `src/app/(aluno)/resgatar/page.tsx`
 - `src/app/(aluno)/trilhas/[id]/page.tsx`
 - `src/app/(aluno)/trilhas/page.tsx`
 - `src/app/admin/[secao]/page.tsx`
@@ -943,12 +995,16 @@ proxy.ts
 - `src/app/admin/certificados/page.tsx`
 - `src/app/admin/comunidade/page.tsx`
 - `src/app/admin/configuracoes/aparencia/page.tsx`
+- `src/app/admin/configuracoes/disparos/page.tsx`
 - `src/app/admin/configuracoes/dominios/page.tsx`
 - `src/app/admin/configuracoes/equipe/convidar/page.tsx`
 - `src/app/admin/configuracoes/equipe/page.tsx`
 - `src/app/admin/configuracoes/gamificacao/page.tsx`
 - `src/app/admin/configuracoes/geral/page.tsx`
 - `src/app/admin/configuracoes/logs/page.tsx`
+- `src/app/admin/configuracoes/pagamentos/page.tsx`
+- `src/app/admin/configuracoes/webhooks/[id]/page.tsx`
+- `src/app/admin/configuracoes/webhooks/page.tsx`
 - `src/app/admin/construtor/page.tsx`
 - `src/app/admin/conteudos/[id]/aulas/[aulaId]/page.tsx`
 - `src/app/admin/conteudos/[id]/page.tsx`
@@ -959,21 +1015,36 @@ proxy.ts
 - `src/app/admin/desafios/page.tsx`
 - `src/app/admin/desafios/ranking/page.tsx`
 - `src/app/admin/desafios/recompensas/page.tsx`
+- `src/app/admin/estudio-de-video/estatisticas/page.tsx`
+- `src/app/admin/estudio-de-video/ia/page.tsx`
 - `src/app/admin/estudio-de-video/page.tsx`
 - `src/app/admin/eventos/[id]/page.tsx`
 - `src/app/admin/eventos/novo/page.tsx`
 - `src/app/admin/eventos/page.tsx`
+- `src/app/admin/matriculas/avaliacoes/page.tsx`
+- `src/app/admin/matriculas/feedbacks/page.tsx`
 - `src/app/admin/matriculas/importar/page.tsx`
 - `src/app/admin/matriculas/page.tsx`
+- `src/app/admin/matriculas/progresso/page.tsx`
+- `src/app/admin/matriculas/tentativas-extras/page.tsx`
 - `src/app/admin/membros/cadastrar/page.tsx`
 - `src/app/admin/membros/gamificacao/page.tsx`
 - `src/app/admin/membros/grupos/page.tsx`
 - `src/app/admin/membros/importar/page.tsx`
 - `src/app/admin/membros/page.tsx`
+- `src/app/admin/membros/tags/page.tsx`
+- `src/app/admin/membros/vouchers/[voucherId]/page.tsx`
+- `src/app/admin/membros/vouchers/page.tsx`
 - `src/app/admin/page.tsx`
 - `src/app/admin/trilhas/[id]/page.tsx`
 - `src/app/admin/trilhas/nova/page.tsx`
 - `src/app/admin/trilhas/page.tsx`
+- `src/app/admin/vendas/afiliados/page.tsx`
+- `src/app/admin/vendas/assinaturas/page.tsx`
+- `src/app/admin/vendas/cupons/page.tsx`
+- `src/app/admin/vendas/financeiro/page.tsx`
+- `src/app/admin/vendas/ofertas/page.tsx`
+- `src/app/admin/vendas/page.tsx`
 - `src/app/certificado/[codigo]/page.tsx`
 - `src/app/componentes/admin/page.tsx`
 - `src/app/componentes/aluno/page.tsx`
