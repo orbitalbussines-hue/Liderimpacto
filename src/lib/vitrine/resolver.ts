@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { duracaoCurta } from "@/components/aluno/formatos";
 import type { DestaqueConfig, ItemFileira, VarianteCartao } from "@/components/vitrine/tipos";
 import { varianteDoTipo } from "@/components/vitrine/tipos";
@@ -127,11 +127,26 @@ function sobreOCurso(c: CursoDoAluno) {
 
 const slugDoHref = (href?: string) => href?.match(/^\/cursos\/([a-z0-9-]+)$/)?.[1];
 
-/** PADRÃO (sem config publicada): o curso do "Continuar" (senão a matrícula mais recente; equipe: a novidade). */
+/** Sem matrícula e sem novidade de curso (ex.: a equipe em "Ver como aluno"): o curso publicado mais recente. */
+async function cursoPublicadoMaisRecente(criadorId: string): Promise<string | undefined> {
+  const [p] = await db
+    .select({ slug: produtos.slug })
+    .from(produtos)
+    .where(and(eq(produtos.criador_id, criadorId), vivos(produtos), eq(produtos.status, "PUBLICADO")))
+    .orderBy(desc(produtos.publicado_em))
+    .limit(1);
+  return p?.slug;
+}
+
+/** PADRÃO (sem config publicada): o curso do "Continuar" (senão a matrícula mais recente, a novidade de curso ou o curso publicado mais recente). */
 async function destaquePadrao(q: QuemPede, agora: Date): Promise<DestaqueResolvido | null> {
   const cursos = q.membro.id ? await cursosDoAluno(q.criador.id, q.membro.id, agora) : [];
   const [continuar, novas] = await Promise.all([continuarAssistindo(q, 1, agora), novidades(q, 5, agora)]);
-  const slug = cursos.find((c) => c.titulo === continuar[0]?.produtoTitulo)?.slug ?? cursos[0]?.slug ?? slugDoHref(novas.find((n) => n.tipo === "PRODUTO")?.href);
+  const slug =
+    cursos.find((c) => c.titulo === continuar[0]?.produtoTitulo)?.slug ??
+    cursos[0]?.slug ??
+    slugDoHref(novas.find((n) => n.tipo === "PRODUTO")?.href) ??
+    (await cursoPublicadoMaisRecente(q.criador.id));
   const curso = slug ? await cursoDoAluno(q, slug, agora) : null;
   if (!curso) return null;
   const s = sobreOCurso(curso);

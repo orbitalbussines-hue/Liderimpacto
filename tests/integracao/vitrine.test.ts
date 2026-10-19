@@ -226,6 +226,12 @@ describe("resolução das fileiras", () => {
     expect(pv.destaque?.titulo).toBe("Rascunho");
     expect((await res.vitrineDoAluno(x.qAluno)).destaque?.titulo).toBe(x.curso.produto.titulo); // a prévia não publica
   });
+
+  it("padrão para a equipe sem matrícula (\"Ver como aluno\"): destaque do curso publicado mais recente", async () => {
+    const x = await cenario();
+    const vit = await res.vitrineDoAluno(x.qAdmin);
+    expect(vit.destaque?.titulo).toBe(x.curso.produto.titulo);
+  });
 });
 
 describe("player lendo as flags publicadas", () => {
