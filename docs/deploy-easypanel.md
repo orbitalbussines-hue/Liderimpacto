@@ -343,6 +343,12 @@ Easypanel > projeto `lideranca` > o serviço `li-...` > **Logs** (ao vivo):
 do `li-ferramentas` e o token do Passo 8; se é da migração, me chame. A versão anterior segue no ar
 enquanto isso, e ele tenta de novo a cada 5 min.
 
+**"Imagem do app" vermelho com o "Verificar" verde.** Monte a imagem igual ao CI para ver a mensagem:
+`docker build -f deploy/docker/app.Dockerfile --build-arg S3_ENDPOINT=https://s3.lideresdeimpacto.com.br .`
+Se falhar aqui, é código (ex.: arquivo de `src/` importando de `tests/`, que não entra na imagem). Se
+passar aqui, foi instabilidade do runner: "Re-run failed jobs" no GitHub ou um novo push. A PRD segue na
+versão anterior.
+
 **Sem cadeado / erro de certificado.** Logs do Traefik. Causas comuns: registro `@`/`*` apontando para
 outro IP ou com nuvem laranja, token sem `Zone:Read` + `DNS:Edit` da zona certa (ou filtro de IP
 errado), resolver escrito diferente de `cloudflare` no domínio.
