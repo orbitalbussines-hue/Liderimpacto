@@ -120,6 +120,13 @@
       "when": 1792351811061,
       "tag": "0016_paginas_funis_leads",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792375274872,
+      "tag": "0017_leads_nas_campanhas",
+      "breakpoints": true
     }
   ]
 }

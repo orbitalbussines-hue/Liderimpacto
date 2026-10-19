@@ -1329,16 +1329,17 @@ configurado, agendar, testar e reenviar devolvem "E-mail não configurado nesta 
 **Tipos compartilhados** (`src/lib/db/schema/marketing.ts`):
 `ConteudoMarketing = { assunto (1–150), previa (0–150), titulo (1–120), corpo (1–10000; cada linha um
 parágrafo; até 20 links https), botao: { texto (1–40), url https } | null }` — TEXTO, nunca HTML.
-`PublicoCampanha = { grupoIds[], tagIds[], produtoIds[] (até 50 cada), nuncaAcessou }` — E entre
-critérios, OU dentro; vazio = todos os ALUNOS ativos.
+`PublicoCampanha = { grupoIds[], tagIds[], produtoIds[] (até 50 cada), nuncaAcessou, membros? = true,
+leads?: { paginaIds[], funilIds[], tagIds[] } | null }` — E entre critérios, OU dentro; vazio = todos os
+ALUNOS ativos; `leads` soma os leads das páginas sem repetir pessoa (ADR-0023, ver "Leads nas campanhas").
 
 | Tabela | Colunas |
 |--------|---------|
 | `criadores_emails_modelos` | `nome` (2–80, único por criador em `lower`), `conteudo` jsonb |
 | `criadores_campanhas` | `nome`, `conteudo`, `publico` jsonb, `situacao` (`SITUACOES_CAMPANHA`: RASCUNHO/AGENDADA/ENVIANDO/CONCLUIDA/CANCELADA), `agendada_para?`, `iniciada_em?`, `concluida_em?`, `cancelada_em?`, `total_destinatarios` |
-| `criadores_automacoes` | `nome`, `gatilho` (`GATILHOS_AUTOMACAO`), `produto_id?` (FK composta; só `GATILHOS_COM_CURSO`), `dias?` (1–365; só INATIVIDADE/NUNCA_ACESSOU), `atraso_minutos` (0–43200), `conteudo?`, `tag_id?` (FK composta; ao menos um dos dois), `situacao` ATIVA/PAUSADA (nasce PAUSADA) |
-| `criadores_automacoes_execucoes` | `automacao_id`, `membro_id` (FKs compostas), `referencia` (única com automação + membro), `situacao` (AGENDADA/CONCLUIDA/IGNORADA/FALHOU), `executar_em`, `executada_em?`, `tag_aplicada`, `envio_id?`, `motivo?` |
-| `criadores_emails_envios` | `membro_id`, `origem` (CAMPANHA/AUTOMACAO/PRIMEIRO_ACESSO), `campanha_id?`/`automacao_id?` (FKs compostas, coerentes com a origem), `chave` (única por criador), `situacao` (PENDENTE/ENVIADO/FALHOU/IGNORADO), `motivo?`, `tentativas`, `enviado_em?`, `aberto_em?`, `aberturas`, `clicado_em?`, `cliques` |
+| `criadores_automacoes` | `nome`, `gatilho` (`GATILHOS_AUTOMACAO`), `produto_id?` (FK composta; só `GATILHOS_COM_CURSO`), `dias?` (1–365; só INATIVIDADE/NUNCA_ACESSOU), `atraso_minutos` (0–43200), `conteudo?`, `tag_id?` (FK composta; ao menos um dos dois), `pagina_id?`/`funil_id?` (FKs compostas; só `LEAD_CAPTURADO`), `situacao` ATIVA/PAUSADA (nasce PAUSADA) |
+| `criadores_automacoes_execucoes` | `automacao_id`, `membro_id?` OU `lead_id?` (FKs compostas; exatamente um), `referencia` (única com automação + membro), `situacao` (AGENDADA/CONCLUIDA/IGNORADA/FALHOU), `executar_em`, `executada_em?`, `tag_aplicada`, `envio_id?`, `motivo?` |
+| `criadores_emails_envios` | `membro_id?` OU `lead_id?` (FKs compostas; exatamente um; PRIMEIRO_ACESSO só membro), `origem` (CAMPANHA/AUTOMACAO/PRIMEIRO_ACESSO), `campanha_id?`/`automacao_id?` (FKs compostas, coerentes com a origem), `chave` (única por criador), `situacao` (PENDENTE/ENVIADO/FALHOU/IGNORADO), `motivo?`, `tentativas`, `enviado_em?`, `aberto_em?`, `aberturas`, `clicado_em?`, `cliques` |
 | `criadores_emails_descadastros` | `destinatario_hash` (HMAC hex, único vivo por criador), `destinatario_mascarado`, `origem` LINK/UM_CLIQUE — nunca o e-mail |
 
 ### Actions (`src/lib/actions/campanhas.ts` e `automacoes.ts`)
@@ -1348,15 +1349,15 @@ critérios, OU dentro; vazio = todos os ALUNOS ativos.
 | `acaoCriarModeloEmail` / `acaoSalvarModeloEmail` / `acaoExcluirModeloEmail` | `{ nome, conteudo }` → `{ id, versao }` / `{ modeloId, versao, nome, conteudo }` → `{ versao }` / `{ modeloId, versao }` (nome repetido = "Já existe um modelo com este nome.") |
 | `acaoCriarCampanha` | `{ nome, conteudo, publico }` → `{ id, versao }` (RASCUNHO) |
 | `acaoSalvarCampanha` | `{ campanhaId, versao, nome, conteudo, publico }` → `{ versao }` (só RASCUNHO/AGENDADA) |
-| `acaoContarPublico` | `{ publico }` → `{ total, descadastrados, receberao }` — mostrar ANTES de enviar |
+| `acaoContarPublico` | `{ publico }` → `{ total, descadastrados, receberao, membros, leads }` — mostrar ANTES de enviar (`membros`/`leads` = dos que receberão) |
 | `acaoEnviarTesteEmail` | `{ conteudo }` → `{ para }` (o e-mail da sessão; "[Teste]" no assunto; 10 a cada 10 min; serve a campanha, automação e modelo) |
 | `acaoAgendarCampanha` | `{ campanhaId, versao, quando: ISO ou null }` → `{ versao, quando }` (`null` = enviar agora; até 1 ano) |
 | `acaoCancelarCampanha` | `{ campanhaId, versao }` → `{ versao, naoEnviados }` (AGENDADA ou ENVIANDO) |
 | `acaoExcluirCampanha` | `{ campanhaId, versao }` (só RASCUNHO) |
-| `acaoContarReenvioPrimeiroAcesso` | `{ publico }` → `{ total, receberao, foraDaRegra }` (regra do link, RN-102) |
+| `acaoContarReenvioPrimeiroAcesso` | `{ publico }` (só os campos de membro, `reenvioSchema`) → `{ total, receberao, foraDaRegra }` (regra do link, RN-102) |
 | `acaoReenviarPrimeiroAcesso` | `{ publico }` → `{ lote, enfileirados, foraDaRegra, alemDoLimite }` (link NOVO por pessoa, gerado no envio; 3 lotes a cada 10 min por área; até 5000) |
-| `acaoCriarAutomacao` | `{ nome, gatilho, produtoId?, dias?, atrasoMinutos? = 0, conteudo?, tagId? }` → `{ id, versao }` (PAUSADA) |
-| `acaoSalvarAutomacao` | `{ automacaoId, versao, gatilho (o mesmo), nome, produtoId?, dias?, atrasoMinutos?, conteudo?, tagId? }` → `{ versao }` |
+| `acaoCriarAutomacao` | `{ nome, gatilho, produtoId?, dias?, atrasoMinutos? = 0, conteudo?, tagId?, paginaId?, funilId? }` → `{ id, versao }` (PAUSADA; página/funil só em `LEAD_CAPTURADO`) |
+| `acaoSalvarAutomacao` | `{ automacaoId, versao, gatilho (o mesmo), nome, produtoId?, dias?, atrasoMinutos?, conteudo?, tagId?, paginaId?, funilId? }` → `{ versao }` |
 | `acaoMudarSituacaoAutomacao` | `{ automacaoId, versao, situacao: "ATIVA" ou "PAUSADA" }` → `{ versao }` |
 | `acaoExcluirAutomacao` | `{ automacaoId, versao }` (soft delete; o histórico fica) |
 
@@ -1366,10 +1367,10 @@ critérios, OU dentro; vazio = todos os ALUNOS ativos.
 |--------|---------|
 | `listarCampanhas(criadorId, { situacao? })` (`marketing/consultas.ts`) | `[{ id, nome, assunto, situacao, agendadaPara, iniciadaEm, concluidaEm, canceladaEm, destinatarios, criadoEm, versao, total, enviados, falhas, ignorados, pendentes, aberturas, cliques, taxaAbertura, taxaClique }]` (aberturas/cliques = pessoas; taxas em % sobre enviados) |
 | `campanhaDoCriador(criadorId, campanhaId)` | o mesmo + `conteudo`, `publico`; ou `null` |
-| `destinatariosDaCampanha(criadorId, campanhaId, { situacao?, pagina, porPagina })` | `{ total, linhas: [{ envioId, membroId, nome, email, situacao, motivo, enviadoEm, abertoEm, aberturas, clicadoEm, cliques }] }` ou `null` |
+| `destinatariosDaCampanha(criadorId, campanhaId, { situacao?, pagina, porPagina })` | `{ total, linhas: [{ envioId, tipo: "MEMBRO" \| "LEAD", membroId?, leadId?, nome, email, situacao, motivo, enviadoEm, abertoEm, aberturas, clicadoEm, cliques }] }` ou `null` |
 | `listarModelos(criadorId)` | `[{ id, nome, conteudo, criadoEm, versao }]` |
-| `listarAutomacoes(criadorId)` | `[{ id, nome, gatilho, produtoId, produto, dias, atrasoMinutos, conteudo, tagId, tag, situacao, criadoEm, versao, execucoes, agendadas, total, enviados, falhas, ignorados, pendentes, aberturas, cliques, taxaAbertura, taxaClique }]` |
-| `historicoDaAutomacao(criadorId, automacaoId, { pagina, porPagina })` (aba "Histórico") | `{ total, linhas: [{ id, membroId, nome, email, referencia, situacao, motivo, executarEm, executadaEm, tagAplicada, envioSituacao, envioMotivo, abertoEm, clicadoEm, criadoEm }] }` ou `null` |
+| `listarAutomacoes(criadorId)` | `[{ id, nome, gatilho, produtoId, produto, dias, atrasoMinutos, conteudo, tagId, tag, paginaId, pagina, funilId, funil, situacao, criadoEm, versao, execucoes, agendadas, total, enviados, falhas, ignorados, pendentes, aberturas, cliques, taxaAbertura, taxaClique }]` |
+| `historicoDaAutomacao(criadorId, automacaoId, { pagina, porPagina })` (aba "Histórico") | `{ total, linhas: [{ id, tipo, membroId?, leadId?, nome, email, referencia, situacao, motivo, executarEm, executadaEm, tagAplicada, envioSituacao, envioMotivo, abertoEm, clicadoEm, criadoEm }] }` ou `null` |
 | `listarDescadastros(criadorId, { email?, pagina, porPagina })` (`marketing/descadastro.ts`) | `{ total, linhas: [{ id, destinatario (máscara), origem, quando }] }`; `email` = busca EXATA pelo HMAC |
 | `estaDescadastrado(criadorId, email)` | `boolean` (ficha do membro) |
 | `contarPublico` (`publico.ts`), `contarReenvio` (`reenvio.ts`) | o que as actions de contagem devolvem |
@@ -1393,9 +1394,9 @@ Filtros da tela: `filtrosCampanhasSchema`, `filtrosDestinatariosSchema`. Prévia
 | `fila.ts` | filas `emails` (6º Worker, concorrência 1, `jobId` = envio, `rateLimit` no teto) e `marketing` (7º: `campanha`, `execucao`, `varredura` às 09:00 de Brasília), DLQs `emails-dlq`/`marketing-dlq`, `enfileirarEnviosComPrazo`, `enfileirarMarketingComPrazo` |
 | `campanhas.ts` | `criarCampanha`, `salvarCampanha`, `agendarCampanha`, `cancelarCampanha`, `excluirCampanha` (todos `(tx, p)`), `iniciarCampanha(id)` (worker), `concluirCampanhaSeTerminou`, `campanhasAgendadas` |
 | `modelos.ts`, `automacoes.ts` | `criarModelo`, `salvarModelo`, `excluirModelo`; `criarAutomacao`, `salvarAutomacao`, `mudarSituacaoAutomacao`, `excluirAutomacao` |
-| `publico.ts` | `condicaoDoPublico` (a regra única), `conferirPublico`, `pessoasDoPublico`, `descadastradosEntre`, `contarPublico` |
+| `publico.ts` | `condicaoDoPublico` (a regra única dos membros), `normalizarPublico`, `conferirPublico`, `pessoasDoPublico`, `destinatariosDoPublico` (membros + leads, dedupe pelo HMAC), `descadastradosEntre`, `contarPublico` |
 | `envio.ts` | `processarEnvio(envioId, tentativa, max, { provedor?, espera? })` → `enviado` / `ignorado` / `adiado` (worker), `enviosPendentes`, `linksDoEnvio`, `enviarTeste` |
-| `gatilhos.ts` | `dispararAutomacoes(criadorId, gatilho, alvos)` e `automacaoMembrosCadastrados`, `automacaoMatriculas`, `automacaoAulaConcluida`, `automacaoCursoConcluido`, `automacaoCertificadoEmitido` (chamadas DENTRO das funções de `webhooks/emitir.ts`), `automacaoVoucherResgatado` (`actions/vouchers.ts`) — depois do commit, nunca lançam; `execucoesAgendadas` |
+| `gatilhos.ts` | `dispararAutomacoes(criadorId, gatilho, alvos)` e `automacaoMembrosCadastrados`, `automacaoMatriculas`, `automacaoAulaConcluida`, `automacaoCursoConcluido`, `automacaoCertificadoEmitido` (chamadas DENTRO das funções de `webhooks/emitir.ts`), `automacaoVoucherResgatado` (`actions/vouchers.ts`), `automacaoLeadCapturado` (`paginas/leads.ts`) — depois do commit, nunca lançam; `execucoesAgendadas` |
 | `execucoes.ts` | `processarExecucao(execucaoId)` (tag + envio; worker), `varreduraDiaria()` (INATIVIDADE por episódio, NUNCA_ACESSOU uma vez) |
 | `reenvio.ts` | `atorDoLink`, `alvosDoLink`, `contarReenvio`, `criarLoteDeReenvio` (regra `motivoParaNaoGerarLink`) |
 | `descadastro.ts`, `tokens.ts` | `descadastrar(criadorId, hash, origem)`; `tokenDescadastro`, `lerTokenDescadastro`, `assinaturaAbertura`, `aberturaValida`, `assinaturaClique`, `cliqueValido` (HKDF do `BETTER_AUTH_SECRET`, `timingSafeEqual`) |
@@ -1516,3 +1517,42 @@ Render: `BlocosDaPagina` (`src/components/paginas/blocos.tsx`, server, sem `dang
 
 Testes: `tests/integracao/paginas.test.ts`, `paginas-leads-funis.test.ts` (Postgres real, `StripeFalso`) e
 `src/lib/paginas/config.test.ts`, `src/components/paginas/blocos.test.tsx` (schema, vídeo, escape, links).
+
+## Leads nas campanhas (ADR-0023, RN-250 a RN-254) — DONO e ADMIN
+
+Migração `0017_leads_nas_campanhas` (só aditiva/compatível): `lead_id?` em `criadores_emails_envios` e
+`criadores_automacoes_execucoes` (FK composta `fk_..._lead` → `criadores_leads(id, criador_id)`, unique novo
+`uq_criadores_leads_id_criador`), `membro_id` anulável + CHECK `ck_..._destinatario` (exatamente um; envio
+`PRIMEIRO_ACESSO` só de membro), índice único parcial `uq_criadores_automacoes_execucoes_ref_lead`
+`(automacao_id, lead_id, referencia)`, `pagina_id?`/`funil_id?` em `criadores_automacoes` (FKs compostas,
+CHECK `ck_criadores_automacoes_origem_lead`) e o gatilho `LEAD_CAPTURADO` no CHECK de `gatilho`.
+
+- **Público** (`publico.ts`): `destinatariosDoPublico(criadorId, publico)` → `Destinatario[]` (`{ tipo: "MEMBRO",
+  membroId } | { tipo: "LEAD", leadId }` + `nome`, `email`, `hash`). Ordem: membros do segmento → leads do
+  segmento que já são ALUNO ativo (como MEMBRO) → leads sem vínculo vivo na área; dedupe pelo HMAC.
+  `iniciarCampanha` cria `campanha:<id>:<membro>` ou `campanha:<id>:lead:<lead>`.
+- **Envio** (`envio.ts`): destinatário pelo `LEFT JOIN` em membro e lead; lead removido = IGNORADO
+  (`MOTIVOS_ENVIO.LEAD` "Lead removido."). Abertura, clique e descadastro iguais (por envio e por HMAC);
+  `descadastrar` acha a máscara também no lead.
+- **Automação** (`gatilhos.ts`): `automacaoLeadCapturado(criadorId, leadId, paginaId, funilId)`, chamada no
+  fim de `capturarLead` (depois do commit, nunca lança); filtro = página/funil DESTA captura; referência
+  `captura` (`REFERENCIA_CAPTURA`). `processarExecucao` aplica a tag em `criadores_leads.tag_id` (trilha
+  com a anterior) e cria o envio com `lead_id`.
+- **Telas**: Campanhas › "Quem recebe" com as seções Alunos e Leads das páginas (`SeletorPublico`; opções
+  `paginas` e `funis` em `dadosDoEditor`); `/admin/campanhas/nova?leads=1&pagina=<id>` abre com só leads;
+  destinatários com a coluna Tipo; Automações com o gatilho "Alguém se cadastra numa página (lead)" e os
+  campos Página/Funil; Leads com "Exportar CSV" e "Criar campanha para estes leads".
+
+### Exportação CSV
+
+- `GET /admin/paginas/leads/exportar?pagina=&q=` (`src/app/admin/paginas/leads/exportar/route.ts` →
+  `atenderExportacaoLeads` em `src/lib/paginas/exportar-leads.ts`): sessão PLENA + DONO/ADMIN do banco
+  (401/403; filtro inválido = 400). Mesma regra de `listarLeads` (agora com `porPagina?`), até
+  `LIMITE_EXPORTACAO_LEADS` (50 mil). `csvLeads(linhas)`: colunas `nome;email;pagina_origem;funil;tag;
+  utm_source;utm_medium;utm_campaign;utm_term;utm_content;consentimento;consentimento_em;capturas;
+  primeira_captura_em;ultima_captura_em;descadastrado`, pelo `gerarCsv` (BOM, `;`, CRLF, `'` antes de
+  `= + - @`). Trilha `acao = "exportar"` ANTES da resposta, com quantos e o filtro (busca só como
+  `com_busca`), nunca os e-mails. `Cache-Control: no-store`.
+
+Testes: `tests/integracao/leads-campanhas.test.ts` (Postgres real + Redis, `ProvedorFalso`) e
+`src/app/admin/automacoes/_components/campos.test.ts` (textos e formulário do gatilho de lead).

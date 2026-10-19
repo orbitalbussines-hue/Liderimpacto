@@ -836,9 +836,49 @@ Cada regra segue este formato:
 - **Definida por**: dono do produto
 - **Data**: 2026-10-18
 - **Modulo**: Admin > Páginas > Leads (DONO e ADMIN)
-- **Descricao**: Lista com nome, e-mail, página e funil de origem, tag, UTM, data do consentimento (o texto aparece ao passar o mouse) e se o e-mail se descadastrou do marketing da área (RN-227). Busca por nome ou e-mail e filtro por página. Envio de campanha para leads ainda não existe (ADR-0022).
+- **Descricao**: Lista com nome, e-mail, página e funil de origem, tag, UTM, data do consentimento (o texto aparece ao passar o mouse) e se o e-mail se descadastrou do marketing da área (RN-227). Busca por nome ou e-mail e filtro por página. "Exportar CSV" (RN-254) e "Criar campanha para estes leads" (RN-250) usam o filtro da tela.
 - **Comportamento esperado**: só leads da própria área; descadastrado aparece marcado.
 - **Impacto se descumprida**: contato com quem pediu para sair.
+
+### RN-250 - Leads no público das campanhas
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Campanhas > (campanha) > Quem recebe
+- **Descricao**: O público tem duas partes que se somam: "Alunos" (as regras de sempre, RN-221) e "Leads das páginas" — todos os leads ou filtrados por página de origem (a da primeira captura), funil e tag do lead (E entre os filtros, OU dentro de cada lista). Dá para mandar só para alunos, só para leads ou para os dois. A tela de Leads abre uma campanha nova já com os leads da página filtrada.
+- **Comportamento esperado**: página, funil ou tag de outra área = "não encontrado"; campanha antiga continua indo só para alunos; os destinatários mostram "Lead" ou "Membro".
+- **Impacto se descumprida**: leads sem comunicação ou mistura de público entre áreas.
+
+### RN-251 - Uma pessoa recebe uma vez só
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Campanhas (início do envio e contagem)
+- **Descricao**: Membro e lead com o mesmo e-mail recebem a campanha UMA vez (comparação pelo HMAC do e-mail). Lead cujo e-mail já tem vínculo na área conta como membro: recebe como aluno se for ALUNO ativo; senão, não recebe. Quem se descadastrou da área (RN-227) não recebe, seja lead ou membro. A contagem antes de enviar mostra quantos são alunos e quantos são leads.
+- **Comportamento esperado**: aluno que também é lead = 1 envio (como membro); descadastrado = "Não enviado"; lead removido até o envio = "Lead removido.".
+- **Impacto se descumprida**: e-mail duplicado (reclamação de spam) ou contato com quem pediu para sair.
+
+### RN-252 - Automação "quando alguém se cadastra numa página"
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Automações > Nova automação
+- **Descricao**: Gatilho de lead: dispara quando alguém deixa nome e e-mail no formulário de uma página publicada. Filtro opcional por página e/ou funil (os desta captura). Espera de 0 a 30 dias; ação = e-mail e/ou tag. Uma vez por (automação, lead): se a pessoa se cadastrar de novo, não recebe de novo. Nasce pausada como as outras.
+- **Comportamento esperado**: a captura nunca falha por causa da automação; página de outra área = "não encontrado"; página/funil só valem neste gatilho.
+- **Impacto se descumprida**: e-mail repetido a cada captura ou captura quebrada.
+
+### RN-253 - Tag aplicada pela automação de lead
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Automações (execução)
+- **Descricao**: Na automação de lead, a tag vai para o próprio lead (o lead tem uma tag; a da automação substitui a anterior, que fica registrada na trilha). O lead não ganha vínculo de membro por causa disso.
+- **Comportamento esperado**: o lead passa a aparecer no segmento "Tag do lead" da tag aplicada.
+- **Impacto se descumprida**: segmento de leads desatualizado.
+
+### RN-254 - Exportar leads em CSV
+- **Definida por**: dono do produto
+- **Data**: 2026-10-18
+- **Modulo**: Admin > Páginas > Leads (DONO e ADMIN)
+- **Descricao**: Botão "Exportar CSV" com os filtros da tela (página e busca). O arquivo é gerado na hora pelo servidor e não fica guardado: nome, e-mail, página, funil, tag, UTM, texto e data do consentimento, capturas, primeira e última captura e se se descadastrou. Planilha em PT-BR (`;`); célula que começa com `=`, `+`, `-` ou `@` sai com `'` na frente, para não virar fórmula. Até 50 mil linhas por arquivo.
+- **Comportamento esperado**: ALUNO = 403; sem sessão = 401; a trilha registra quem exportou, quantos e o filtro, sem os e-mails.
+- **Impacto se descumprida**: vazamento de lista de contatos ou planilha com fórmula maliciosa.
 
 <!-- Exemplo de registro: -->
 

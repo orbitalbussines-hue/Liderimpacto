@@ -230,7 +230,7 @@ describe("permissões das actions", () => {
     req.h = await cabecalhosLogados(admin.usuario.email, A.slug);
     const c = await acoesCamp.acaoCriarCampanha({ nome: "Boas-vindas", conteudo: conteudo(), publico });
     expect(c.ok).toBe(true);
-    expect(await acoesCamp.acaoContarPublico({ publico })).toEqual({ ok: true, dados: { total: 1, descadastrados: 0, receberao: 1 } });
+    expect(await acoesCamp.acaoContarPublico({ publico })).toEqual({ ok: true, dados: { total: 1, descadastrados: 0, receberao: 1, membros: 1, leads: 0 } });
     expect(await acoesCamp.acaoCriarCampanha({ nome: "X", conteudo: conteudo({ corpo: "veja http://exemplo.com" }), publico })).toMatchObject({ ok: false });
     expect(await acoesCamp.acaoEnviarTesteEmail({ conteudo: conteudo() })).toEqual({ ok: true, dados: { para: admin.usuario.email } });
     expect(falso.para(admin.usuario.email)[0].assunto).toBe("[Teste] Novidade na área");

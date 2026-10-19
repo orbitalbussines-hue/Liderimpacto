@@ -8,6 +8,7 @@ import { AUTOR_SISTEMA } from "@/lib/conhecimento/regras";
 import { db } from "@/lib/db";
 import { criadores_leads as leads, criadores_tags } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
+import { automacaoLeadCapturado } from "@/lib/marketing/gatilhos";
 import type { capturaSchema } from "@/lib/validators/paginas";
 import { funilDaPagina, paginaPublicada, proximaEtapa } from "./publico";
 
@@ -16,7 +17,7 @@ import { funilDaPagina, paginaPublicada, proximaEtapa } from "./publico";
  * Defesas: honeypot (campo escondido preenchido = robô: responde "ok" e não grava), teto por IP no banco
  * (10 em 10 min) e consentimento obrigatório. O texto do consentimento e a tag vêm da página PUBLICADA
  * (nunca do corpo). Um lead por e-mail no criador: nova captura atualiza nome, consentimento e data.
- * A trilha não leva o e-mail.
+ * A trilha não leva o e-mail. Depois do commit, o gancho das automações de lead (RN-252; nunca lança).
  */
 
 export const TETO_LEADS_POR_IP = 10;
@@ -39,7 +40,7 @@ export async function capturarLead(criador: { id: string }, slug: string, e: Cap
   const funil = await funilDaPagina(criador.id, e.funil, pagina.id);
   const utm = Object.fromEntries(Object.entries(e.utm).filter(([, v]) => !!v));
 
-  await db.transaction(async (tx) => {
+  const leadId = await db.transaction(async (tx) => {
     const [l] = await tx
       .insert(leads)
       .values({
@@ -78,6 +79,8 @@ export async function capturarLead(criador: { id: string }, slug: string, e: Cap
       registroId: l.id,
       detalhes: `${l.capturas > 1 ? "Nova captura de lead" : "Lead capturado"} pela página /p/${pagina.slug}${funil ? " (em funil)" : ""}, com consentimento`,
     });
+    return l.id;
   });
+  await automacaoLeadCapturado(criador.id, leadId, pagina.id, funil?.id ?? null, agora);
   return { ok: true, proximaSlug: funil ? await proximaEtapa(criador.id, funil) : null, funilId: funil?.id ?? null };
 }

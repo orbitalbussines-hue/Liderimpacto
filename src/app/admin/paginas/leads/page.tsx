@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
+import { Download, Send } from "lucide-react";
 import { PaginaTabela } from "@/components/admin/pagina-tabela";
 import type { Coluna, Linha } from "@/components/admin/tabela-tipos";
 import { MenuFiltro } from "@/components/comunidade/menu-filtro";
+import { buttonVariants } from "@/components/ui/button";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { EQUIPE } from "@/lib/auth/permissoes";
 import { POR_PAGINA_LEADS, listarLeads, paginasParaFunil } from "@/lib/paginas/consultas";
@@ -37,6 +40,8 @@ async function Leads({ searchParams }: { searchParams: Busca }) {
     return q.size ? `${base}?${q}` : base;
   };
   const paginaFiltro = paginas.find((p) => p.id === filtros.pagina);
+  const exportar = `${base}/exportar${filtros.pagina || filtros.busca ? `?${new URLSearchParams(Object.entries({ pagina: filtros.pagina, q: filtros.busca }).filter((e): e is [string, string] => !!e[1]))}` : ""}`;
+  const campanha = `/admin/campanhas/nova?leads=1${paginaFiltro ? `&pagina=${paginaFiltro.id}` : ""}`;
 
   const linhas: Linha[] = lista.linhas.map((l) => [
     { tipo: "membro", nome: l.nome, email: l.email },
@@ -68,6 +73,19 @@ async function Leads({ searchParams }: { searchParams: Busca }) {
       }
       abas={ABAS_PAGINAS}
       abaAtiva="Leads"
+      acoes={
+        <>
+          {/* Arquivo gerado na hora pelo servidor (DONO/ADMIN), com os filtros da tela; a busca não vira público de campanha. */}
+          <a href={exportar} download className={buttonVariants({ variant: "contorno", size: "36" })}>
+            <Download className="size-3.5" aria-hidden />
+            Exportar CSV
+          </a>
+          <Link href={campanha} className={buttonVariants({ size: "36" })}>
+            <Send className="size-3.5" aria-hidden />
+            Criar campanha para estes leads
+          </Link>
+        </>
+      }
       busca="Pesquise por nome ou e-mail..."
       valorBusca={filtros.busca}
       formBusca={{ nome: "q", manter: filtros.pagina ? { pagina: filtros.pagina } : {} }}
@@ -93,7 +111,8 @@ async function Leads({ searchParams }: { searchParams: Busca }) {
 
 /**
  * Leads das páginas (DONO e ADMIN), RN-243/RN-247: nome, e-mail, origem, tag, UTM, consentimento (texto
- * no título da data) e se o e-mail saiu da lista de marketing da área (descadastro, RN-227).
+ * no título da data) e se o e-mail saiu da lista de marketing da área (descadastro, RN-227). Exporta CSV
+ * (RN-254) e abre uma campanha já com o público de leads da página filtrada (RN-250).
  */
 export default function PaginaLeads({ searchParams }: { searchParams: Busca }) {
   return (

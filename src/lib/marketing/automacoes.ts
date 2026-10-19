@@ -3,14 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { ErroDeNegocio } from "@/lib/acao";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import type { Transacao } from "@/lib/db";
-import { criadores_automacoes as auto, criadores_tags, produtos } from "@/lib/db/schema";
+import { criadores_automacoes as auto, criadores_funis, criadores_paginas, criadores_tags, produtos } from "@/lib/db/schema";
 import type { GatilhoAutomacao, SituacaoAutomacao } from "@/lib/db/schema/_enums";
 import type { ConteudoMarketing } from "@/lib/db/schema/marketing";
 import { MSG_COLISAO, marcaDeExclusao, travaDeColisao, vivos } from "@/lib/db/soft-delete";
 import { ROTULO_GATILHO } from "./regras";
 
 /**
- * AUTOMAÇÕES (RN-224): gatilho (+ curso opcional, + N dias na varredura), atraso opcional, ação =
+ * AUTOMAÇÕES (RN-224): gatilho (+ curso opcional, + N dias na varredura, + página/funil no gatilho de
+ * lead, RN-252), atraso opcional, ação =
  * e-mail e/ou tag. Nascem PAUSADAS: só disparam depois de ativadas (e só para o que acontecer depois).
  * Trava por `updated_at` e trilha na transação de quem chama. O gatilho não muda depois de criada
  * (o histórico de execuções é dele); para outro gatilho, crie outra automação.
@@ -25,6 +26,9 @@ export interface DadosAutomacao {
   atrasoMinutos: number;
   conteudo: ConteudoMarketing | null;
   tagId: string | null;
+  /** Filtro do gatilho de lead (ausente = qualquer página/funil). */
+  paginaId?: string | null;
+  funilId?: string | null;
 }
 
 async function conferir(tx: Transacao, criadorId: string, d: DadosAutomacao) {
@@ -32,14 +36,22 @@ async function conferir(tx: Transacao, criadorId: string, d: DadosAutomacao) {
     const [p] = await tx.select({ id: produtos.id }).from(produtos).where(and(eq(produtos.id, d.produtoId), eq(produtos.criador_id, criadorId), vivos(produtos)));
     if (!p) throw new ErroDeNegocio("Curso não encontrado.");
   }
+  if (d.paginaId) {
+    const [p] = await tx.select({ id: criadores_paginas.id }).from(criadores_paginas).where(and(eq(criadores_paginas.id, d.paginaId), eq(criadores_paginas.criador_id, criadorId), vivos(criadores_paginas)));
+    if (!p) throw new ErroDeNegocio("Página não encontrada.");
+  }
+  if (d.funilId) {
+    const [f] = await tx.select({ id: criadores_funis.id }).from(criadores_funis).where(and(eq(criadores_funis.id, d.funilId), eq(criadores_funis.criador_id, criadorId), vivos(criadores_funis)));
+    if (!f) throw new ErroDeNegocio("Funil não encontrado.");
+  }
   if (d.tagId) {
     const [t] = await tx.select({ id: criadores_tags.id }).from(criadores_tags).where(and(eq(criadores_tags.id, d.tagId), eq(criadores_tags.criador_id, criadorId), vivos(criadores_tags)));
     if (!t) throw new ErroDeNegocio("Tag não encontrada.");
   }
 }
 
-const colunas = (d: DadosAutomacao) => ({ nome: d.nome, produto_id: d.produtoId, dias: d.dias, atraso_minutos: d.atrasoMinutos, conteudo: d.conteudo, tag_id: d.tagId });
-const resumo = (d: DadosAutomacao) => ({ nome: d.nome, produto_id: d.produtoId, dias: d.dias, atraso_minutos: d.atrasoMinutos, assunto: d.conteudo?.assunto ?? null, tag_id: d.tagId });
+const colunas = (d: DadosAutomacao) => ({ nome: d.nome, produto_id: d.produtoId, dias: d.dias, atraso_minutos: d.atrasoMinutos, conteudo: d.conteudo, tag_id: d.tagId, pagina_id: d.paginaId ?? null, funil_id: d.funilId ?? null });
+const resumo = (d: DadosAutomacao) => ({ nome: d.nome, produto_id: d.produtoId, dias: d.dias, atraso_minutos: d.atrasoMinutos, assunto: d.conteudo?.assunto ?? null, tag_id: d.tagId, pagina_id: d.paginaId ?? null, funil_id: d.funilId ?? null });
 
 export async function criarAutomacao(tx: Transacao, p: { criadorId: string; autor: string; gatilho: GatilhoAutomacao } & DadosAutomacao): Promise<{ id: string; versao: Date }> {
   await conferir(tx, p.criadorId, p);

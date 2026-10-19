@@ -7,7 +7,10 @@ import {
   criadores_campanhas as camp,
   criadores_emails_envios as envios,
   criadores_emails_modelos as mod,
+  criadores_funis,
+  criadores_leads as leads,
   criadores_membros as m,
+  criadores_paginas,
   criadores_tags,
   produtos,
   usuarios as u,
@@ -20,8 +23,17 @@ import { taxa } from "./regras";
  * LEITURAS das telas de Campanhas e Automações (DONO e ADMIN; `criadorId` SEMPRE do host). Métricas
  * calculadas dos envios: `aberturas`/`cliques` = PESSOAS que abriram/clicaram (únicas); as taxas são
  * sobre os enviados. Abertura por pixel é estimativa (cliente que bloqueia imagem não conta; clique
- * conta como abertura).
+ * conta como abertura). Destinatário = membro OU lead (ADR-0023): `tipo` diz qual, nome/e-mail de quem for.
  */
+
+/** Colunas do destinatário (membro ou lead) de um envio/execução com `lead_id`. */
+const destinatario = (leadId: typeof envios.lead_id | typeof exec.lead_id) => ({
+  tipo: sql<"MEMBRO" | "LEAD">`case when ${leadId} is not null then 'LEAD' else 'MEMBRO' end`,
+  membroId: m.id,
+  leadId: leads.id,
+  nome: sql<string>`coalesce(${u.nome}, ${leads.nome})`,
+  email: sql<string>`coalesce(${u.email}, ${leads.email})`,
+});
 
 const metricas = (filtro: SQL) => ({
   total: sql<number>`count(${envios.id}) filter (where ${filtro})::int`,
@@ -91,9 +103,7 @@ export async function destinatariosDaCampanha(criadorId: string, campanhaId: str
   const linhas = await db
     .select({
       envioId: envios.id,
-      membroId: m.id,
-      nome: u.nome,
-      email: u.email,
+      ...destinatario(envios.lead_id),
       situacao: envios.situacao,
       motivo: envios.motivo,
       enviadoEm: envios.enviado_em,
@@ -104,10 +114,11 @@ export async function destinatariosDaCampanha(criadorId: string, campanhaId: str
       total: sql<number>`count(*) over ()::int`,
     })
     .from(envios)
-    .innerJoin(m, eq(m.id, envios.membro_id))
-    .innerJoin(u, eq(u.id, m.usuario_id))
+    .leftJoin(m, eq(m.id, envios.membro_id))
+    .leftJoin(u, eq(u.id, m.usuario_id))
+    .leftJoin(leads, eq(leads.id, envios.lead_id))
     .where(and(eq(envios.campanha_id, campanhaId), eq(envios.criador_id, criadorId), f.situacao ? eq(envios.situacao, f.situacao) : undefined))
-    .orderBy(asc(sql`lower(${u.nome})`), asc(envios.id))
+    .orderBy(asc(sql`lower(coalesce(${u.nome}, ${leads.nome}))`), asc(envios.id))
     .limit(f.porPagina)
     .offset((f.pagina - 1) * f.porPagina);
   return { total: linhas[0]?.total ?? 0, linhas }; // `total` (janela) também em cada linha: inofensivo
@@ -135,6 +146,10 @@ export async function listarAutomacoes(criadorId: string) {
       conteudo: auto.conteudo,
       tagId: auto.tag_id,
       tag: criadores_tags.nome,
+      paginaId: auto.pagina_id,
+      pagina: criadores_paginas.titulo,
+      funilId: auto.funil_id,
+      funil: criadores_funis.nome,
       situacao: auto.situacao,
       criadoEm: auto.created_at,
       versao: auto.updated_at,
@@ -145,9 +160,11 @@ export async function listarAutomacoes(criadorId: string) {
     .from(auto)
     .leftJoin(produtos, eq(produtos.id, auto.produto_id))
     .leftJoin(criadores_tags, eq(criadores_tags.id, auto.tag_id))
+    .leftJoin(criadores_paginas, eq(criadores_paginas.id, auto.pagina_id))
+    .leftJoin(criadores_funis, eq(criadores_funis.id, auto.funil_id))
     .leftJoin(envios, and(eq(envios.automacao_id, auto.id), eq(envios.criador_id, criadorId)))
     .where(and(eq(auto.criador_id, criadorId), vivos(auto)))
-    .groupBy(auto.id, produtos.titulo, criadores_tags.nome)
+    .groupBy(auto.id, produtos.titulo, criadores_tags.nome, criadores_paginas.titulo, criadores_funis.nome)
     .orderBy(desc(auto.created_at), desc(auto.id));
   return linhas.map(comTaxas);
 }
@@ -159,9 +176,7 @@ export async function historicoDaAutomacao(criadorId: string, automacaoId: strin
   const linhas = await db
     .select({
       id: exec.id,
-      membroId: m.id,
-      nome: u.nome,
-      email: u.email,
+      ...destinatario(exec.lead_id),
       referencia: exec.referencia,
       situacao: exec.situacao,
       motivo: exec.motivo,
@@ -176,8 +191,9 @@ export async function historicoDaAutomacao(criadorId: string, automacaoId: strin
       total: sql<number>`count(*) over ()::int`,
     })
     .from(exec)
-    .innerJoin(m, eq(m.id, exec.membro_id))
-    .innerJoin(u, eq(u.id, m.usuario_id))
+    .leftJoin(m, eq(m.id, exec.membro_id))
+    .leftJoin(u, eq(u.id, m.usuario_id))
+    .leftJoin(leads, eq(leads.id, exec.lead_id))
     .leftJoin(envios, eq(envios.id, exec.envio_id))
     .where(and(eq(exec.automacao_id, automacaoId), eq(exec.criador_id, criadorId)))
     .orderBy(desc(exec.created_at), desc(exec.id))

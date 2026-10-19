@@ -2,7 +2,7 @@ import "server-only";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { db } from "@/lib/db";
-import { criadores_emails_descadastros as d, criadores_membros, usuarios } from "@/lib/db/schema";
+import { criadores_emails_descadastros as d, criadores_leads, criadores_membros, usuarios } from "@/lib/db/schema";
 import { AUTOR_SISTEMA } from "@/lib/conhecimento/regras";
 import type { OrigemDescadastro } from "@/lib/db/schema/_enums";
 import { vivos } from "@/lib/db/soft-delete";
@@ -15,14 +15,21 @@ import { hashDoDestinatario, mascararEmail } from "@/lib/email/disparos";
  * e-mail): o token só traz o HMAC, então a máscara da tela sai da conta do membro, quando ela existe.
  */
 
-/** Pessoa da área com este HMAC (máscara e autoria da trilha). ponytail: varre os membros da área; índice por HMAC se passar de ~50 mil. */
-async function pessoaDoHash(criadorId: string, hash: string): Promise<{ usuarioId: string; email: string } | null> {
+/**
+ * Pessoa da área com este HMAC (máscara e autoria da trilha): membro (com conta) ou lead (sem conta, autor =
+ * sistema). ponytail: varre membros e leads da área; índice por HMAC se passar de ~50 mil.
+ */
+async function pessoaDoHash(criadorId: string, hash: string): Promise<{ usuarioId: string | null; email: string } | null> {
   const linhas = await db
     .select({ usuarioId: usuarios.id, email: usuarios.email })
     .from(criadores_membros)
     .innerJoin(usuarios, eq(usuarios.id, criadores_membros.usuario_id))
     .where(eq(criadores_membros.criador_id, criadorId));
-  return linhas.find((l) => hashDoDestinatario(l.email) === hash) ?? null;
+  const membro = linhas.find((l) => hashDoDestinatario(l.email) === hash);
+  if (membro) return membro;
+  const leads = await db.select({ email: criadores_leads.email }).from(criadores_leads).where(and(eq(criadores_leads.criador_id, criadorId), vivos(criadores_leads)));
+  const lead = leads.find((l) => hashDoDestinatario(l.email) === hash);
+  return lead ? { usuarioId: null, email: lead.email } : null;
 }
 
 /** Idempotente: descadastrar duas vezes não cria outra linha. Devolve se foi novo. */

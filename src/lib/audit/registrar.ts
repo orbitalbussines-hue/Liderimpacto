@@ -14,7 +14,8 @@ export type AcaoAuditada =
   | "acesso_negado"
   | "senha"
   | "segundo_fator"
-  | "reproduzir";
+  | "reproduzir"
+  | "exportar";
 
 interface RegistroDeAuditoria {
   /** `null` = evento ANONIMO (e-mail inexistente, teto de IP estourado): nao ha conta. */

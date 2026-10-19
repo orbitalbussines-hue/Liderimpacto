@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CaixaSelecao } from "@/components/ui/caixa-selecao";
 import { Selecao } from "@/components/ui/selecao";
 import { acaoContarReenvioPrimeiroAcesso, acaoReenviarPrimeiroAcesso } from "@/lib/actions/campanhas";
-import { PUBLICO_VAZIO, pessoas, tempoEstimado } from "../../campanhas/_components/comum";
+import { PUBLICO_MEMBROS_VAZIO, pessoas, tempoEstimado } from "../../campanhas/_components/comum";
 import { useAcao } from "./use-acao";
 
 export interface ReenviarAcessoProps {
@@ -37,13 +37,13 @@ export function ReenviarAcesso({ grupos, grupoInicial, emailLigado, limite }: Re
   const [confirmando, setConfirmando] = useState(false);
   const [feito, setFeito] = useState<Feito | null>(null);
   const { erro, setErro, pendente, rodar } = useAcao();
-  const publico = { ...PUBLICO_VAZIO, grupoIds: grupoId ? [grupoId] : [], nuncaAcessou };
+  const publico = { ...PUBLICO_MEMBROS_VAZIO, grupoIds: grupoId ? [grupoId] : [], nuncaAcessou };
 
   useEffect(() => {
     if (!aberto) return;
     let valido = true;
     iniciarContagem(async () => {
-      const r = await acaoContarReenvioPrimeiroAcesso({ publico: { ...PUBLICO_VAZIO, grupoIds: grupoId ? [grupoId] : [], nuncaAcessou } });
+      const r = await acaoContarReenvioPrimeiroAcesso({ publico: { ...PUBLICO_MEMBROS_VAZIO, grupoIds: grupoId ? [grupoId] : [], nuncaAcessou } });
       if (!valido) return;
       if (r.ok) setContagem(r.dados);
       else setErro(r.erro);

@@ -160,6 +160,8 @@ export const criadores_leads = pgTable(
     ...colunasAuditoria,
   },
   (t) => [
+    // Alvo das FKs compostas dos envios e execuções de lead (ADR-0023).
+    unique("uq_criadores_leads_id_criador").on(t.id, t.criador_id),
     foreignKey({ name: "fk_criadores_leads_pagina", columns: [t.pagina_id, t.criador_id], foreignColumns: [criadores_paginas.id, criadores_paginas.criador_id] })
       .onDelete("restrict")
       .onUpdate("restrict"),

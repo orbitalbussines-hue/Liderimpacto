@@ -8,17 +8,20 @@ import { EQUIPE } from "@/lib/auth/permissoes";
 import { listarAutomacoes, listarModelos } from "@/lib/marketing/consultas";
 import { produtosParaMatricular } from "@/lib/matriculas/consultas";
 import { listarTags } from "@/lib/membros/consultas";
+import { listarFunis, paginasParaFunil } from "@/lib/paginas/consultas";
 import { camposDaAutomacao } from "./campos";
 import { FormAutomacao } from "./form-automacao";
 
 /** Página de criar (`automacaoId` vazio) ou editar a automação do criador do HOST (DONO e ADMIN). */
 export async function PaginaFormAutomacao({ automacaoId }: { automacaoId?: string }) {
   const { criador } = await membroDaPagina(EQUIPE);
-  const [produtos, tags, modelos, automacoes] = await Promise.all([
+  const [produtos, tags, modelos, automacoes, paginas, funis] = await Promise.all([
     produtosParaMatricular(criador.id),
     listarTags(criador.id),
     listarModelos(criador.id),
     automacaoId ? listarAutomacoes(criador.id) : null,
+    paginasParaFunil(criador.id),
+    listarFunis(criador.id),
   ]);
   const a = automacoes?.find((x) => x.id === automacaoId);
   if (automacaoId && !a) notFound();
@@ -34,6 +37,8 @@ export async function PaginaFormAutomacao({ automacaoId }: { automacaoId?: strin
         automacao={a && { id: a.id, versao: a.versao.toISOString(), situacao: a.situacao, campos: camposDaAutomacao(a) }}
         produtos={produtos.map((p) => ({ id: p.id, titulo: p.titulo }))}
         tags={tags.map((t) => ({ id: t.id, nome: t.nome }))}
+        paginas={paginas.map((p) => ({ id: p.id, nome: p.titulo }))}
+        funis={funis.map((f) => ({ id: f.id, nome: f.nome }))}
         modelos={modelos.map((m) => ({ id: m.id, nome: m.nome, conteudo: m.conteudo }))}
       />
     </div>

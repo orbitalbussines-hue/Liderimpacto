@@ -60,7 +60,8 @@ e-mails de senha. Esta decisão fixa a camada de dados e o back-end (as telas v�
    sair da lista da área A não tira da área B.
 7. **Público por regra única** (`condicaoDoPublico`): ALUNO com vínculo ATIVO e conta ativa; E entre os
    critérios (grupos, tags, cursos com matrícula valendo, nunca acessou), OU dentro de cada lista; vazio =
-   todos os alunos. Ids de outro criador = "não encontrado". Contagem antes de enviar
+   todos os alunos. Ids de outro criador = "não encontrado". Desde o ADR-0023 o público também soma LEADS
+   das páginas (sem repetir pessoa, dedupe pelo HMAC) e o envio é de membro OU lead. Contagem antes de enviar
    (`contarPublico`: total, descadastrados, receberão). O público é lido no INÍCIO do envio (agendada
    para amanhã inclui quem entrar até lá).
 8. **Automações** com gatilho fixo (membro cadastrado, matrícula criada, aula concluída, curso
@@ -70,7 +71,7 @@ e-mails de senha. Esta decisão fixa a camada de dados e o back-end (as telas v�
    `actions/vouchers.ts`), DEPOIS do commit, e **nunca lançam**. Idempotência pelo índice único
    **(automação, membro, referência)**: `matricula:<id>`, `aula:<id>`, `curso:<id>`, `certificado:<id>`,
    `voucher:<resgate>`, `cadastro`, `inativo:<ISO do último acesso>` (um disparo por episódio de
-   inatividade) e `nunca-acessou`. Varredura diária por job repetido (`upsertJobScheduler`, 09:00 de
+   inatividade) e `nunca-acessou`. O gatilho de lead (`LEAD_CAPTURADO`, `captura`) veio no ADR-0023. Varredura diária por job repetido (`upsertJobScheduler`, 09:00 de
    Brasília). Reativar uma matrícula cancelada não repete a automação (mesma referência). A execução
    aplica a tag (trilha como evento do sistema) e cria o envio; o histórico é a própria tabela.
 9. **Reenvio do primeiro acesso em massa** (urgente para os 138 importados): action para um público

@@ -27,6 +27,7 @@ export const metadata: Metadata = { title: "Resultado da campanha" };
 const POR_PAGINA = 50;
 const COLUNAS: Coluna[] = [
   { titulo: "Pessoa" },
+  { titulo: "Tipo", largura: 90 },
   { titulo: "Situação", largura: 120 },
   { titulo: "Motivo", largura: 220 },
   { titulo: "Enviado em", largura: 140 },
@@ -71,6 +72,7 @@ async function Resultado({ params, searchParams }: { params: Params; searchParam
 
   const linhas: Linha[] = dest.linhas.map((d) => [
     { tipo: "membro", nome: d.nome, email: d.email },
+    d.tipo === "LEAD" ? { tipo: "etiqueta", texto: "Lead" } : { tipo: "texto", texto: "Membro" },
     { tipo: "no", conteudo: <Selo tom={TOM_SITUACAO_ENVIO[d.situacao]}>{ROTULO_SITUACAO_ENVIO[d.situacao]}</Selo> },
     {
       tipo: "no",

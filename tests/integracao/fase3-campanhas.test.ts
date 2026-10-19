@@ -72,7 +72,7 @@ async function campanhaIniciada(criadorId: string, autor: string, p = TODOS) {
 describe("público e contagem", () => {
   it("só ALUNO ativo do criador; E entre critérios, OU dentro; ids de outro criador recusados", async () => {
     const { A, B, ana, beto, produto, grupo, tag, deB } = await cenario();
-    expect(await publico.contarPublico(A.id, TODOS)).toEqual({ total: 2, descadastrados: 0, receberao: 2 });
+    expect(await publico.contarPublico(A.id, TODOS)).toEqual({ total: 2, descadastrados: 0, receberao: 2, membros: 2, leads: 0 });
     expect((await publico.pessoasDoPublico(A.id, { ...TODOS, grupoIds: [grupo.id] })).map((p) => p.membroId)).toEqual([ana.membro.id]);
     expect((await publico.pessoasDoPublico(A.id, { ...TODOS, tagIds: [tag.id] })).map((p) => p.membroId)).toEqual([beto.membro.id]);
     expect((await publico.pessoasDoPublico(A.id, { ...TODOS, produtoIds: [produto.id] })).map((p) => p.membroId)).toEqual([ana.membro.id]);
@@ -84,7 +84,7 @@ describe("público e contagem", () => {
 
     // Descadastrado sai da contagem de quem recebe.
     await descadastro.descadastrar(A.id, (await import("@/lib/email/disparos")).hashDoDestinatario(beto.usuario.email), "LINK");
-    expect(await publico.contarPublico(A.id, TODOS)).toEqual({ total: 2, descadastrados: 1, receberao: 1 });
+    expect(await publico.contarPublico(A.id, TODOS)).toEqual({ total: 2, descadastrados: 1, receberao: 1, membros: 1, leads: 0 });
   });
 });
 

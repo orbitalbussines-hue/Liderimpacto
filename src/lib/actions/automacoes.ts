@@ -17,7 +17,7 @@ export async function acaoCriarAutomacao(entrada: unknown) {
     const { usuario, criador } = await exigirMembro(EQUIPE);
     const e = criarAutomacaoSchema.parse(entrada);
     const a = await db.transaction((tx) =>
-      criarAutomacao(tx, { criadorId: criador.id, autor: usuario.id, gatilho: e.gatilho, nome: e.nome, produtoId: e.produtoId, dias: e.dias, atrasoMinutos: e.atrasoMinutos, conteudo: e.conteudo, tagId: e.tagId }),
+      criarAutomacao(tx, { criadorId: criador.id, autor: usuario.id, gatilho: e.gatilho, nome: e.nome, produtoId: e.produtoId, dias: e.dias, atrasoMinutos: e.atrasoMinutos, conteudo: e.conteudo, tagId: e.tagId, paginaId: e.paginaId, funilId: e.funilId }),
     );
     return { id: a.id, versao: a.versao.toISOString() };
   });
@@ -40,6 +40,8 @@ export async function acaoSalvarAutomacao(entrada: unknown) {
         atrasoMinutos: e.atrasoMinutos,
         conteudo: e.conteudo,
         tagId: e.tagId,
+        paginaId: e.paginaId,
+        funilId: e.funilId,
       }),
     );
     return { versao: a.versao.toISOString() };

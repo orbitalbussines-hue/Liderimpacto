@@ -17,7 +17,7 @@ import { primeiroNome } from "@/lib/email/modelo";
 import { ROTULO_SITUACAO_CAMPANHA } from "@/lib/marketing/regras";
 import { AgendarCampanha } from "./agendar-campanha";
 import { CamposConteudo } from "./campos-conteudo";
-import { CONTEUDO_VAZIO, PUBLICO_VAZIO, TOM_SITUACAO_CAMPANHA } from "./comum";
+import { CONTEUDO_VAZIO, PUBLICO_VAZIO, TOM_SITUACAO_CAMPANHA, publicoCompleto } from "./comum";
 import type { DadosDoEditor } from "./dados-editor";
 import { PreviaEmail } from "./previa-email";
 import { SeletorPublico, type ContagemPublico } from "./seletor-publico";
@@ -25,8 +25,8 @@ import { SeletorPublico, type ContagemPublico } from "./seletor-publico";
 export interface EditorCampanhaProps {
   /** Sem `campanha` = nova. */
   campanha?: { id: string; versao: string; situacao: SituacaoCampanha; nome: string; conteudo: ConteudoMarketing; publico: PublicoCampanha };
-  /** Nova a partir de um modelo. */
-  inicial?: { nome: string; conteudo: ConteudoMarketing };
+  /** Nova a partir de um modelo e/ou com o público já escolhido (ex.: "Criar campanha para estes leads"). */
+  inicial?: { nome?: string; conteudo?: ConteudoMarketing; publico?: PublicoCampanha };
   dados: DadosDoEditor;
   limite: { hora: number; dia: number };
   /** Quem está editando (saudação da prévia). */
@@ -43,9 +43,9 @@ export function EditorCampanha({ campanha, inicial, dados, limite, nomeUsuario }
   const router = useRouter();
   const [nome, setNome] = useState(campanha?.nome ?? inicial?.nome ?? "");
   const [conteudo, setConteudo] = useState<ConteudoMarketing>(campanha?.conteudo ?? inicial?.conteudo ?? CONTEUDO_VAZIO);
-  const [publico, setPublico] = useState<PublicoCampanha>(campanha?.publico ?? PUBLICO_VAZIO);
+  const [publico, setPublico] = useState<PublicoCampanha>(() => (campanha ? publicoCompleto(campanha.publico) : (inicial?.publico ?? PUBLICO_VAZIO)));
   const [salva, setSalva] = useState(campanha ? { id: campanha.id, versao: campanha.versao } : null);
-  const [gravado, setGravado] = useState(() => JSON.stringify(campanha ? [campanha.nome, campanha.conteudo, campanha.publico] : null));
+  const [gravado, setGravado] = useState(() => JSON.stringify(campanha ? [campanha.nome, campanha.conteudo, publicoCompleto(campanha.publico)] : null));
   const [contagem, setContagem] = useState<ContagemPublico | null>(null);
   const [agendando, setAgendando] = useState(false);
   const [aviso, setAviso] = useState<{ tom: "ok" | "erro"; texto: string } | null>(null);

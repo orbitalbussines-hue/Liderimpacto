@@ -1,7 +1,7 @@
 import type { GatilhoAutomacao } from "@/lib/db/schema/_enums";
 import type { ConteudoMarketing } from "@/lib/db/schema/marketing";
 import { criarAutomacaoSchema } from "@/lib/validators/marketing";
-import { atrasoEmUnidade, MAX_ATRASO_MINUTOS, MINUTOS_POR, pedeCurso, pedeDias, type UnidadeAtraso } from "./comum";
+import { atrasoEmUnidade, MAX_ATRASO_MINUTOS, MINUTOS_POR, pedeCurso, pedeDias, pedeOrigem, type UnidadeAtraso } from "./comum";
 
 /** Estado do formulário (tudo string, como o input devolve) ↔ entrada das actions. Puro. */
 
@@ -10,6 +10,9 @@ export interface CamposAutomacao {
   gatilho: GatilhoAutomacao;
   /** "" = qualquer curso. */
   produtoId: string;
+  /** Gatilho de lead: "" = qualquer página / qualquer funil. */
+  paginaId: string;
+  funilId: string;
   dias: string;
   atrasoValor: string;
   atrasoUnidade: UnidadeAtraso;
@@ -24,13 +27,15 @@ export interface CamposAutomacao {
   tagId: string;
 }
 
-export type CampoComErro = "nome" | "produtoId" | "dias" | "atraso" | "acao" | "assunto" | "previa" | "titulo" | "corpo" | "botaoTexto" | "botaoUrl" | "tagId";
+export type CampoComErro = "nome" | "produtoId" | "paginaId" | "funilId" | "dias" | "atraso" | "acao" | "assunto" | "previa" | "titulo" | "corpo" | "botaoTexto" | "botaoUrl" | "tagId";
 export type ErrosAutomacao = Partial<Record<CampoComErro, string>>;
 
 export const CAMPOS_VAZIOS: CamposAutomacao = {
   nome: "",
   gatilho: "CURSO_CONCLUIDO",
   produtoId: "",
+  paginaId: "",
+  funilId: "",
   dias: "",
   atrasoValor: "0",
   atrasoUnidade: "minutos",
@@ -63,6 +68,8 @@ export function camposDaAutomacao(a: {
   atrasoMinutos: number;
   conteudo: ConteudoMarketing | null;
   tagId: string | null;
+  paginaId?: string | null;
+  funilId?: string | null;
 }): CamposAutomacao {
   const atraso = atrasoEmUnidade(a.atrasoMinutos);
   return {
@@ -70,6 +77,8 @@ export function camposDaAutomacao(a: {
     nome: a.nome,
     gatilho: a.gatilho,
     produtoId: a.produtoId ?? "",
+    paginaId: a.paginaId ?? "",
+    funilId: a.funilId ?? "",
     dias: a.dias === null ? "" : String(a.dias),
     atrasoValor: String(atraso.valor),
     atrasoUnidade: atraso.unidade,
@@ -105,6 +114,8 @@ export function entradaDaAutomacao(c: CamposAutomacao): { ok: true; entrada: Ent
     nome: c.nome,
     gatilho: c.gatilho,
     produtoId: pedeCurso(c.gatilho) && c.produtoId ? c.produtoId : null,
+    paginaId: pedeOrigem(c.gatilho) && c.paginaId ? c.paginaId : null,
+    funilId: pedeOrigem(c.gatilho) && c.funilId ? c.funilId : null,
     dias: pedeDias(c.gatilho) ? (dias ? Number(dias) : null) : null,
     atrasoMinutos: erros.atraso ? 0 : atrasoMinutos,
     conteudo: c.comEmail

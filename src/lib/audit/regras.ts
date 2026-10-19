@@ -22,6 +22,7 @@ export const ROTULO_ACAO: Record<AcaoAuditada, string> = {
   senha: "Senha",
   segundo_fator: "Segundo fator",
   reproduzir: "Assistiu",
+  exportar: "Exportou",
 };
 
 export const ACOES_AUDITADAS = Object.keys(ROTULO_ACAO) as AcaoAuditada[];

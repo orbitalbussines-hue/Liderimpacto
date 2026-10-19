@@ -62,6 +62,8 @@ export function esperaDoTeto(agora: Date, liberaHoraEm: Date | null, liberaDiaEm
 
 /** Referência de idempotência do "nunca acessou" (a da inatividade é `inativo:<ISO do último acesso>`). */
 export const REFERENCIA_NUNCA_ACESSOU = "nunca-acessou";
+/** Referência do gatilho de lead: um disparo por (automação, lead), por mais que a pessoa se cadastre de novo. */
+export const REFERENCIA_CAPTURA = "captura";
 
 export const MSG_EMAIL_DESLIGADO = "E-mail não configurado nesta plataforma.";
 
@@ -71,6 +73,7 @@ export const MOTIVOS_ENVIO = {
   CANCELADA: "Campanha cancelada.",
   PAUSADA: "Automação pausada ou excluída.",
   MEMBRO: "Membro inativo ou removido.",
+  LEAD: "Lead removido.",
   SEM_PERMISSAO: "Link de acesso não permitido para esta pessoa.",
   NAO_CONFIGURADO: "E-mail não configurado na plataforma.",
 } as const;
@@ -93,6 +96,7 @@ export const ROTULO_GATILHO: Record<GatilhoAutomacao, string> = {
   VOUCHER_RESGATADO: "Voucher resgatado",
   INATIVIDADE: "Sem acessar há N dias",
   NUNCA_ACESSOU: "Nunca acessou após N dias",
+  LEAD_CAPTURADO: "Cadastro numa página",
 };
 
 /** Campanha editável (conteúdo, público, agenda) só antes de começar a sair. */

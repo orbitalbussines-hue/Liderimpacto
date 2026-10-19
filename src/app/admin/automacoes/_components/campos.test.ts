@@ -42,6 +42,16 @@ describe("textos simples", () => {
     expect(descreverAtraso(1440)).toBe("1 dia depois");
     expect(descreverReferencia("inativo:2026-10-01T12:00:00.000Z", () => "01/10/26")).toBe("Sem entrar desde 01/10/26");
     expect(descreverReferencia(`curso:${CURSO}`, String)).toBe("Curso concluído");
+    expect(descreverGatilho("LEAD_CAPTURADO", null, null)).toBe("Quando alguém se cadastra em qualquer página");
+    expect(descreverGatilho("LEAD_CAPTURADO", null, null, { pagina: "Isca", funil: "Outubro" })).toBe("Quando alguém se cadastra na página Isca pelo funil Outubro");
+    expect(descreverReferencia("captura", String)).toBe("Cadastro numa página");
+  });
+
+  it("gatilho de lead: página e funil só vão no lead; noutro gatilho são descartados", () => {
+    const lead = entradaDaAutomacao({ ...CAMPOS_VAZIOS, nome: "Boas-vindas", gatilho: "LEAD_CAPTURADO", paginaId: CURSO, comEmail: false, comTag: true, tagId: TAG });
+    expect(lead.ok && lead.entrada).toMatchObject({ paginaId: CURSO, funilId: null });
+    const outro = entradaDaAutomacao({ ...CAMPOS_VAZIOS, nome: "Boas-vindas", gatilho: "MEMBRO_CADASTRADO", paginaId: CURSO, comEmail: false, comTag: true, tagId: TAG });
+    expect(outro.ok && outro.entrada).toMatchObject({ paginaId: null });
   });
 
   it("resultado: descadastrado aparece como tal; só tag = tag aplicada", () => {

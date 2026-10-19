@@ -22,6 +22,7 @@ import {
   envioTesteSchema,
   excluirModeloSchema,
   salvarCampanhaSchema,
+  reenvioSchema,
   salvarModeloSchema,
 } from "@/lib/validators/marketing";
 
@@ -140,7 +141,7 @@ export async function acaoExcluirCampanha(entrada: unknown) {
 export async function acaoContarReenvioPrimeiroAcesso(entrada: unknown) {
   return executar(async () => {
     const { usuario, criador } = await exigirMembro(EQUIPE);
-    const { publico } = contarPublicoSchema.parse(entrada);
+    const { publico } = reenvioSchema.parse(entrada);
     return contarReenvio(criador.id, await atorDoLink(usuario.id, criador.id), publico);
   });
 }
@@ -152,7 +153,7 @@ export async function acaoContarReenvioPrimeiroAcesso(entrada: unknown) {
 export async function acaoReenviarPrimeiroAcesso(entrada: unknown) {
   return executar(async () => {
     const { usuario, criador } = await exigirMembro(EQUIPE);
-    const { publico } = contarPublicoSchema.parse(entrada);
+    const { publico } = reenvioSchema.parse(entrada);
     exigirEmailLigado();
     if (await estourouTeto(`reenvio-acesso:${criador.id}`, 600, 3)) throw new ErroDeNegocio("Muitos reenvios seguidos. Aguarde alguns minutos.");
     const r = await criarLoteDeReenvio({ criadorId: criador.id, ator: await atorDoLink(usuario.id, criador.id), publico });

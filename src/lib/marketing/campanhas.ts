@@ -7,8 +7,7 @@ import { criadores_campanhas as camp, criadores_emails_envios as envios } from "
 import type { SituacaoCampanha } from "@/lib/db/schema/_enums";
 import type { ConteudoMarketing, PublicoCampanha } from "@/lib/db/schema/marketing";
 import { MSG_COLISAO, marcaDeExclusao, travaDeColisao, vivos } from "@/lib/db/soft-delete";
-import { hashDoDestinatario } from "@/lib/email/disparos";
-import { conferirPublico, descadastradosEntre, pessoasDoPublico } from "./publico";
+import { conferirPublico, descadastradosEntre, destinatariosDoPublico } from "./publico";
 import { MOTIVOS_ENVIO, campanhaCancelavel, campanhaEditavel } from "./regras";
 
 /**
@@ -114,8 +113,9 @@ export async function excluirCampanha(tx: Transacao, p: { criadorId: string; aut
 export type InicioCampanha = { r: "iniciada"; envioIds: string[] } | { r: "cedo"; quando: Date } | { r: "ignorada" };
 
 /**
- * Worker (fila `marketing`): campanha AGENDADA cuja hora chegou → lê o público, cria UM envio por
- * pessoa (`campanha:<id>:<membro>`, idempotente; descadastrado já entra IGNORADO) e passa a ENVIANDO.
+ * Worker (fila `marketing`): campanha AGENDADA cuja hora chegou → lê o público (membros e leads, sem
+ * repetir pessoa), cria UM envio por pessoa (`campanha:<id>:<membro>` ou `campanha:<id>:lead:<lead>`,
+ * idempotente; descadastrado já entra IGNORADO) e passa a ENVIANDO.
  * Devolve os envios a enfileirar. Job velho (reagendada/cancelada) = `ignorada`.
  */
 export async function iniciarCampanha(campanhaId: string, agora = new Date()): Promise<InicioCampanha> {
@@ -127,21 +127,22 @@ export async function iniciarCampanha(campanhaId: string, agora = new Date()): P
       .for("update");
     if (!c || c.situacao !== "AGENDADA" || !c.quando) return { r: "ignorada" };
     if (c.quando.getTime() > agora.getTime() + 5000) return { r: "cedo", quando: c.quando };
-    const pessoas = await pessoasDoPublico(c.criadorId, c.publico, agora);
-    const fora = await descadastradosEntre(c.criadorId, pessoas.map((x) => hashDoDestinatario(x.email)));
+    const pessoas = await destinatariosDoPublico(c.criadorId, c.publico, agora);
+    const fora = await descadastradosEntre(c.criadorId, pessoas.map((x) => x.hash));
     const ids: string[] = [];
     for (let i = 0; i < pessoas.length; i += 1000) {
       const criados = await tx
         .insert(envios)
         .values(
           pessoas.slice(i, i + 1000).map((x) => {
-            const descadastrado = fora.has(hashDoDestinatario(x.email));
+            const descadastrado = fora.has(x.hash);
             return {
               criador_id: c.criadorId,
-              membro_id: x.membroId,
+              membro_id: x.tipo === "MEMBRO" ? x.membroId : null,
+              lead_id: x.tipo === "LEAD" ? x.leadId : null,
               origem: "CAMPANHA" as const,
               campanha_id: campanhaId,
-              chave: `campanha:${campanhaId}:${x.membroId}`,
+              chave: x.tipo === "MEMBRO" ? `campanha:${campanhaId}:${x.membroId}` : `campanha:${campanhaId}:lead:${x.leadId}`,
               situacao: descadastrado ? ("IGNORADO" as const) : ("PENDENTE" as const),
               motivo: descadastrado ? MOTIVOS_ENVIO.DESCADASTRADO : null,
               modified_by: c.autor,

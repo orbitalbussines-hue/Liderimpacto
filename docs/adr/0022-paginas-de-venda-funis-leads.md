@@ -52,7 +52,8 @@ os leads precisam de consentimento LGPD explícito. Migração `0016_paginas_fun
    `criadores_membros` (ADR-0020 item 7). Levar leads a ela exige tornar o envio polimórfico (membro OU
    lead), mexer em `envio.ts`, `campanhas.ts`, `consultas.ts` e na tela de público — mudança no núcleo do
    envio em produção que merece a própria decisão. Hoje o lead que compra vira membro pelo fluxo da
-   Fase 2 e entra nas campanhas por ali.
+   Fase 2 e entra nas campanhas por ali. **Atualização**: resolvido no ADR-0023 (envio de membro OU lead,
+   segmentos de lead, automação de captura, exportação CSV).
 6. **Defesas da captura sem CAPTCHA de terceiro**: honeypot (`site`, escondido de pessoas e de leitor de
    tela; preenchido = responde "ok" e não grava), teto por IP no banco (10 em 10 min, `estourouTeto`) e
    consentimento obrigatório. A trilha registra a captura sem o e-mail.
@@ -89,10 +90,10 @@ os leads precisam de consentimento LGPD explícito. Migração `0016_paginas_fun
 ### Negativas / Trade-offs
 - Visitas são aberturas (recarregar conta de novo), não pessoas únicas.
 - Mudar o endereço vale na hora, também para a página no ar (o editor avisa).
-- Leads ainda não recebem campanha (item 5); a captura grava e respeita o descadastro, mas o envio vem depois.
+- Leads recebem campanha desde o ADR-0023 (antes, item 5).
 - Imagem assinada muda de URL a cada hora (o cache do otimizador acompanha a janela, como nas capas).
 
 ### Fica para depois
-- Público "leads" nas campanhas e automações (envio polimórfico), exportação CSV de leads.
+- (feito no ADR-0023: público "leads" nas campanhas e automações, exportação CSV de leads.)
 - Domínio próprio da página; vídeo da plataforma com reprodução pública; teste A/B; página de obrigado
   com upsell de um clique.

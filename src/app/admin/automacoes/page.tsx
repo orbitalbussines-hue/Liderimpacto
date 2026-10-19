@@ -44,7 +44,7 @@ async function Automacoes() {
               </Selo>
             )}
           </span>
-          <span className="block truncate text-xs text-muted">{descreverGatilho(a.gatilho, a.produto, a.dias)}</span>
+          <span className="block truncate text-xs text-muted">{descreverGatilho(a.gatilho, a.produto, a.dias, { pagina: a.pagina, funil: a.funil })}</span>
         </div>
       ),
     },

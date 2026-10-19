@@ -16,13 +16,16 @@ import type { GatilhoAutomacao, SituacaoAutomacao } from "@/lib/db/schema/_enums
 import type { ConteudoMarketing } from "@/lib/db/schema/marketing";
 import { CamposEmail } from "./campos-email";
 import { CAMPOS_VAZIOS, entradaDaAutomacao, type CamposAutomacao, type ErrosAutomacao } from "./campos";
-import { descreverAtraso, descreverGatilho, MINUTOS_POR, OPCOES_GATILHO, pedeCurso, pedeDias, type UnidadeAtraso } from "./comum";
+import { descreverAtraso, descreverGatilho, MINUTOS_POR, OPCOES_GATILHO, pedeCurso, pedeDias, pedeOrigem, type UnidadeAtraso } from "./comum";
 
 export interface FormAutomacaoProps {
   /** Sem `automacao` = criar. */
   automacao?: { id: string; versao: string; situacao: SituacaoAutomacao; campos: CamposAutomacao };
   produtos: readonly { id: string; titulo: string }[];
   tags: readonly { id: string; nome: string }[];
+  /** Filtro do gatilho de lead. */
+  paginas: readonly { id: string; nome: string }[];
+  funis: readonly { id: string; nome: string }[];
   modelos: readonly { id: string; nome: string; conteudo: ConteudoMarketing }[];
 }
 
@@ -46,7 +49,7 @@ function Secao({ titulo, descricao, children }: { titulo: string; descricao?: st
 }
 
 /** Criar/editar automação (RN-224): quando, espera, o que fazer. Nasce PAUSADA; ao salvar, oferece "Ativar". */
-export function FormAutomacao({ automacao, produtos, tags, modelos }: FormAutomacaoProps) {
+export function FormAutomacao({ automacao, produtos, tags, paginas, funis, modelos }: FormAutomacaoProps) {
   const router = useRouter();
   const [c, setC] = useState<CamposAutomacao>(automacao?.campos ?? CAMPOS_VAZIOS);
   const [erros, setErros] = useState<ErrosAutomacao>({});
@@ -90,7 +93,9 @@ export function FormAutomacao({ automacao, produtos, tags, modelos }: FormAutoma
     });
 
   const atrasoMin = Number(c.atrasoValor) * MINUTOS_POR[c.atrasoUnidade];
-  const resumo = `${descreverGatilho(c.gatilho, produtos.find((p) => p.id === c.produtoId)?.titulo ?? null, Number(c.dias) || null)}, ${
+  const origem = { pagina: paginas.find((p) => p.id === c.paginaId)?.nome ?? null, funil: funis.find((f) => f.id === c.funilId)?.nome ?? null };
+  const lead = pedeOrigem(c.gatilho);
+  const resumo = `${descreverGatilho(c.gatilho, produtos.find((p) => p.id === c.produtoId)?.titulo ?? null, Number(c.dias) || null, origem)}, ${
     Number.isInteger(atrasoMin) && atrasoMin > 0 ? descreverAtraso(atrasoMin).toLowerCase() : "na hora"
   }.`;
 
@@ -115,14 +120,20 @@ export function FormAutomacao({ automacao, produtos, tags, modelos }: FormAutoma
         </div>
       </Secao>
 
-      <Secao titulo="Quando" descricao={automacao ? "O gatilho não muda depois de criada. Para outro gatilho, crie uma nova automação." : "O que precisa acontecer para a automação agir. Vale só para alunos."}>
+      <Secao titulo="Quando" descricao={automacao ? "O gatilho não muda depois de criada. Para outro gatilho, crie uma nova automação." : lead ? "Age sobre quem deixa nome e e-mail no formulário de uma página. Uma vez por pessoa." : "O que precisa acontecer para a automação agir. Vale só para alunos."}>
         <Selecao
           rotulo="Gatilho"
           opcoes={OPCOES_GATILHO}
           value={c.gatilho}
           disabled={!!automacao}
-          onChange={(e) => mudar({ gatilho: e.target.value as GatilhoAutomacao, produtoId: "", dias: "" })}
+          onChange={(e) => mudar({ gatilho: e.target.value as GatilhoAutomacao, produtoId: "", paginaId: "", funilId: "", dias: "" })}
         />
+        {lead && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Selecao rotulo="Página" vazio="Qualquer página" opcoes={paginas.map((p) => ({ valor: p.id, rotulo: p.nome }))} value={c.paginaId} onChange={(e) => mudar({ paginaId: e.target.value })} erro={erros.paginaId} />
+            <Selecao rotulo="Funil" vazio="Com ou sem funil" opcoes={funis.map((f) => ({ valor: f.id, rotulo: f.nome }))} value={c.funilId} onChange={(e) => mudar({ funilId: e.target.value })} erro={erros.funilId} />
+          </div>
+        )}
         {pedeCurso(c.gatilho) && (
           <Selecao
             rotulo="Curso"
@@ -178,7 +189,7 @@ export function FormAutomacao({ automacao, produtos, tags, modelos }: FormAutoma
         <div className="flex flex-col">
           <CaixaSelecao rotulo="Enviar um e-mail" className="text-text" checked={c.comEmail} onChange={(e) => mudar({ comEmail: e.target.checked })} />
           {c.comEmail && <CamposEmail campos={c} erros={erros} modelos={modelos} onMudar={mudar} />}
-          <CaixaSelecao rotulo="Aplicar uma tag" className="text-text" checked={c.comTag} onChange={(e) => mudar({ comTag: e.target.checked })} />
+          <CaixaSelecao rotulo={lead ? "Aplicar uma tag no lead" : "Aplicar uma tag"} className="text-text" checked={c.comTag} onChange={(e) => mudar({ comTag: e.target.checked })} />
           {c.comTag &&
             (tags.length ? (
               <Selecao rotulo="Tag" rotuloOculto vazio="Escolha a tag" opcoes={tags.map((t) => ({ valor: t.id, rotulo: t.nome }))} value={c.tagId} onChange={(e) => mudar({ tagId: e.target.value })} erro={erros.tagId} classNameMoldura="max-w-sm pl-6" />

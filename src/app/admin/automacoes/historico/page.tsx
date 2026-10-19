@@ -77,7 +77,7 @@ async function Historico({ searchParams }: { searchParams: Busca }) {
   return (
     <PaginaTabela
       titulo="Automações"
-      estatistica={a ? `${descreverGatilho(a.gatilho, a.produto, a.dias)} · ${total.toLocaleString("pt-BR")} ${total === 1 ? "registro" : "registros"}` : undefined}
+      estatistica={a ? `${descreverGatilho(a.gatilho, a.produto, a.dias, { pagina: a.pagina, funil: a.funil })} · ${total.toLocaleString("pt-BR")} ${total === 1 ? "registro" : "registros"}` : undefined}
       abas={ABAS_AUTOMACOES}
       abaAtiva="Histórico"
       semBusca

@@ -83,8 +83,10 @@ export async function paginaParaEditar(criadorId: string, paginaId: string) {
 
 export const POR_PAGINA_LEADS = 50;
 
-export async function listarLeads(criadorId: string, f: { paginaId?: string; funilId?: string; busca?: string; pagina: number }) {
+/** Lista da tela (50 por página) e a exportação CSV (`porPagina` maior, mesma regra de filtro). */
+export async function listarLeads(criadorId: string, f: { paginaId?: string; funilId?: string; busca?: string; pagina: number; porPagina?: number }) {
   const termo = f.busca?.trim();
+  const porPagina = f.porPagina ?? POR_PAGINA_LEADS;
   const linhas = await db
     .select({
       id: leads.id,
@@ -116,8 +118,8 @@ export async function listarLeads(criadorId: string, f: { paginaId?: string; fun
       ),
     )
     .orderBy(desc(leads.ultima_captura_em), desc(leads.id))
-    .limit(POR_PAGINA_LEADS)
-    .offset((f.pagina - 1) * POR_PAGINA_LEADS);
+    .limit(porPagina)
+    .offset((f.pagina - 1) * porPagina);
   const fora = await descadastradosEntre(criadorId, linhas.map((l) => hashDoDestinatario(l.email)));
   return { total: linhas[0]?.total ?? 0, linhas: linhas.map((l) => ({ ...l, descadastrado: fora.has(hashDoDestinatario(l.email)) })) };
 }

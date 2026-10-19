@@ -256,10 +256,13 @@ export const GATILHOS_AUTOMACAO = [
   "VOUCHER_RESGATADO",
   "INATIVIDADE",
   "NUNCA_ACESSOU",
+  "LEAD_CAPTURADO",
 ] as const;
 export type GatilhoAutomacao = (typeof GATILHOS_AUTOMACAO)[number];
 /** Gatilhos que aceitam o filtro "só deste curso". */
 export const GATILHOS_COM_CURSO = ["MATRICULA_CRIADA", "AULA_CONCLUIDA", "CURSO_CONCLUIDO", "CERTIFICADO_EMITIDO"] as const;
+/** Gatilho de LEAD (captura numa página, ADR-0023): filtro opcional por página/funil; o alvo é o lead, não o membro. */
+export const GATILHO_LEAD = "LEAD_CAPTURADO" as const;
 /** Gatilhos da varredura diária: exigem `dias`. */
 export const GATILHOS_COM_DIAS = ["INATIVIDADE", "NUNCA_ACESSOU"] as const;
 

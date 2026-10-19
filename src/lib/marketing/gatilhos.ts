@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   criadores_automacoes as auto,
@@ -14,6 +14,7 @@ import {
 import type { GatilhoAutomacao } from "@/lib/db/schema/_enums";
 import { vivos } from "@/lib/db/soft-delete";
 import { enfileirarMarketingComPrazo } from "./fila";
+import { REFERENCIA_CAPTURA } from "./regras";
 
 /**
  * GANCHOS das automações (RN-225): chamados DEPOIS do commit, nos MESMOS pontos onde os webhooks de
@@ -125,6 +126,40 @@ export const automacaoVoucherResgatado = (criadorId: string, resgateId: string) 
       .where(and(eq(criadores_vouchers_resgates.id, resgateId), eq(criadores_vouchers_resgates.criador_id, criadorId)));
     return r ? [{ membroId: r.membroId, referencia: `voucher:${resgateId}` }] : [];
   });
+
+/**
+ * LEAD CAPTURADO (ADR-0023, RN-252): chamado pela captura DEPOIS do commit, nunca lança. Filtro opcional
+ * por página/funil = os DESTA captura (não os da primeira). Uma execução por (automação, lead) — índice
+ * único com a referência fixa `captura` —: a pessoa que se cadastra de novo não recebe de novo.
+ */
+export async function automacaoLeadCapturado(criadorId: string, leadId: string, paginaId: string, funilId: string | null, agora = new Date()): Promise<number> {
+  try {
+    const ativas = await db
+      .select({ id: auto.id, atraso: auto.atraso_minutos, autor: auto.modified_by })
+      .from(auto)
+      .where(
+        and(
+          eq(auto.criador_id, criadorId),
+          eq(auto.gatilho, "LEAD_CAPTURADO"),
+          eq(auto.situacao, "ATIVA"),
+          vivos(auto),
+          or(isNull(auto.pagina_id), eq(auto.pagina_id, paginaId)),
+          funilId ? or(isNull(auto.funil_id), eq(auto.funil_id, funilId)) : isNull(auto.funil_id),
+        ),
+      );
+    if (!ativas.length) return 0;
+    const criadas = await db
+      .insert(exec)
+      .values(ativas.map((a) => ({ criador_id: criadorId, automacao_id: a.id, lead_id: leadId, referencia: REFERENCIA_CAPTURA, executar_em: new Date(agora.getTime() + a.atraso * 60_000), modified_by: a.autor })))
+      .onConflictDoNothing()
+      .returning({ id: exec.id, quando: exec.executar_em });
+    await enfileirarMarketingComPrazo(criadas.map((c) => ({ job: { tipo: "execucao" as const, execucaoId: c.id }, quando: c.quando })));
+    return criadas.length;
+  } catch (e) {
+    console.error("CRITICAL [automacoes] gatilho LEAD_CAPTURADO não processado:", e instanceof Error ? e.message : e);
+    return 0;
+  }
+}
 
 /** AGENDADAS (fila fora do ar no gatilho): o worker reenfileira ao subir, com o atraso que falta. */
 export async function execucoesAgendadas(limite = 20_000): Promise<{ id: string; quando: Date }[]> {

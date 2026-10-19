@@ -1,7 +1,7 @@
 import type { AbaTabela } from "@/components/admin/pagina-tabela";
 import type { TomSelo } from "@/components/admin/tabela-tipos";
 import type { SituacaoCampanha, SituacaoEnvio } from "@/lib/db/schema/_enums";
-import type { ConteudoMarketing, PublicoCampanha } from "@/lib/db/schema/marketing";
+import type { ConteudoMarketing, PublicoCampanha, PublicoLeads } from "@/lib/db/schema/marketing";
 
 /** Abas de Campanhas (segmentos substituem listas). */
 export const ABAS_CAMPANHAS: AbaTabela[] = [
@@ -16,7 +16,13 @@ export const TOM_SITUACAO_ENVIO: Record<SituacaoEnvio, TomSelo> = { PENDENTE: "n
 export const CONTEUDO_VAZIO: ConteudoMarketing = { assunto: "", previa: "", titulo: "", corpo: "", botao: null };
 
 /** Mesmo formato do `PUBLICO_TODOS` (regras.ts importa schema só como tipo, mas mantém a tela leve). */
-export const PUBLICO_VAZIO: PublicoCampanha = { grupoIds: [], tagIds: [], produtoIds: [], nuncaAcessou: false };
+/** Só os campos de membro (reenvio do primeiro acesso: o schema dele recusa os campos de lead). */
+export const PUBLICO_MEMBROS_VAZIO: PublicoCampanha = { grupoIds: [], tagIds: [], produtoIds: [], nuncaAcessou: false };
+export const PUBLICO_VAZIO: PublicoCampanha = { ...PUBLICO_MEMBROS_VAZIO, membros: true, leads: null };
+/** Segmento "todos os leads" (ADR-0023). */
+export const LEADS_TODOS: PublicoLeads = { paginaIds: [], funilIds: [], tagIds: [] };
+/** Campanha antiga (sem os campos novos) no formato completo do editor. */
+export const publicoCompleto = (p: PublicoCampanha): PublicoCampanha => ({ ...PUBLICO_VAZIO, ...p, membros: p.membros ?? true, leads: p.leads ?? null });
 
 /** "1 pessoa" / "138 pessoas". */
 export const pessoas = (n: number) => `${n.toLocaleString("pt-BR")} ${n === 1 ? "pessoa" : "pessoas"}`;

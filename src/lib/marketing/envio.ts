@@ -9,6 +9,7 @@ import {
   criadores_automacoes as auto,
   criadores_campanhas as camp,
   criadores_emails_envios as envios,
+  criadores_leads as leads,
   criadores_membros as m,
   usuarios as u,
 } from "@/lib/db/schema";
@@ -28,7 +29,8 @@ import { assinaturaAbertura, assinaturaClique, tokenDescadastro } from "./tokens
 /**
  * UM ENVIO da fila `emails` (6º Worker de `worker:certificados`). Idempotente: só sai envio PENDENTE e
  * a baixa é condicional (reprocessar o job não reenvia). Antes do teto confere o que tira o envio da
- * fila de propósito (descadastro, campanha cancelada, automação pausada, membro inativo, regra do link);
+ * fila de propósito (descadastro, campanha cancelada, automação pausada, membro inativo ou lead removido,
+ * regra do link); o destinatário é o membro OU o lead do envio (ADR-0023);
  * depois o teto (`adiado` = o worker para a fila pelo tempo devolvido e o job volta a esperar). Falha do
  * provedor LANÇA para o BullMQ refazer; na última tentativa vira FALHOU. Atualização de sistema: não
  * mexe em `updated_at`.
@@ -69,17 +71,19 @@ export async function processarEnvio(envioId: string, tentativa: number, maxTent
   const [e] = await db
     .select({
       envio: envios,
-      email: u.email,
-      nome: u.nome,
+      email: sql<string>`coalesce(${u.email}, ${leads.email})`,
+      nome: sql<string>`coalesce(${u.nome}, ${leads.nome})`,
       usuarioId: u.id,
-      pessoaOk: sql<boolean>`${u.ativo} and not ${u.is_deleted} and not ${m.is_deleted} and ${m.status} = 'ATIVO'`,
+      pessoaOk: sql<boolean>`case when ${envios.lead_id} is not null then coalesce(not ${leads.is_deleted}, false)
+        else coalesce(${u.ativo} and not ${u.is_deleted} and not ${m.is_deleted} and ${m.status} = 'ATIVO', false) end`,
       criador: { id: criadores.id, slug: criadores.slug, nome: criadores.nome, cor_marca: criadores.cor_marca },
       campanha: { situacao: camp.situacao, conteudo: camp.conteudo },
       automacao: { situacao: auto.situacao, viva: sql<boolean>`not ${auto.is_deleted}`, conteudo: auto.conteudo },
     })
     .from(envios)
-    .innerJoin(m, eq(m.id, envios.membro_id))
-    .innerJoin(u, eq(u.id, m.usuario_id))
+    .leftJoin(m, eq(m.id, envios.membro_id))
+    .leftJoin(u, eq(u.id, m.usuario_id))
+    .leftJoin(leads, eq(leads.id, envios.lead_id))
     .innerJoin(criadores, eq(criadores.id, envios.criador_id))
     .leftJoin(camp, eq(camp.id, envios.campanha_id))
     .leftJoin(auto, eq(auto.id, envios.automacao_id))
@@ -91,7 +95,7 @@ export async function processarEnvio(envioId: string, tentativa: number, maxTent
     return { r: "ignorado", motivo };
   };
 
-  if (!e.pessoaOk) return ignorar(MOTIVOS_ENVIO.MEMBRO);
+  if (!e.pessoaOk) return ignorar(envio.lead_id ? MOTIVOS_ENVIO.LEAD : MOTIVOS_ENVIO.MEMBRO);
   let conteudo: ConteudoMarketing | null = null;
   if (envio.origem === "CAMPANHA") {
     if (e.campanha?.situacao !== "ENVIANDO") return ignorar(MOTIVOS_ENVIO.CANCELADA);
@@ -102,7 +106,8 @@ export async function processarEnvio(envioId: string, tentativa: number, maxTent
   }
   if (conteudo && (await descadastradosEntre(criador.id, [hashDoDestinatario(e.email)])).size) return ignorar(MOTIVOS_ENVIO.DESCADASTRADO);
   if (envio.origem === "PRIMEIRO_ACESSO") {
-    const alvo = (await alvosDoLink([e.usuarioId])).get(e.usuarioId);
+    // O CHECK do banco já impede PRIMEIRO_ACESSO de lead; sem conta = fora da regra do link.
+    const alvo = e.usuarioId ? (await alvosDoLink([e.usuarioId])).get(e.usuarioId) : undefined;
     if (!alvo || motivoParaNaoGerarLink(await atorDoLink(envio.modified_by, criador.id), alvo) !== null) return ignorar(MOTIVOS_ENVIO.SEM_PERMISSAO);
   }
   // Worker sem SMTP (env esquecida no deploy): espera e tenta de novo; nunca perde a fila inteira.
@@ -119,7 +124,7 @@ export async function processarEnvio(envioId: string, tentativa: number, maxTent
   } else {
     // O link nasce agora (invalida os anteriores; trilha antes do efeito). Import tardio: só este caso carrega o Better Auth.
     const { gerarLinkDeSenha } = await import("@/lib/auth/recuperacao");
-    const link = await gerarLinkDeSenha(e.usuarioId, { id: criador.id, slug: criador.slug }, { id: envio.modified_by, motivo: "Reenvio do primeiro acesso em massa" });
+    const link = await gerarLinkDeSenha(e.usuarioId!, { id: criador.id, slug: criador.slug }, { id: envio.modified_by, motivo: "Reenvio do primeiro acesso em massa" });
     email = { para: e.email, tipo: "PRIMEIRO_ACESSO", criadorId: criador.id, ...emailPrimeiroAcesso(marca, e.nome, link.url, link.expiraEm) };
   }
 

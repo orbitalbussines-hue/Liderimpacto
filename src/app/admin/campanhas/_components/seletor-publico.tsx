@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { CaixaSelecao } from "@/components/ui/caixa-selecao";
 import { acaoContarPublico } from "@/lib/actions/campanhas";
-import type { PublicoCampanha } from "@/lib/db/schema/marketing";
-import { pessoas } from "./comum";
+import type { PublicoCampanha, PublicoLeads } from "@/lib/db/schema/marketing";
+import { LEADS_TODOS, pessoas } from "./comum";
 
 type Opcao = { id: string; nome: string };
-export type OpcoesPublico = { grupos: readonly Opcao[]; tags: readonly Opcao[]; cursos: readonly Opcao[] };
-export type ContagemPublico = { total: number; descadastrados: number; receberao: number };
+export type OpcoesPublico = { grupos: readonly Opcao[]; tags: readonly Opcao[]; cursos: readonly Opcao[]; paginas: readonly Opcao[]; funis: readonly Opcao[] };
+export type ContagemPublico = { total: number; descadastrados: number; receberao: number; membros: number; leads: number };
 
 export interface SeletorPublicoProps {
   opcoes: OpcoesPublico;
@@ -35,9 +35,14 @@ function Lista({ titulo, itens, marcados, onAlternar }: { titulo: string; itens:
   );
 }
 
+const alternarEm = (lista: readonly string[], id: string, ligado: boolean) => (ligado ? [...lista, id] : lista.filter((x) => x !== id));
+const resumoDivisao = (c: ContagemPublico) =>
+  [c.membros ? `${c.membros.toLocaleString("pt-BR")} ${c.membros === 1 ? "aluno" : "alunos"}` : null, c.leads ? `${c.leads.toLocaleString("pt-BR")} ${c.leads === 1 ? "lead" : "leads"}` : null].filter(Boolean).join(" e ");
+
 /**
- * Público por segmento (RN-221): grupos, tags e cursos (vários do mesmo tipo = qualquer um deles;
- * tipos diferentes = todos ao mesmo tempo) e "nunca acessou". Nada marcado = todos os alunos.
+ * Público por segmento (RN-221, RN-250/251): ALUNOS (grupos, tags, cursos e "nunca acessou"; vários do
+ * mesmo tipo = qualquer um; tipos diferentes = todos ao mesmo tempo) e/ou LEADS das páginas (página de
+ * origem, funil, tag). Nada marcado num segmento = todos daquele segmento. Ninguém recebe duas vezes.
  */
 export function SeletorPublico({ opcoes, valor, onMudar, onContagem }: SeletorPublicoProps) {
   const chave = JSON.stringify(valor);
@@ -65,21 +70,50 @@ export function SeletorPublico({ opcoes, valor, onMudar, onContagem }: SeletorPu
     onContagem(null);
     onMudar(p);
   };
-  const alternar = (k: Chave) => (id: string, ligado: boolean) => mudar({ ...valor, [k]: ligado ? [...valor[k], id] : valor[k].filter((x) => x !== id) });
+  const membros = valor.membros ?? true;
+  const leads = valor.leads ?? null;
+  const alternar = (k: Chave) => (id: string, ligado: boolean) => mudar({ ...valor, [k]: alternarEm(valor[k], id, ligado) });
+  const alternarLead = (k: keyof PublicoLeads) => (id: string, ligado: boolean) => {
+    if (leads) mudar({ ...valor, leads: { ...leads, [k]: alternarEm(leads[k], id, ligado) } });
+  };
   const filtrando = valor.grupoIds.length + valor.tagIds.length + valor.produtoIds.length > 0 || valor.nuncaAcessou;
+  const filtrandoLeads = !!leads && leads.paginaIds.length + leads.funilIds.length + leads.tagIds.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 text-[13px] text-muted">
-        {filtrando ? "Recebem os alunos que atendem a todos os filtros escolhidos." : "Sem filtro, a campanha vai para todos os alunos ativos."} Marcar vários itens da mesma lista
-        inclui quem está em qualquer um deles.
-      </p>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Lista titulo="Grupos" itens={opcoes.grupos} marcados={valor.grupoIds} onAlternar={alternar("grupoIds")} />
-        <Lista titulo="Tags" itens={opcoes.tags} marcados={valor.tagIds} onAlternar={alternar("tagIds")} />
-        <Lista titulo="Matriculados em" itens={opcoes.cursos} marcados={valor.produtoIds} onAlternar={alternar("produtoIds")} />
-      </div>
-      <CaixaSelecao className="text-text" rotulo="Só quem nunca acessou" checked={valor.nuncaAcessou} onChange={(e) => mudar({ ...valor, nuncaAcessou: e.target.checked })} />
+      <p className="m-0 text-[13px] text-muted">Marcar vários itens da mesma lista inclui quem está em qualquer um deles. Quem é aluno e também lead recebe uma vez só.</p>
+
+      <section aria-label="Alunos" className="flex flex-col gap-3">
+        <CaixaSelecao className="font-semibold text-text" rotulo="Alunos" checked={membros} onChange={(e) => mudar({ ...valor, membros: e.target.checked })} />
+        {membros && (
+          <div className="flex flex-col gap-3 pl-6">
+            <p className="m-0 text-[13px] text-muted">{filtrando ? "Recebem os alunos que atendem a todos os filtros escolhidos." : "Sem filtro, vai para todos os alunos ativos."}</p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Lista titulo="Grupos" itens={opcoes.grupos} marcados={valor.grupoIds} onAlternar={alternar("grupoIds")} />
+              <Lista titulo="Tags" itens={opcoes.tags} marcados={valor.tagIds} onAlternar={alternar("tagIds")} />
+              <Lista titulo="Matriculados em" itens={opcoes.cursos} marcados={valor.produtoIds} onAlternar={alternar("produtoIds")} />
+            </div>
+            <CaixaSelecao className="text-text" rotulo="Só quem nunca acessou" checked={valor.nuncaAcessou} onChange={(e) => mudar({ ...valor, nuncaAcessou: e.target.checked })} />
+          </div>
+        )}
+      </section>
+
+      <section aria-label="Leads" className="flex flex-col gap-3 border-t border-border pt-4">
+        <CaixaSelecao className="font-semibold text-text" rotulo="Leads das páginas" checked={!!leads} onChange={(e) => mudar({ ...valor, leads: e.target.checked ? LEADS_TODOS : null })} />
+        {leads && (
+          <div className="flex flex-col gap-3 pl-6">
+            <p className="m-0 text-[13px] text-muted">
+              {filtrandoLeads ? "Recebem os leads que atendem a todos os filtros escolhidos." : "Sem filtro, vai para todos os leads."} Lead que já virou aluno conta como aluno.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Lista titulo="Página de origem" itens={opcoes.paginas} marcados={leads.paginaIds} onAlternar={alternarLead("paginaIds")} />
+              <Lista titulo="Funis" itens={opcoes.funis} marcados={leads.funilIds} onAlternar={alternarLead("funilIds")} />
+              <Lista titulo="Tag do lead" itens={opcoes.tags} marcados={leads.tagIds} onAlternar={alternarLead("tagIds")} />
+            </div>
+          </div>
+        )}
+      </section>
+
       <div className="rounded-lg border border-border bg-bg px-3.5 py-3" aria-live="polite">
         {erro ? (
           <p className="m-0 text-[13px] text-warn">{erro}</p>
@@ -90,12 +124,13 @@ export function SeletorPublico({ opcoes, valor, onMudar, onContagem }: SeletorPu
             <p className="m-0 text-[15px] font-semibold tabular-nums">
               {contagem.receberao === 0 ? "Ninguém recebe com estes filtros" : `${pessoas(contagem.receberao)} ${contagem.receberao === 1 ? "recebe" : "recebem"} hoje`}
             </p>
+            {contagem.receberao > 0 && <p className="m-0 mt-1 text-[13px] text-muted tabular-nums">{resumoDivisao(contagem)}</p>}
             {contagem.descadastrados > 0 && (
               <p className="m-0 mt-1 text-[13px] text-muted tabular-nums">
                 {pessoas(contagem.descadastrados)} de {contagem.total.toLocaleString("pt-BR")} no filtro {contagem.descadastrados === 1 ? "se descadastrou e fica" : "se descadastraram e ficam"} de fora.
               </p>
             )}
-            <p className="m-0 mt-1 text-xs text-muted">A lista é conferida de novo na hora do envio: quem entrar no grupo até lá também recebe.</p>
+            <p className="m-0 mt-1 text-xs text-muted">A lista é conferida de novo na hora do envio: quem entrar no filtro até lá também recebe.</p>
           </>
         )}
       </div>
