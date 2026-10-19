@@ -4,6 +4,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SinoNotificacoes } from "@/components/notificacoes/sino-notificacoes";
+import { AlternarTema } from "@/components/ui/alternar-tema";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { SidebarAdmin, type UsuarioAdmin } from "./sidebar-admin";
@@ -50,6 +51,7 @@ export function ShellAdmin({ usuario, naoLidas = 0, children }: ShellAdminProps)
             </Dialog.Trigger>
             <span className="text-[13px] font-extrabold">Admin</span>
             <div className="flex-1" />
+            <AlternarTema className="text-muted" />
             <SinoNotificacoes inicial={naoLidas} celular="painel" somente="celular" />
             <Avatar nome={usuario.nome} tamanho={30} tom="accent" />
           </div>

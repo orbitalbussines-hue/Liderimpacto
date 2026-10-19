@@ -5,6 +5,7 @@ import { Logo } from "@/components/marca/logo";
 import { EstiloMarca } from "@/components/marca/estilo-marca";
 import { Avatar } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { AlternarTema } from "@/components/ui/alternar-tema";
 import { SinoNotificacoes } from "@/components/notificacoes/sino-notificacoes";
 import { MenuAluno } from "./menu-aluno";
 import { TabBarAluno } from "./tab-bar-aluno";
@@ -53,6 +54,7 @@ export function ShellAluno({ usuario, notificacoes, corMarca, painelAdmin = fals
         <Button variant="fantasma" size="icone44" aria-label="Buscar" className="min-w-11 shrink-0">
           <Search aria-hidden />
         </Button>
+        <AlternarTema className="hidden shrink-0 text-muted desk:inline-flex" />
         <SinoNotificacoes inicial={notificacoes} />
         <Link href="/perfil" aria-label="Meu perfil" className="flex shrink-0 items-center gap-1.5">
           <Avatar nome={usuario.nome} src={usuario.avatarUrl} tamanho={36} forma="quadrado" tom="dourado" />

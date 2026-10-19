@@ -8,6 +8,7 @@ import { Logo } from "@/components/marca/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { CampoBusca } from "@/components/ui/campo-busca";
+import { AlternarTema } from "@/components/ui/alternar-tema";
 import { Selo } from "@/components/ui/selo";
 import { sair } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ export function SidebarAdmin({ usuario, aoNavegar, refBusca, fechar, sino }: Pro
         <Selo forma="etiqueta" className="ml-auto">
           Admin
         </Selo>
+        <AlternarTema className="hidden text-muted desk:inline-flex" />
         {sino}
         {fechar}
       </div>
