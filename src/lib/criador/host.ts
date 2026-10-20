@@ -15,7 +15,7 @@ export const SLUG_CRIADOR = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
  * Slugs que nunca viram criador (www e o apex; os demais ficam livres para a plataforma).
  * `s3` = host publico do storage na VPS (`s3.<dominio>`, envio direto do navegador; ADR-0015).
  */
-export const SLUGS_RESERVADOS = ["www", "api", "app", "admin", "plataforma", "mail", "smtp", "s3"] as const;
+export const SLUGS_RESERVADOS = ["www", "api", "app", "admin", "plataforma", "mail", "smtp", "s3", "vos"] as const;
 
 export type AreaDoHost =
   | { tipo: "plataforma" }
