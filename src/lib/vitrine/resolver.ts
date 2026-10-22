@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { duracaoCurta } from "@/components/aluno/formatos";
 import type { DestaqueConfig, ItemFileira, VarianteCartao } from "@/components/vitrine/tipos";
 import { varianteDoTipo } from "@/components/vitrine/tipos";
@@ -127,13 +127,27 @@ function sobreOCurso(c: CursoDoAluno) {
 
 const slugDoHref = (href?: string) => href?.match(/^\/cursos\/([a-z0-9-]+)$/)?.[1];
 
-/** Sem matrícula e sem novidade de curso (ex.: a equipe em "Ver como aluno"): o curso publicado mais recente. */
-async function cursoPublicadoMaisRecente(criadorId: string): Promise<string | undefined> {
+/**
+ * Sem matrícula e sem novidade de curso (ex.: a equipe em "Ver como aluno"): o curso da aula mais
+ * nova da vitrine; senão o curso mais recente visível (equipe: publicado ou não listado; aluno: publicado).
+ */
+async function cursoDeReserva(q: QuemPede, novas: { href?: string }[]): Promise<string | undefined> {
+  const aulaId = novas.map((n) => n.href?.match(/^\/aula\/([0-9a-f-]{36})$/)?.[1]).find(Boolean);
+  if (aulaId) {
+    const [a] = await db
+      .select({ slug: produtos.slug })
+      .from(produtos_modulos_aulas)
+      .innerJoin(produtos_modulos, eq(produtos_modulos.id, produtos_modulos_aulas.modulo_id))
+      .innerJoin(produtos, eq(produtos.id, produtos_modulos.produto_id))
+      .where(and(eq(produtos_modulos_aulas.criador_id, q.criador.id), eq(produtos_modulos_aulas.id, aulaId), vivos(produtos)));
+    if (a) return a.slug;
+  }
+  const status = ehEquipe(q) ? inArray(produtos.status, ["PUBLICADO", "NAO_LISTADO"]) : eq(produtos.status, "PUBLICADO");
   const [p] = await db
     .select({ slug: produtos.slug })
     .from(produtos)
-    .where(and(eq(produtos.criador_id, criadorId), vivos(produtos), eq(produtos.status, "PUBLICADO")))
-    .orderBy(desc(produtos.publicado_em))
+    .where(and(eq(produtos.criador_id, q.criador.id), vivos(produtos), status))
+    .orderBy(sql`${produtos.publicado_em} desc nulls last`, desc(produtos.created_at))
     .limit(1);
   return p?.slug;
 }
@@ -146,7 +160,7 @@ async function destaquePadrao(q: QuemPede, agora: Date): Promise<DestaqueResolvi
     cursos.find((c) => c.titulo === continuar[0]?.produtoTitulo)?.slug ??
     cursos[0]?.slug ??
     slugDoHref(novas.find((n) => n.tipo === "PRODUTO")?.href) ??
-    (await cursoPublicadoMaisRecente(q.criador.id));
+    (await cursoDeReserva(q, novas));
   const curso = slug ? await cursoDoAluno(q, slug, agora) : null;
   if (!curso) return null;
   const s = sobreOCurso(curso);

@@ -231,6 +231,9 @@ describe("resolução das fileiras", () => {
     const x = await cenario();
     const vit = await res.vitrineDoAluno(x.qAdmin);
     expect(vit.destaque?.titulo).toBe(x.curso.produto.titulo);
+    // Curso "não listado" (vendido à parte) também aparece para a equipe.
+    await db.update(s.produtos).set({ status: "NAO_LISTADO" }).where(eq(s.produtos.id, x.curso.produto.id));
+    expect((await res.vitrineDoAluno(x.qAdmin)).destaque?.titulo).toBe(x.curso.produto.titulo);
   });
 });
 
