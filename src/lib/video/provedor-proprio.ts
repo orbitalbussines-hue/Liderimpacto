@@ -119,6 +119,38 @@ export async function limparObjetosDoVideo(v: Pick<LinhaVideo, "id" | "criador_i
   for (const f of r) if (f.status === "rejected") console.error("CRITICAL [video] objeto do vídeo descartado não apagado:", v.id, f.reason);
 }
 
+/**
+ * Põe de novo na fila (FALHOU, PRONTO ou PROCESSANDO parado). Mesmo jobId: nunca duplica.
+ * Autor `{ sistema }` (scripts/video-reconferir.ts) segue o padrão do worker (registro.ts):
+ * `modified_by` fica o atual do vídeo e a trilha sai com `user_id` nulo e o rótulo do sistema.
+ */
+export async function reprocessarVideo(
+  criadorId: string,
+  videoId: string,
+  autor: { usuarioId: string } | { sistema: string },
+): Promise<{ enfileirado: boolean }> {
+  const v = await videoVivo(criadorId, id.parse(videoId));
+  if (!v || v.situacao === "ENVIANDO") throw new ErroDeNegocio(MSG_NAO_ENCONTRADO);
+  const usuarioId = "usuarioId" in autor ? autor.usuarioId : null;
+  await db.transaction(async (tx) => {
+    await tx
+      .update(videos)
+      .set({ situacao: "PROCESSANDO", erro: null, updated_at: new Date(), modified_by: usuarioId ?? v.modified_by })
+      .where(and(eq(videos.id, v.id), vivos(videos)));
+    await registrarAuditoria(tx, {
+      userId: usuarioId,
+      criadorId,
+      acao: "atualizar",
+      tabela: TABELA,
+      registroId: v.id,
+      detalhes: "sistema" in autor ? `${autor.sistema}: pediu o reprocessamento do vídeo "${v.nome_original}"` : `Pediu o reprocessamento do vídeo "${v.nome_original}"`,
+      dadosAnteriores: { situacao: v.situacao, erro: v.erro },
+      dadosNovos: { situacao: "PROCESSANDO" },
+    });
+  });
+  return { enfileirado: await enfileirarComPrazo(v.id) };
+}
+
 export class ProvedorProprio implements ProvedorVideo {
   async criarEnvio(ctx: ContextoVideo, pedido: PedidoEnvio): Promise<Envio> {
     const p = esquemaPedidoEnvio.parse(pedido);
@@ -252,27 +284,9 @@ export class ProvedorProprio implements ProvedorVideo {
     await limparObjetosDoVideo(v);
   }
 
-  /** Põe de novo na fila (FALHOU, PRONTO ou PROCESSANDO parado). Mesmo jobId: nunca duplica. */
+  /** Botão "Reprocessar" do estúdio: a regra única `reprocessarVideo`, com a pessoa da sessão. */
   async reprocessar(ctx: ContextoVideo, videoId: string): Promise<{ enfileirado: boolean }> {
-    const v = await videoVivo(ctx.criadorId, id.parse(videoId));
-    if (!v || v.situacao === "ENVIANDO") throw new ErroDeNegocio(MSG_NAO_ENCONTRADO);
-    await db.transaction(async (tx) => {
-      await tx
-        .update(videos)
-        .set({ situacao: "PROCESSANDO", erro: null, updated_at: new Date(), modified_by: ctx.usuarioId })
-        .where(and(eq(videos.id, v.id), vivos(videos)));
-      await registrarAuditoria(tx, {
-        userId: ctx.usuarioId,
-        criadorId: ctx.criadorId,
-        acao: "atualizar",
-        tabela: TABELA,
-        registroId: v.id,
-        detalhes: `Pediu o reprocessamento do vídeo "${v.nome_original}"`,
-        dadosAnteriores: { situacao: v.situacao, erro: v.erro },
-        dadosNovos: { situacao: "PROCESSANDO" },
-      });
-    });
-    return { enfileirado: await enfileirarComPrazo(v.id) };
+    return reprocessarVideo(ctx.criadorId, videoId, { usuarioId: ctx.usuarioId });
   }
 
   async tokenDeReproducao(ctx: ContextoVideo & { sessaoLoginId: string; ip: string; userAgent: string }, aulaId: string): Promise<Reproducao> {

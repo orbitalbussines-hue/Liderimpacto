@@ -22,7 +22,7 @@ tag `prd` anda a cada deploy (o CI publica também a tag do SHA, usada para volt
 |---|---|---|---|---|---|
 | `li-db` | Postgres do Easypanel, `postgres:16.15`, banco `lider_impacto` | — | do próprio serviço | nenhum (nunca Expose) | 2 / 4096 MB |
 | `li-redis` | Redis do Easypanel, `redis:7.4` | — | do próprio serviço | nenhum | 0,5 / 768 MB |
-| `li-storage` | App, Source **Dockerfile** = conteúdo de `storage.Dockerfile` | — | `/data` | `s3.lideresdeimpacto.com.br` → porta **8333** | 1 / 1024 MB |
+| `li-storage` | App, Source **Dockerfile** = conteúdo de `storage.Dockerfile` | — | `li-storage-s3` em `/data` (obrigatório) | `s3.lideresdeimpacto.com.br` → porta **8333** | 1 / 1024 MB |
 | `li-ferramentas` | App, Docker Image `...-worker:prd` | `ferramentas` | — | nenhum | 0,5 / 768 MB |
 | `li-app` | App, Docker Image `...-app:prd` | — (padrão da imagem: `node server.js`) | — | `lideresdeimpacto.com.br`, `www.lideresdeimpacto.com.br` e `lideresdeimpacto.com.br` com **Wildcard** → porta **3000** | 2 / 3072 MB |
 | `li-worker-certificados` | App, Docker Image `...-worker:prd` | — (padrão da imagem) | — | nenhum | 0,5 / 768 MB |
@@ -49,6 +49,10 @@ subida para esperar o backup + migração).
   `maxmemory-policy noeviction` (padrão do Redis; o runbook confere).
 - **li-storage** — já criado. SeaweedFS 4.48 (igual ao dev). Credencial S3 em `S3_CHAVE`/`S3_SEGREDO`;
   o app usa a mesma. HTTPS no domínio `s3.lideresdeimpacto.com.br`, resolver `cloudflare`.
+  **Montagem de Volume obrigatória**: Montagens > Adicionar Montagem de Volume, nome `li-storage-s3`,
+  caminho `/data`. Sem ela a subida é RECUSADA (trava do `storage.Dockerfile`, incidente 23/10).
+  Implantações: **Zero Downtime DESLIGADO** (uma instância por volume; a segunda é recusada). Logs sem
+  linha `F...` (fatal) nem `RECUSADO`.
 - **li-ferramentas** — a cada deploy (`deploy/easypanel/ferramentas.sh`): **backup do banco no R2**
   (`banco/pre-deploy/`) → migração como DONO (com trava) → marca da versão no banco → buckets + CORS →
   fica parado. Backup falhou = não migra, não libera a versão nova, tenta de novo em 5 min (a versão
@@ -62,8 +66,8 @@ subida para esperar o backup + migração).
 - **li-worker-certificados** — filas certificados, eventos e conhecimento. Espera a marca da versão.
 - **li-worker-video** — FFmpeg, concorrência 1, escada 720p + 480p. Teto de 3 vCPU. Num deploy
   durante um transcode, o job é retomado pela fila (tentativa nova), sem perda.
-- **li-backup** — todo dia às `BACKUP_HORA_UTC`: copia `lider-arquivos` e `lider-videos-originais`
-  para o R2 (incremental, nunca apaga lá) e faz o dump do banco (`BACKUP_BANCO=1`) em `banco/diario/`
+- **li-backup** — todo dia às `BACKUP_HORA_UTC`: copia `lider-arquivos`, `lider-videos-originais` e
+  `lider-hls` para o R2 (`rclone copy -M`, com os metadados) (incremental, nunca apaga lá) e faz o dump do banco (`BACKUP_BANCO=1`) em `banco/diario/`
   e, aos domingos, `banco/semanal/`. Shell: `backup agora` e `backup restaurar-teste [prefixo]`.
 
 ## Traefik (curinga)

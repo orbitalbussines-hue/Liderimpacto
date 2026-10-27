@@ -45,8 +45,10 @@ parte (CI obrigatório, imagem testada, saúde por versão do schema, voltar ver
    quando a nova grava a marca dela). Sem `VERSAO_IMAGEM` (dev, CI) não há trava. Healthcheck das
    imagens com `start-period` de 15 min: esperar o backup não conta como falha.
 5. **Backups da PRD**: `li-backup` todo dia faz o dump em `banco/diario/` (e domingo `banco/semanal/`,
-   `BACKUP_BANCO=1`) e copia `lider-arquivos` **e `lider-videos-originais`** para `storage/` (vídeo é
-   conteúdo real agora; o HLS se refaz do original). Retenção pelo ciclo de vida do bucket
+   `BACKUP_BANCO=1`) e copia `lider-arquivos`, `lider-videos-originais` **e `lider-hls`** para `storage/` (vídeo
+   é conteúdo real agora). Revisto em 27/10 (incidente 23/10: o `li-storage` subiu sem volume e perdeu
+   os objetos): o HLS entrou no backup, porque refazê-lo custa ~2 h de CPU por hora de vídeo e restaurar
+   é só copiar; o `storage.Dockerfile` recusa subir sem Montagem de Volume em `/data`. Retenção pelo ciclo de vida do bucket
    `li-backups-prd`: diário 30 d, semanal 90 d, pre-deploy 90 d, `storage/` sem expirar.
    `backup restaurar-teste [prefixo]` restaura num Postgres descartável; `backup restaurar <caminho>
    <banco>` restaura de verdade (confere o nome, faz cópia do estado atual, uma transação só).

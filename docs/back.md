@@ -898,7 +898,7 @@ pg_dump acima, gzip, conferido, em `banco/pre-deploy/`) -> migracao -> buckets. 
 migra e a versao nova nao e liberada. Banco vazio (1o deploy) = nada a salvar.
 
 O servico `li-backup` (`deploy/easypanel/backup.sh`, `BACKUP_BANCO=1`) faz todo dia o dump em
-`banco/diario/` (domingo tambem `banco/semanal/`) e copia `lider-arquivos` e `lider-videos-originais`
+`banco/diario/` (domingo tambem `banco/semanal/`) e copia `lider-arquivos`, `lider-videos-originais` e `lider-hls`
 para `storage/` (incremental, nunca apaga no destino). Retencao pelo ciclo de vida do bucket (diario
 30 d, semanal 90 d, pre-deploy 90 d). `backup restaurar-teste [prefixo]` restaura o ultimo dump num
 Postgres descartavel e compara contagens; `backup restaurar <caminho> <banco>` restaura de verdade

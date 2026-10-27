@@ -111,7 +111,11 @@ O nome do resolver nos domínios é `cloudflare`, em minúsculas.
    responder `noeviction` (a fila exige; é o padrão do Redis).
 3. **`li-storage`** > Domains: Host `s3.lideresdeimpacto.com.br`, Path `/`, **HTTPS** ligado, Port
    **8333**, Certificate resolver `cloudflare` (troque se ainda estiver com outro host). Resources: CPU 1,
-   memória 1024. Deploy.
+   memória 1024. **Montagens** > **Adicionar Montagem de Volume**: nome `li-storage-s3`, caminho
+   `/data` (**obrigatório**: sem ela o `li-storage` se recusa a subir; ver "Armazenamento sem volume").
+   **Implantações**: **Zero Downtime DESLIGADO** (duas instâncias no mesmo `/data` derrubam o filer;
+   a segunda é recusada). Deploy. Nos Logs não pode haver linha começando com `F` (fatal do SeaweedFS)
+   nem `RECUSADO`.
 
 ## Passo 6 — Token do GitHub para o Easypanel baixar as imagens
 
@@ -274,7 +278,7 @@ Saída: o criador **Líder de Impacto** (`lider-de-impacto`), um link do SUPER_A
 Obrigatório antes do primeiro aluno real. Easypanel > `li-backup` > **Shell**:
 
 ```bash
-backup agora                              # arquivos + vídeos originais + dump do banco em banco/diario/
+backup agora                              # arquivos + vídeos originais + HLS + dump do banco em banco/diario/
 backup restaurar-teste                    # restaura o último de banco/diario/ num Postgres descartável
 ```
 
@@ -358,6 +362,48 @@ depois atualize nos serviços que usam e Deploy neles. Redis e S3: troque no ser
 e Deploy. **Nunca** troque `VIDEO_CHAVE_MESTRA`.
 
 **Disco enchendo.** Easypanel > Monitor. Vídeos e originais ficam no volume do `li-storage`.
+
+### Armazenamento sem volume (incidente 23/10)
+
+**O que aconteceu.** O `li-storage` rodava sem Montagem de Volume em `/data`: o Swarm criava um
+volume anônimo por contêiner e, no reinício de 23/10, ele subiu vazio. Tudo o que foi enviado antes
+(capas, materiais, vídeos originais e HLS) sumiu do storage; o banco continuou apontando para eles.
+
+**O que mudou.** O `storage.Dockerfile` agora RECUSA subir se `/data` não for volume nomeado (log:
+`RECUSADO: /data sem Montagem de Volume`): crie a montagem do Passo 5 (volume nomeado `li-storage-s3`
+em `/data`). Na troca para o volume novo, o Easypanel subiu duas cópias ao mesmo tempo (Zero Downtime)
+e o filer caiu com `leveldb ... resource temporarily unavailable`: agora a subida também RECUSA se
+outra instância já usa `/data` (`flock` em `/data/.instancia`; log `RECUSADO: outra instância...`) e
+o SeaweedFS fala por `-ip=127.0.0.1` (endereço estável entre tarefas do Swarm). No `li-storage`,
+Easypanel > **Implantações** > **Zero Downtime DESLIGADO**. Depois de cada Deploy, os Logs não podem
+ter linha começando com `F` (fatal) nem `RECUSADO`. O backup diário passou a copiar também o `lider-hls` (`rclone copy -M`, com os metadados):
+restaurar o HLS é só copiar, em vez de horas de CPU refazendo.
+
+**Restaurar do R2.** `li-backup` > **Shell** (os remotos `r2`/`sw` são os mesmos do `backup.sh`):
+
+```bash
+export RCLONE_CONFIG=/dev/null \
+  RCLONE_CONFIG_R2_TYPE=s3 RCLONE_CONFIG_R2_PROVIDER=Cloudflare RCLONE_CONFIG_R2_REGION=auto \
+  RCLONE_CONFIG_R2_ENDPOINT="$R2_ENDPOINT" RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true \
+  RCLONE_CONFIG_R2_ACCESS_KEY_ID="$R2_BACKUP_ACCESS_KEY_ID" RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$R2_BACKUP_SECRET_ACCESS_KEY" \
+  RCLONE_CONFIG_SW_TYPE=s3 RCLONE_CONFIG_SW_PROVIDER=SeaweedFS RCLONE_CONFIG_SW_ENDPOINT="$S3_INTERNO" \
+  RCLONE_CONFIG_SW_ACCESS_KEY_ID="$S3_CHAVE" RCLONE_CONFIG_SW_SECRET_ACCESS_KEY="$S3_SEGREDO"
+for b in lider-arquivos lider-videos-originais lider-hls; do
+  rclone copy -M "r2:$R2_BACKUP_BUCKET/storage/$b" "sw:$b" --stats-one-line
+done
+```
+
+**Reconferir os vídeos.** Depois da cópia, `li-worker-video` > **Shell**:
+
+```bash
+npm run video:reconferir                 # só leitura: relatório por criador > curso > módulo > aula
+npm run video:reconferir -- --aplicar    # põe os REPROCESSAR na fila (mesma regra do botão do estúdio)
+```
+
+`OK` = nada a fazer; `REPROCESSAR` = original existe e o HLS falta (ou falhou/parado sem job);
+`SEM_ORIGINAL` = o original sumiu: o criador reenvia o vídeo pelo estúdio. O fim do relatório lista os
+arquivos (capas, materiais, legendas) que faltam no storage. Rodar de novo não duplica: o que já está
+na fila aparece como `OK`. A trilha registra `sistema:reconferir`.
 
 ## Testar localmente antes de mexer no deploy
 

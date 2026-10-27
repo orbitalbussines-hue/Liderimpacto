@@ -21,7 +21,8 @@
 #
 # O que o "rodar" faz:
 #   1. Arquivos: cópia INCREMENTAL dos buckets `lider-arquivos` (capas, materiais, legendas, PDFs de
-#      certificado) e `lider-videos-originais` (o HLS é refeito do original) para
+#      certificado), `lider-videos-originais` e `lider-hls` (refazer o HLS custa ~2 h de CPU por hora de
+#      vídeo; com ele no R2, restaurar é só copiar) para
 #      r2:<bucket>/storage/<bucket>/ (`rclone copy`: nunca apaga no destino).
 #   2. Banco, com BACKUP_BANCO=1 (padrão da PRD): pg_dump no padrão da base (--no-owner --no-acl
 #      --clean --if-exists), backup_DD_MM_YYYY_HH_MM.sql.gz, conferido, em banco/diario/ e, aos
@@ -75,8 +76,8 @@ despejar() {
 rodar() {
   exigir S3_INTERNO S3_CHAVE S3_SEGREDO
   local b
-  for b in lider-arquivos lider-videos-originais; do
-    rclone copy "sw:$b" "r2:$BUCKET/storage/$b" --stats-one-line --stats-log-level NOTICE
+  for b in lider-arquivos lider-videos-originais lider-hls; do
+    rclone copy -M "sw:$b" "r2:$BUCKET/storage/$b" --stats-one-line --stats-log-level NOTICE
     log "arquivos: $b copiado (incremental)"
   done
 

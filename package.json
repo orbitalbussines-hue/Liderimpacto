@@ -27,6 +27,7 @@
     "sessao:demo": "tsx --conditions=react-server scripts/sessao-demo.ts",
     "armazenamento:preparar": "tsx --conditions=react-server scripts/armazenamento-preparar.ts",
     "worker:video": "tsx --conditions=react-server scripts/worker-video.ts",
+    "video:reconferir": "tsx --conditions=react-server scripts/video-reconferir.ts",
     "worker:certificados": "tsx --conditions=react-server scripts/worker-certificados.ts",
     "gamificacao:recalcular": "tsx --conditions=react-server scripts/gamificacao-recalcular.ts",
     "conhecimento:reindexar": "tsx --conditions=react-server scripts/conhecimento-reindexar.ts",
