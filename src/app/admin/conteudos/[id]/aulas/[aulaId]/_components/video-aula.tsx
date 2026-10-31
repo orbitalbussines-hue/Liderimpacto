@@ -2,13 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
-import { Play, RefreshCw, Upload, Video, X } from "lucide-react";
+import { Library, Play, RefreshCw, Upload, Video, X } from "lucide-react";
 import { ModalConfirmacaoBlock } from "@/components/modal-confirmacao-block";
 import { Aviso } from "@/components/ui/aviso";
 import { BarraProgresso } from "@/components/ui/barra-progresso";
 import { Button } from "@/components/ui/button";
 import { CartaoTitulo } from "@/components/ui/cartao";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
+import type { OpcaoSelecao } from "@/components/ui/selecao";
 import { Selo } from "@/components/ui/selo";
 import { PlayerHls } from "@/components/video/player-hls";
 import { acaoIniciarReproducao, acaoRenovarReproducao, acaoReprocessarVideo } from "@/lib/actions/videos";
@@ -16,6 +17,7 @@ import { formatarTamanho } from "@/lib/armazenamento/regras";
 import { formatarTempo } from "@/lib/validators/catalogo";
 import type { EstadoVideo, Reproducao } from "@/lib/video/provedor";
 import { ACCEPT_VIDEO, DESCRICAO_VIDEO, ROTULO_SITUACAO_VIDEO } from "@/lib/video/regras";
+import { ReaproveitarVideo } from "./reaproveitar-video";
 import { useEnvioVideo } from "./use-envio-video";
 
 export interface VideoAulaProps {
@@ -23,6 +25,8 @@ export interface VideoAulaProps {
   estado: EstadoVideo | null;
   /** Thumb gerada pelo worker (URL assinada curta). */
   poster: string | null;
+  /** Vídeos prontos das outras aulas para "Usar vídeo de outra aula". */
+  reaproveitaveis?: readonly OpcaoSelecao[];
   /** Nome e e-mail de quem confere a prévia (marca d'água). */
   marcaDagua: string;
 }
@@ -35,7 +39,7 @@ const POLLING_MS = 4000;
  * situação ao vivo por polling leve enquanto processa, prévia com o PlayerHls, reprocessar e
  * trocar (modal block). DONO e ADMIN — as actions conferem de novo.
  */
-export function VideoAula({ aulaId, estado: inicial, poster, marcaDagua }: VideoAulaProps) {
+export function VideoAula({ aulaId, estado: inicial, poster, reaproveitaveis = [], marcaDagua }: VideoAulaProps) {
   const router = useRouter();
   const id = useId();
   const entrada = useRef<HTMLInputElement>(null);
@@ -43,6 +47,7 @@ export function VideoAula({ aulaId, estado: inicial, poster, marcaDagua }: Video
   const [estado, setEstado] = useState(inicial);
   const [aviso, setAviso] = useState<string | null>(null);
   const [trocando, setTrocando] = useState(false);
+  const [reaproveitando, setReaproveitando] = useState(false);
   const [reproducao, setReproducao] = useState<Reproducao | null>(null);
   const [pendente, iniciarTransicao] = useTransition();
   const envio = useEnvioVideo(aulaId, (enfileirado) => {
@@ -100,6 +105,12 @@ export function VideoAula({ aulaId, estado: inicial, poster, marcaDagua }: Video
       Enviar vídeo
     </Button>
   );
+  const botaoReaproveitar = reaproveitaveis.length > 0 && !reaproveitando && (
+    <Button type="button" variant="contorno" size="36" disabled={ocupado} onClick={() => setReaproveitando(true)}>
+      <Library className="size-3.5" aria-hidden />
+      Usar vídeo de outra aula
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-3" aria-busy={ocupado || undefined}>
@@ -140,7 +151,14 @@ export function VideoAula({ aulaId, estado: inicial, poster, marcaDagua }: Video
           </Button>
         </div>
       ) : !estado ? (
-        <EstadoVazio comMoldura icone={<Video />} titulo="Sem vídeo" descricao={`Envie o arquivo da aula: ${DESCRICAO_VIDEO}.`} acao={botaoEnviar} />
+        <EstadoVazio comMoldura icone={<Video />} titulo="Sem vídeo" descricao={`Envie o arquivo da aula (${DESCRICAO_VIDEO}) ou use o vídeo de outra aula.`}
+          acao={
+            <div className="flex flex-wrap justify-center gap-2">
+              {botaoEnviar}
+              {botaoReaproveitar}
+            </div>
+          }
+        />
       ) : estado.situacao === "ENVIANDO" ? (
         <div className="flex flex-col gap-2">
           <Aviso tom="info">O envio de “{estado.nomeOriginal}” foi interrompido. Cancele e envie de novo.</Aviso>
@@ -180,10 +198,24 @@ export function VideoAula({ aulaId, estado: inicial, poster, marcaDagua }: Video
               <RefreshCw className="size-3.5" aria-hidden />
               Reprocessar
             </Button>
+            {botaoReaproveitar}
           </div>
         </div>
       )}
 
+      {reaproveitando && (
+        <ReaproveitarVideo
+          aulaId={aulaId}
+          opcoes={reaproveitaveis}
+          nomeAtual={estado && estado.situacao !== "ENVIANDO" ? estado.nomeOriginal : null}
+          onCancelar={() => setReaproveitando(false)}
+          onFeito={() => {
+            setReaproveitando(false);
+            setReproducao(null);
+            router.refresh();
+          }}
+        />
+      )}
       {(envio.erro || aviso) && <Aviso tom="erro">{envio.erro ?? aviso}</Aviso>}
       <ModalConfirmacaoBlock
         aberto={trocando}

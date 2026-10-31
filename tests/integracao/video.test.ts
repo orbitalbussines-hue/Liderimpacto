@@ -122,6 +122,45 @@ describe.skipIf(!noAr)("vídeo da aula (storage real)", () => {
     expect(cancelado.is_deleted).toBe(true);
   });
 
+  it("usar vídeo de outra aula: pronto na hora, mesma pasta e chave; trocar um não apaga o que o outro usa", async () => {
+    const { c, dono, aula } = await cenario("Reaproveitar");
+    const [{ modulo_id }] = await db.select({ modulo_id: s.produtos_modulos_aulas.modulo_id }).from(s.produtos_modulos_aulas).where(eq(s.produtos_modulos_aulas.id, aula.id));
+    const aula2 = ok(await est.acaoCriarAula({ moduloId: modulo_id, titulo: "Aula 2" }));
+    const origem = await videoPronto(c.id, aula.id, dono.id);
+    const pasta = `criadores/${c.id}/videos/${origem.id}`;
+    const original = { bucket: "videosOriginais" as const, criadorId: c.id, chave: `${pasta}/original.mp4` };
+    await cliente.gravarObjeto({ ...original, corpo: Buffer.from("original"), tamanho: 8, mime: "video/mp4" });
+    const master = { bucket: "hls" as const, criadorId: c.id, chave: `${pasta}/master.m3u8` };
+
+    expect(await vid.acaoReaproveitarVideo({ aulaId: aula.id, videoOrigemId: origem.id, substituir: true })).toMatchObject({ ok: false });
+    const { videoId } = ok(await vid.acaoReaproveitarVideo({ aulaId: aula2.id, videoOrigemId: origem.id, substituir: false }));
+    const [copia] = await db.select().from(s.produtos_modulos_aulas_videos).where(eq(s.produtos_modulos_aulas_videos.id, videoId));
+    expect(copia).toMatchObject({ aula_id: aula2.id, situacao: "PRONTO", prefixo_hls: pasta, chave_origem: original.chave, duracao_seg: 6 });
+    expect(chaves.decifrarChave(copia.chave_cifrada, videoId).equals(origem.chave)).toBe(true);
+    expect(await trilhaDe(dono.id)).toEqual(expect.arrayContaining([expect.objectContaining({ acao: "criar", registro_id: videoId })]));
+    // Já tem vídeo: sem confirmar a troca, recusa.
+    expect(await vid.acaoReaproveitarVideo({ aulaId: aula2.id, videoOrigemId: origem.id, substituir: false })).toMatchObject({ ok: false, erro: expect.stringMatching(/Trocar/) });
+
+    // A aula nova toca (master e chave pelo id novo).
+    const h = req.h;
+    const r = ok(await vid.acaoIniciarReproducao({ aulaId: aula2.id }));
+    expect(r.videoId).toBe(videoId);
+    expect((await entrega.servirHls(h, t(r)!, videoId, ["master.m3u8"])).status).toBe(200);
+    expect((await entrega.servirChave(h, t(r)!, videoId)).status).toBe(200);
+    const seg = await entrega.servirHls(new Headers({ host: h.get("host")! }), t(r)!, videoId, ["720p", "seg_00000.ts"]);
+    expect(seg.headers.get("location")).toContain(`${pasta}/720p/seg_00000.ts`);
+
+    // Troca o vídeo da ORIGEM: a cópia ainda usa original e HLS, nada sai do storage.
+    const pedido = { nome: "nova.mp4", mime: "video/mp4", tamanho: 10, substituir: true };
+    ok(await vid.acaoIniciarEnvioVideo({ ...pedido, aulaId: aula.id }));
+    expect(await cliente.cabecalhoDoObjeto(original)).not.toBeNull();
+    expect(await cliente.cabecalhoDoObjeto(master)).not.toBeNull();
+    // Troca o vídeo da CÓPIA: ninguém mais usa, original e HLS saem.
+    ok(await vid.acaoIniciarEnvioVideo({ ...pedido, aulaId: aula2.id }));
+    expect(await cliente.cabecalhoDoObjeto(original)).toBeNull();
+    expect(await cliente.cabecalhoDoObjeto(master)).toBeNull();
+  });
+
   it("reprodução: playlist reescrita, segmento por 302 curto, chave só com sessão; token ruim recusado", async () => {
     const { c, dono, aula } = await cenario("Play");
     const v = await videoPronto(c.id, aula.id, dono.id);
@@ -209,9 +248,10 @@ describe.skipIf(!noAr)("vídeo da aula (storage real)", () => {
     const tkB = t(repB);
     const antes = await db.select().from(s.produtos_modulos_aulas_videos).where(eq(s.produtos_modulos_aulas_videos.criador_id, B.c.id));
 
-    await cenario("A");
+    const A = await cenario("A");
     const hA = req.h;
     const tentativas = {
+      reaproveitarVideoDeB: vid.acaoReaproveitarVideo({ aulaId: A.aula.id, videoOrigemId: vB.id, substituir: true }),
       iniciarNaAulaDeB: vid.acaoIniciarEnvioVideo({ aulaId: B.aula.id, nome: "x.mp4", mime: "video/mp4", tamanho: 10, substituir: true }),
       partes: vid.acaoAssinarPartesVideo({ videoId: vB.id, partes: [1] }),
       concluir: vid.acaoConcluirEnvioVideo({ videoId: vB.id, partes: [{ numero: 1, etag: '"x"' }] }),

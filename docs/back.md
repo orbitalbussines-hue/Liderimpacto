@@ -968,6 +968,7 @@ player -> acaoIniciarReproducao (sessao de reproducao + token 10 min) -> /api/vi
 | `acaoConcluirEnvioVideo` | DONO, ADMIN | Fecha o multipart, HEAD, PROCESSANDO, enfileira depois do commit (`enfileirado: false` = fila fora do ar) |
 | `acaoCancelarEnvioVideo` | DONO, ADMIN | Aborta o multipart e exclui o registro |
 | `acaoReprocessarVideo` | DONO, ADMIN | PROCESSANDO + fila (mesmo jobId: nunca duplica) |
+| `acaoReaproveitarVideo` | DONO, ADMIN | `{ aulaId, videoOrigemId, substituir }`: registro novo PRONTO com o MESMO original e a MESMA pasta HLS da origem (chave AES recifrada para o id novo), sem fila (RN-255). `limparObjetosDoVideo` não apaga original nem pasta que outro vídeo vivo usa; a entrega lê a pasta de `prefixo_hls` |
 | `acaoIniciarReproducao`, `acaoRenovarReproducao` | quem passa em `podeAssistir` | Abre/renova a sessao de reproducao e devolve o token |
 
 | Rota | Conferencia | Resposta |

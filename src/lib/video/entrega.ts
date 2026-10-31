@@ -1,6 +1,5 @@
 import "server-only";
 import { lerObjeto, urlDeLeitura } from "@/lib/armazenamento/cliente";
-import { chaveDoCriador } from "@/lib/armazenamento/regras";
 import { registrarAuditoriaSegura } from "@/lib/audit/registrar";
 import { EQUIPE, papelAceito, papelEfetivo } from "@/lib/auth/permissoes";
 import { sessaoDosCabecalhos } from "@/lib/auth/sessao";
@@ -20,8 +19,9 @@ import { type DadosToken, verificarToken } from "./token";
  *
  * - Playlist e chave: conferência COMPLETA (token + sessão de login do host + vídeo do criador
  *   + `podeAssistir` + sessão de reprodução viva). Playlist sai reescrita com o token.
- * - Segmento com token VÁLIDO: só HMAC + host (sem banco) e 302 para URL assinada de 60 s no
- *   storage. O Next nunca carrega bytes de vídeo. Token VENCIDO (Safari nativo não troca o
+ * - Segmento com token VÁLIDO: HMAC + host + a pasta HLS do vídeo (uma leitura por chave
+ *   primária; o vídeo reaproveitado de outra aula usa a pasta da origem) e 302 para URL
+ *   assinada de 60 s no storage. O Next nunca carrega bytes de vídeo. Token VENCIDO (Safari nativo não troca o
  *   token da playlist VOD): aceito só com a conferência completa.
  */
 
@@ -75,14 +75,16 @@ export async function servirHls(h: Headers, t: string | null, videoId: string, p
   const token = lerToken(t, videoId, criadorId);
   if ("recusa" in token || !t) return nao("recusa" in token ? token.recusa : 403);
 
-  const chave = chaveDoCriador(criadorId, "videos", videoId, ...caminho.relativo.split("/"));
   if (caminho.tipo === "segmento" && !token.vencido) {
-    const url = await urlDeLeitura({ bucket: "hls", criadorId, chave, validadeSeg: VALIDADE_SEGMENTO_SEG });
+    const pasta = (await videoVivo(criadorId, videoId))?.prefixo_hls;
+    if (!pasta) return nao(404);
+    const url = await urlDeLeitura({ bucket: "hls", criadorId, chave: `${pasta}/${caminho.relativo}`, validadeSeg: VALIDADE_SEGMENTO_SEG });
     return new Response(null, { status: 302, headers: { Location: url, ...SEM_CACHE } });
   }
 
   const r = await conferirTudo(h, criadorId, token.dados);
   if ("recusa" in r) return nao(r.recusa);
+  const chave = `${r.video.prefixo_hls}/${caminho.relativo}`;
   if (caminho.tipo === "segmento") {
     const url = await urlDeLeitura({ bucket: "hls", criadorId, chave, validadeSeg: VALIDADE_SEGMENTO_SEG });
     return new Response(null, { status: 302, headers: { Location: url, ...SEM_CACHE } });

@@ -59,6 +59,14 @@ export async function acaoReprocessarVideo(entrada: unknown) {
   });
 }
 
+/** "Usar vídeo de outra aula": aponta o vídeo PRONTO de outra aula do criador (sem novo envio). */
+export async function acaoReaproveitarVideo(entrada: unknown) {
+  return executar(async () => {
+    const { usuario, criador } = await exigirMembro(EQUIPE);
+    return provedorVideo.reaproveitar({ criadorId: criador.id, usuarioId: usuario.id }, entrada);
+  });
+}
+
 /** Membro do host que `podeAssistir` a aula: devolve o contexto da reprodução. */
 async function quemAssiste(aulaId: string) {
   const s = await exigirSessao();

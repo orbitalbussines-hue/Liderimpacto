@@ -14,6 +14,7 @@ const acoes = vi.hoisted(() => ({
   acaoAssinarPartesVideo: vi.fn(),
   acaoConcluirEnvioVideo: vi.fn(),
   acaoCancelarEnvioVideo: vi.fn(),
+  acaoReaproveitarVideo: vi.fn(async () => ({ ok: true as const, dados: { videoId: "v-2" } })),
 }));
 vi.mock("@/lib/actions/videos", () => acoes);
 
@@ -26,6 +27,22 @@ describe("VideoAula (editor da aula)", () => {
     expect(screen.getByText("Sem vídeo")).toBeInTheDocument();
     expect(screen.getByText(/MP4, MOV, MKV ou WebM até 10 GB/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Enviar vídeo/ })).toBeInTheDocument();
+  });
+
+  it("usar vídeo de outra aula: escolhe na lista e aplica sem envio (aula sem vídeo, sem modal)", async () => {
+    const opcoes = [{ valor: "v-9", rotulo: "Módulo 1 · Abertura (02:05)", grupo: "Curso A" }];
+    render(<VideoAula {...props} estado={null} reaproveitaveis={opcoes} />);
+    await userEvent.click(screen.getByRole("button", { name: /Usar vídeo de outra aula/ }));
+    const usar = screen.getByRole("button", { name: /Usar este vídeo/ });
+    expect(usar).toBeDisabled();
+    await userEvent.selectOptions(screen.getByLabelText("Vídeo de outra aula"), "v-9");
+    await userEvent.click(usar);
+    expect(acoes.acaoReaproveitarVideo).toHaveBeenCalledWith({ aulaId: "a-1", videoOrigemId: "v-9", substituir: false });
+  });
+
+  it("sem vídeos em outras aulas: não oferece reaproveitar", () => {
+    render(<VideoAula {...props} estado={null} />);
+    expect(screen.queryByRole("button", { name: /Usar vídeo de outra aula/ })).not.toBeInTheDocument();
   });
 
   it("pronto: situação, detalhes, prévia, trocar e reprocessar", async () => {

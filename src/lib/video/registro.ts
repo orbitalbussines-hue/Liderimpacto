@@ -1,8 +1,8 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { db, type Transacao } from "@/lib/db";
-import { produtos_modulos_aulas, produtos_modulos_aulas_videos as videos, produtos_modulos_aulas_videos_processamentos as processamentos } from "@/lib/db/schema";
+import { produtos, produtos_modulos, produtos_modulos_aulas, produtos_modulos_aulas_videos as videos, produtos_modulos_aulas_videos_processamentos as processamentos } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
 import { notificarAulaNova } from "@/lib/notificacoes/gerar";
 import type { EstadoVideo, EventoVideo } from "./provedor";
@@ -24,6 +24,25 @@ export async function videoVivo(criadorId: string, videoId: string, tx: Transaca
 export async function videoVivoDaAula(criadorId: string, aulaId: string) {
   const [v] = await db.select().from(videos).where(and(eq(videos.aula_id, aulaId), eq(videos.criador_id, criadorId), vivos(videos)));
   return v ?? null;
+}
+
+/** Vídeos PRONTOS de outras aulas vivas do criador, para "Usar vídeo de outra aula" (curso > módulo > aula). */
+export async function videosReaproveitaveis(criadorId: string, aulaId: string) {
+  return db
+    .select({
+      videoId: videos.id,
+      nomeOriginal: videos.nome_original,
+      duracaoSeg: videos.duracao_seg,
+      aula: produtos_modulos_aulas.titulo,
+      modulo: produtos_modulos.titulo,
+      curso: produtos.titulo,
+    })
+    .from(videos)
+    .innerJoin(produtos_modulos_aulas, and(eq(produtos_modulos_aulas.id, videos.aula_id), vivos(produtos_modulos_aulas)))
+    .innerJoin(produtos_modulos, and(eq(produtos_modulos.id, produtos_modulos_aulas.modulo_id), vivos(produtos_modulos)))
+    .innerJoin(produtos, and(eq(produtos.id, produtos_modulos.produto_id), vivos(produtos)))
+    .where(and(eq(videos.criador_id, criadorId), eq(videos.situacao, "PRONTO"), ne(videos.aula_id, aulaId), vivos(videos)))
+    .orderBy(asc(produtos.titulo), asc(produtos_modulos.ordem), asc(produtos_modulos_aulas.ordem));
 }
 
 export function estadoDoVideo(v: typeof videos.$inferSelect): EstadoVideo {

@@ -880,6 +880,14 @@ Cada regra segue este formato:
 - **Comportamento esperado**: ALUNO = 403; sem sessão = 401; a trilha registra quem exportou, quantos e o filtro, sem os e-mails.
 - **Impacto se descumprida**: vazamento de lista de contatos ou planilha com fórmula maliciosa.
 
+### RN-255 - Usar vídeo de outra aula
+- **Definida por**: Paulo (Bah! Tech), a pedido do Valmer
+- **Data**: 2026-10-30
+- **Modulo**: Admin > Conteúdos > Aula > Vídeo da aula (DONO e ADMIN)
+- **Descricao**: Na aula, "Usar vídeo de outra aula" lista os vídeos prontos das outras aulas da mesma área (por curso, módulo e aula). O escolhido entra pronto na hora, sem novo envio nem processamento: as duas aulas usam o mesmo arquivo no armazenamento. Se a aula já tem vídeo, a troca passa pelo modal de confirmação. Matriculados recebem o aviso de aula nova, como num envio.
+- **Comportamento esperado**: trocar ou excluir o vídeo de uma das aulas não tira o vídeo da outra; o arquivo só sai do armazenamento quando nenhuma aula viva o usa. Vídeo de outra área nunca aparece nem é aceito. A trilha registra de qual vídeo veio.
+- **Impacto se descumprida**: aula de um curso ficando sem vídeo porque o de outro curso foi trocado.
+
 <!-- Exemplo de registro: -->
 
 <!--
