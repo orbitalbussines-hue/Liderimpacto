@@ -1,5 +1,6 @@
 import type { PlataformaIntegracao, SituacaoEventoIntegracao, TipoEventoIntegracao } from "@/lib/db/schema/_enums";
 import { TOLERANCIA_ASSINATURA_DIAS } from "@/lib/pagamentos/regras";
+import { normalizarBling } from "./bling/regras";
 
 /**
  * Regras PURAS das integrações Hotmart e Eduzz (ADR-0021, RN-230 a RN-236): tradução do JSON de cada
@@ -17,11 +18,11 @@ export const PRODUTO_EXTERNO = /^[A-Za-z0-9_-]{1,64}$/;
 /** Hottok / chave de assinatura: 8 a 200 caracteres visíveis, sem espaço. */
 export const SEGREDO_EXTERNO = /^[\x21-\x7E]{8,200}$/;
 
-export const ROTULO_PLATAFORMA: Record<PlataformaIntegracao, string> = { HOTMART: "Hotmart", EDUZZ: "Eduzz" };
-/** Nome do segredo como cada plataforma chama. */
-export const NOME_DO_TOKEN: Record<PlataformaIntegracao, string> = { HOTMART: "Hottok", EDUZZ: "Chave secreta" };
-export const SEGMENTO_URL: Record<PlataformaIntegracao, string> = { HOTMART: "hotmart", EDUZZ: "eduzz" };
-export const plataformaDoSegmento = (s: string): PlataformaIntegracao | null => (s === "hotmart" ? "HOTMART" : s === "eduzz" ? "EDUZZ" : null);
+export const ROTULO_PLATAFORMA: Record<PlataformaIntegracao, string> = { HOTMART: "Hotmart", EDUZZ: "Eduzz", BLING: "Bling" };
+/** Nome do segredo como cada plataforma chama (Bling: o client secret do app, que também assina o webhook). */
+export const NOME_DO_TOKEN: Record<PlataformaIntegracao, string> = { HOTMART: "Hottok", EDUZZ: "Chave secreta", BLING: "Client secret" };
+export const SEGMENTO_URL: Record<PlataformaIntegracao, string> = { HOTMART: "hotmart", EDUZZ: "eduzz", BLING: "bling" };
+export const plataformaDoSegmento = (s: string): PlataformaIntegracao | null => (s === "hotmart" ? "HOTMART" : s === "eduzz" ? "EDUZZ" : s === "bling" ? "BLING" : null);
 
 export const ROTULO_TIPO_EVENTO: Record<TipoEventoIntegracao, string> = {
   COMPRA_APROVADA: "Compra aprovada",
@@ -30,6 +31,8 @@ export const ROTULO_TIPO_EVENTO: Record<TipoEventoIntegracao, string> = {
   CANCELAMENTO: "Compra cancelada",
   ASSINATURA_CANCELADA: "Assinatura cancelada",
   ASSINATURA_ATRASADA: "Assinatura atrasada",
+  PEDIDO_ATUALIZADO: "Pedido criado ou alterado",
+  PEDIDO_EXCLUIDO: "Pedido excluído",
   OUTRO: "Outro evento",
 };
 
@@ -170,13 +173,14 @@ export function normalizarEduzz(json: unknown): EventoNormalizado[] | null {
   return produtos.map((produtoExterno, i) => ({ ...base, eventoId: i === 0 ? eventoId : `${eventoId}-${i + 1}`.slice(0, 100), produtoExterno }));
 }
 
-export const normalizar = (plataforma: PlataformaIntegracao, json: unknown) => (plataforma === "HOTMART" ? normalizarHotmart(json) : normalizarEduzz(json));
+export const normalizar = (plataforma: PlataformaIntegracao, json: unknown) =>
+  plataforma === "HOTMART" ? normalizarHotmart(json) : plataforma === "EDUZZ" ? normalizarEduzz(json) : normalizarBling(json);
 
 // ---------- acesso ----------
 
 /**
  * Chave da compra na referência da matrícula: assinatura = a MESMA matrícula a cada renovação
- * (`hotmart-assinatura:<código>`); compra avulsa = `hotmart:<transação>`. Prefixo para encerrar = `chave:`.
+ * (`hotmart-assinatura:<código>`); compra avulsa = `hotmart:<transação>`; Bling = `bling:<pedido>`. Prefixo para encerrar = `chave:`.
  */
 export function chaveDoAcesso(plataforma: PlataformaIntegracao, e: { transacao: string | null; assinatura: string | null }): string | null {
   const p = SEGMENTO_URL[plataforma];

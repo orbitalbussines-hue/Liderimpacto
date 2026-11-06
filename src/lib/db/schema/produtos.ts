@@ -77,10 +77,15 @@ export const produtos_modulos = pgTable(
     ordem: integer("ordem").notNull(),
     titulo: text("titulo").notNull(),
     status: text("status", { enum: STATUS_MODULO }).notNull().default("PUBLICADO"),
+    /** Capinha vertical 3:4 do módulo (fileira "Módulos do curso", RN-270); nula = capa 3:4 do curso. */
+    capa_arquivo_id: uuid("capa_arquivo_id"),
     ...colunasAuditoria,
   },
   (t) => [
     foreignKey({ name: "fk_produtos_modulos_produto", columns: [t.produto_id, t.criador_id], foreignColumns: [produtos.id, produtos.criador_id] })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({ name: "fk_produtos_modulos_capa", columns: [t.capa_arquivo_id, t.criador_id], foreignColumns: [arquivos.id, arquivos.criador_id] })
       .onDelete("restrict")
       .onUpdate("restrict"),
     uniqueIndex("uq_produtos_modulos_ordem_vivo").on(t.produto_id, t.ordem).where(sql`is_deleted = false`),

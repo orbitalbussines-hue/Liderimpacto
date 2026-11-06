@@ -1,0 +1,2 @@
+ALTER TABLE "produtos_modulos" ADD COLUMN "capa_arquivo_id" uuid;--> statement-breakpoint
+ALTER TABLE "produtos_modulos" ADD CONSTRAINT "fk_produtos_modulos_capa" FOREIGN KEY ("capa_arquivo_id","criador_id") REFERENCES "public"."arquivos"("id","criador_id") ON DELETE restrict ON UPDATE restrict;

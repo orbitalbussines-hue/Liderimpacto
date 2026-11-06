@@ -56,3 +56,16 @@ por aluno.
   dependem da validação na action (sem FK); a fileira com grupos mostra tudo para a equipe.
 - **Riscos**: config de versão antiga inválida para um schema futuro — `configDoBanco` recusa com
   log e a vitrine cai no padrão (migrar o JSON quando o schema mudar).
+
+## Adendo (2026-11-06): fileira "Módulos do curso" e campos novos no JSON
+
+A pedido do cliente (RN-270 a RN-273) entrou o tipo de fileira `MODULOS`, com o campo novo
+`cursoId` na fileira. Regra para evoluir o JSON sem migrar versões: **campo novo entra como
+`.optional()`** no `strictObject`, e o `superRefine` exige/recusa por tipo (MODULOS exige o curso;
+os outros recusam). Assim as versões já publicadas (sem o campo) continuam válidas, `mesmaConfig`
+segue igual (chave ausente = `undefined`, que o JSON descarta) e o risco acima ("schema futuro")
+não se materializa. O `cursoId` entra em `referenciasDaConfig` (curso de outra área = recusa). A
+capa vertical é do MÓDULO (`produtos_modulos.capa_arquivo_id`, FK composta RESTRICT, migração 0019),
+não do JSON: a mesma capa serve a fileira, a página do curso e qualquer versão. O "modelo" do
+construtor é só uma função pura sobre o RASCUNHO (`aplicarModeloModulos`), confirmada no modal
+block; não existe tabela de modelos (YAGNI: um modelo pedido; outros entram como funções irmãs).

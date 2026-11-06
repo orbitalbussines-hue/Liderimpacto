@@ -1,9 +1,10 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { configPadrao, FILEIRAS_PADRAO, type FileiraVitrine } from "@/lib/vitrine/config";
+import { configPadrao, FILEIRAS_PADRAO, fileiraDeModulos, type FileiraVitrine } from "@/lib/vitrine/config";
 import { EstruturaVitrine } from "./estrutura-vitrine";
-import { PropriedadesFileira } from "./propriedades-fileira";
+import { ModeloModulos } from "./modelo-modulos";
+import { PropriedadesFileira, type CursoDoConstrutor } from "./propriedades-fileira";
 import { StatusVitrine, situacaoDoRascunho } from "./status-vitrine";
 import { ESPERA_AUTOSAVE_MS, useRascunho } from "./use-rascunho";
 
@@ -61,6 +62,37 @@ describe("PropriedadesFileira (chips)", () => {
     expect(onMudar).toHaveBeenLastCalledWith(expect.objectContaining({ ordenacao: "MAIS_ASSISTIDOS" }));
     fireEvent.click(screen.getByRole("radio", { name: "Grupos escolhidos" }));
     expect(onMudar).toHaveBeenLastCalledWith(expect.objectContaining({ grupos: ["g1"] }));
+  });
+});
+
+describe("Módulos do curso no construtor (RN-271, RN-272)", () => {
+  const cursos: CursoDoConstrutor[] = [
+    { id: "11111111-1111-4111-8111-111111111111", titulo: "Rascunho", status: "RASCUNHO", descricao: "", modulos: 0, modulosComCapa: 0 },
+    { id: "22222222-2222-4222-8222-222222222222", titulo: "Líder na Prática", status: "PUBLICADO", descricao: "", modulos: 3, modulosComCapa: 1 },
+  ];
+
+  it("trocar para Módulos do curso escolhe o primeiro curso publicado; o aviso conta os módulos sem capa", () => {
+    const onMudar = vi.fn();
+    const { unmount } = render(<PropriedadesFileira fileira={fileiras[1]} grupos={[]} cursos={cursos} rotulos={{}} lembrarRotulo={vi.fn()} onMudar={onMudar} onDuplicar={vi.fn()} onRemover={vi.fn()} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Módulos do curso" }));
+    expect(onMudar).toHaveBeenLastCalledWith(expect.objectContaining({ tipo: "MODULOS", ordenacao: "MANUAL", cursoId: cursos[1].id }));
+    unmount();
+    render(<PropriedadesFileira fileira={fileiraDeModulos("m", cursos[1].id)} grupos={[]} cursos={cursos} rotulos={{}} lembrarRotulo={vi.fn()} onMudar={onMudar} onDuplicar={vi.fn()} onRemover={vi.fn()} />);
+    expect(screen.getByText("Líder na Prática")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("2 de 3 módulos sem capa");
+    expect(screen.getByRole("status")).toHaveTextContent("Envie as capas verticais (3:4) em Conteúdos > módulo");
+  });
+
+  it("modelo: escolhe o curso e só pede a confirmação (nada muda antes do modal)", () => {
+    const onAplicar = vi.fn();
+    render(<ModeloModulos cursos={cursos} fileiras={fileiras} onAplicar={onAplicar} />);
+    fireEvent.click(screen.getByRole("button", { name: /Usar modelo: Módulos do curso/ }));
+    expect(screen.getByRole("combobox", { name: "Curso" })).toHaveValue(cursos[1].id);
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar ao rascunho" }));
+    expect(onAplicar).toHaveBeenCalledWith(cursos[1]);
+    expect(screen.queryByText(/está em rascunho/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Curso" }), { target: { value: cursos[0].id } });
+    expect(screen.getByRole("status")).toHaveTextContent("Este curso está em rascunho: os alunos só veem esta fileira quando você publicar o curso");
   });
 });
 

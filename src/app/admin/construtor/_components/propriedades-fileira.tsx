@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Copy, Trash2, X } from "lucide-react";
+import { Aviso } from "@/components/ui/aviso";
 import { Button } from "@/components/ui/button";
 import { CaixaSelecao } from "@/components/ui/caixa-selecao";
 import { Campo } from "@/components/ui/campo";
@@ -21,14 +22,32 @@ import {
 import { BuscaConteudo } from "./busca-conteudo";
 import { LinhaInterruptor } from "./propriedades-destaque";
 
+/** Curso nas opções do construtor (com a contagem de módulos e de capas 3:4 dos módulos). */
+export interface CursoDoConstrutor {
+  id: string;
+  titulo: string;
+  status: string;
+  descricao: string;
+  modulos: number;
+  modulosComCapa: number;
+}
+
 export interface PropriedadesFileiraProps {
   fileira: FileiraVitrine;
   grupos: readonly { id: string; nome: string }[];
+  /** Cursos da área (fileira "Módulos do curso": aviso de módulos sem capa). */
+  cursos?: readonly CursoDoConstrutor[];
   rotulos: Record<string, string>;
   lembrarRotulo: (id: string, rotulo: string) => void;
   onMudar: (f: FileiraVitrine) => void;
   onDuplicar: () => void;
   onRemover: () => void;
+}
+
+/** Curso em RASCUNHO: a prévia (equipe) mostra tudo, mas o aluno não vê nada até publicar o curso. */
+export function AvisoCursoRascunho({ curso }: { curso?: CursoDoConstrutor }) {
+  if (curso?.status !== "RASCUNHO") return null;
+  return <Aviso tom="info">Este curso está em rascunho: os alunos só veem esta fileira quando você publicar o curso em Conteúdos.</Aviso>;
 }
 
 function Grupo({ rotulo, children }: { rotulo: string; children: (idRotulo: string) => ReactNode }) {
@@ -43,10 +62,63 @@ function Grupo({ rotulo, children }: { rotulo: string; children: (idRotulo: stri
   );
 }
 
-/** Propriedades da fileira (protótipo): título, tipo, quantidade, ordenação, quem vê, itens, visível. */
-export function PropriedadesFileira({ fileira: f, grupos, rotulos, lembrarRotulo, onMudar, onDuplicar, onRemover }: PropriedadesFileiraProps) {
+/** Fileira "Módulos do curso": o curso (busca só de cursos) e o aviso quando falta capa 3:4 nos módulos. */
+function CursoDaFileira({ f, cursos, rotulos, lembrarRotulo, mudar }: { f: FileiraVitrine; cursos: readonly CursoDoConstrutor[]; rotulos: Record<string, string>; lembrarRotulo: (id: string, rotulo: string) => void; mudar: (p: Partial<FileiraVitrine>) => void }) {
+  const curso = cursos.find((c) => c.id === f.cursoId);
+  const nome = f.cursoId ? (rotulos[f.cursoId] ?? curso?.titulo ?? "Curso removido") : null;
+  const semCapa = curso ? curso.modulos - curso.modulosComCapa : 0;
+  // Trocar não limpa o curso (config sem curso é inválida e o autosave recusaria).
+  const [trocando, setTrocando] = useState(false);
+  return (
+    <Grupo rotulo="Curso">
+      {() => (
+        <>
+          {nome && !trocando ? (
+            <div className="flex items-center gap-2 rounded-[10px] border border-border bg-bg py-1 pr-1 pl-3">
+              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{nome}</span>
+              {/* Texto, não X: no mesmo painel o X tira item da fileira manual. */}
+              <Button type="button" variant="fantasma" size="36" aria-label="Trocar o curso" onClick={() => setTrocando(true)}>
+                Trocar
+              </Button>
+            </div>
+          ) : (
+            <>
+              <BuscaConteudo
+                rotulo="Buscar o curso"
+                tipos={["PRODUTO"]}
+                onEscolher={(c) => {
+                  lembrarRotulo(c.id, c.titulo);
+                  mudar({ cursoId: c.id });
+                  setTrocando(false);
+                }}
+              />
+              {nome && (
+                <Button type="button" variant="fantasma" size="36" className="self-start" onClick={() => setTrocando(false)}>
+                  Manter {nome}
+                </Button>
+              )}
+            </>
+          )}
+          <AvisoCursoRascunho curso={curso} />
+          {curso && curso.modulos > 0 && semCapa > 0 && (
+            <Aviso tom="info">
+              {semCapa === curso.modulos ? "Os módulos deste curso ainda não têm capa" : `${semCapa} de ${curso.modulos} módulos sem capa`} (aparece a capa vertical 3:4 do curso). Envie as capas verticais (3:4) em Conteúdos &gt; módulo, botão &quot;Adicionar capa&quot;.
+            </Aviso>
+          )}
+          {curso && curso.modulos === 0 && <p className="m-0 text-[11px] text-muted">Este curso ainda não tem módulo publicado com aula: a fileira não aparece para os alunos.</p>}
+          <p className="m-0 text-[11px] text-muted">Na ordem do curso. Cada aluno vê só os módulos publicados.</p>
+        </>
+      )}
+    </Grupo>
+  );
+}
+
+/** Propriedades da fileira (protótipo): título, tipo, quantidade, ordenação, quem vê, itens, curso (módulos), visível. */
+export function PropriedadesFileira({ fileira: f, grupos, cursos = [], rotulos, lembrarRotulo, onMudar, onDuplicar, onRemover }: PropriedadesFileiraProps) {
   const mudar = (p: Partial<FileiraVitrine>) => onMudar({ ...f, ...p });
-  const trocarTipo = (tipo: TipoFileira) => mudar({ tipo, ordenacao: ORDENACOES_DO_TIPO[tipo][0], itensManuais: tipo === "MANUAL" ? f.itensManuais : [] });
+  const primeiroCurso = cursos.find((c) => c.status !== "RASCUNHO")?.id ?? cursos[0]?.id;
+  const trocarTipo = (tipo: TipoFileira) =>
+    mudar({ tipo, ordenacao: ORDENACOES_DO_TIPO[tipo][0], itensManuais: tipo === "MANUAL" ? f.itensManuais : [], cursoId: tipo === "MODULOS" ? (f.cursoId ?? primeiroCurso) : undefined });
   const ordenacoes = ORDENACOES_DO_TIPO[f.tipo];
   const porGrupo = f.grupos.length > 0;
   return (
@@ -119,6 +191,7 @@ export function PropriedadesFileira({ fileira: f, grupos, rotulos, lembrarRotulo
           )}
         </Grupo>
       )}
+      {f.tipo === "MODULOS" && <CursoDaFileira f={f} cursos={cursos} rotulos={rotulos} lembrarRotulo={lembrarRotulo} mudar={mudar} />}
       <Grupo rotulo="Quem vê">
         {(id) => (
           <>

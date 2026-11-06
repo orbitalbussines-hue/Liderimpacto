@@ -82,7 +82,7 @@ async function Conteudo({ q, config, previa = false }: VitrineMontadaProps) {
       )}
       {fileiras.map((f) => (
         <Bloco key={f.id} id={f.id} previa={previa}>
-          <Suspense fallback={<EsqueletoFileira estreito={f.tipo === "TOP10"} rotulo={`Carregando ${f.titulo.replace("{nome}", "").replace(/,\s*$/, "")}`} />}>
+          <Suspense fallback={<EsqueletoFileira estreito={f.tipo === "TOP10"} modulo={f.tipo === "MODULOS"} rotulo={`Carregando ${f.titulo.replace("{nome}", "").replace(/,\s*$/, "")}`} />}>
             <BlocoFileira q={q} f={f} previa={previa} />
           </Suspense>
         </Bloco>

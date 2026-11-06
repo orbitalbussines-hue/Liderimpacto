@@ -15,7 +15,7 @@ import { conectarIntegracaoSchema } from "@/lib/validators/integracoes";
 
 const SEM_CONEXAO = "Sem conexão com o servidor. Tente de novo.";
 
-function useRodar() {
+export function useRodar() {
   const router = useRouter();
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();

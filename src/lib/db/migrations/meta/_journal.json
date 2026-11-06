@@ -127,6 +127,20 @@
       "when": 1792375274872,
       "tag": "0017_leads_nas_campanhas",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793464551409,
+      "tag": "0018_integracao_bling_marketplaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793963070079,
+      "tag": "0019_capa_dos_modulos",
+      "breakpoints": true
     }
   ]
 }

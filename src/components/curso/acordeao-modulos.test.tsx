@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import Link from "next/link";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { AcordeaoModulos } from "./acordeao-modulos";
 import type { ModuloCurso } from "./tipos";
 
@@ -84,5 +85,61 @@ describe("AcordeaoModulos: aulas travadas", () => {
   it("módulo de 1 aula no singular", () => {
     render(<AcordeaoModulos modulos={[{ ...travado[0], totalAulas: 1, aulas: [] }]} />);
     expect(screen.getByText(/1 aula ·/)).toBeInTheDocument();
+  });
+});
+
+describe("AcordeaoModulos: âncora #modulo-<id> (RN-273)", () => {
+  afterEach(() => window.history.replaceState(null, "", "/"));
+  const botaoPessoas = () => screen.getByRole("button", { name: /Pessoas/ });
+
+  it("cada módulo tem o id da âncora; o hash da URL abre o módulo no carregamento", () => {
+    window.history.replaceState(null, "", "/cursos/lider#modulo-4");
+    const { container } = render(<AcordeaoModulos modulos={modulos} />);
+    expect(container.querySelector("#modulo-1")).not.toBeNull();
+    expect(container.querySelector("#modulo-4")).toContainElement(botaoPessoas());
+    expect(botaoPessoas()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("abre ao mudar o hash e ao clicar num link para o módulo nesta página (pushState do Next)", () => {
+    window.history.replaceState(null, "", "/cursos/lider");
+    render(
+      <>
+        {/* Sem roteador no teste: cancela a navegação (o Link de verdade troca o hash por pushState). */}
+        <Link href="/cursos/lider#modulo-4" onClick={(e) => e.preventDefault()}>
+          Capinha Pessoas
+        </Link>
+        <AcordeaoModulos modulos={modulos} />
+      </>,
+    );
+    expect(botaoPessoas()).toHaveAttribute("aria-expanded", "false");
+    act(() => {
+      window.history.replaceState(null, "", "/cursos/lider#modulo-4");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(botaoPessoas()).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(botaoPessoas());
+    expect(botaoPessoas()).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByText("Capinha Pessoas"));
+    expect(botaoPessoas()).toHaveAttribute("aria-expanded", "true");
+    expect(botaoPessoas()).toHaveFocus(); // teclado/leitor de tela seguem para o módulo aberto
+  });
+
+  it("hash trocado por pushState não reabre o módulo num refresh (nova renderização com props novas)", () => {
+    window.history.replaceState(null, "", "/cursos/lider");
+    const arvore = (ms: ModuloCurso[]) => (
+      <>
+        <Link href="/cursos/lider#modulo-4" onClick={(e) => e.preventDefault()}>
+          Capinha Pessoas
+        </Link>
+        <AcordeaoModulos modulos={ms} />
+      </>
+    );
+    const { rerender } = render(arvore(modulos));
+    fireEvent.click(screen.getByText("Capinha Pessoas"));
+    window.history.pushState(null, "", "/cursos/lider#modulo-4"); // o que o Link faz, sem hashchange
+    expect(botaoPessoas()).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(botaoPessoas());
+    rerender(arvore(modulos.map((m) => ({ ...m })))); // ex.: favoritar (server action + refresh)
+    expect(botaoPessoas()).toHaveAttribute("aria-expanded", "false");
   });
 });

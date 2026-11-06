@@ -888,6 +888,94 @@ Cada regra segue este formato:
 - **Comportamento esperado**: trocar ou excluir o vídeo de uma das aulas não tira o vídeo da outra; o arquivo só sai do armazenamento quando nenhuma aula viva o usa. Vídeo de outra área nunca aparece nem é aceito. A trilha registra de qual vídeo veio.
 - **Impacto se descumprida**: aula de um curso ficando sem vídeo porque o de outro curso foi trocado.
 
+### RN-260 - Conectar o Bling (pedidos do Mercado Livre e do TikTok Shop)
+- **Definida por**: Paulo (Bah! Tech), a pedido do Valmer
+- **Data**: 2026-10-31
+- **Modulo**: Admin > Vendas > Integrações > Bling (só DONO)
+- **Descricao**: O DONO cria um app privado no Bling, cola o Client ID e o Client Secret, cadastra no app a URL de retorno e a URL do webhook que a tela mostra e clica em "Autorizar no Bling". Os tokens ficam cifrados e são renovados sozinhos (antes de vencer e uma vez por dia). Os SKUs do Bling são mapeados para os cursos como os produtos da Hotmart/Eduzz. Só Mercado Livre e TikTok Shop passam pelo Bling; a Amazon não (RN-266). ADR-0024.
+- **Comportamento esperado**: client secret e tokens nunca voltam à tela (só os 4 finais); se o Bling recusar a renovação, a tela mostra "Reautorizar". "Desconectar" (com modal de confirmação) apaga a autorização e para novos resgates; quem já resgatou continua com acesso.
+- **Impacto se descumprida**: segredo do app exposto, ou conexão morta sem ninguém perceber.
+
+### RN-261 - Pedido do marketplace guardado sem CPF
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-31
+- **Modulo**: Integrações (Bling)
+- **Descricao**: Cada aviso do Bling (pedido criado, alterado ou excluído) faz o sistema reler o pedido na API e guardar número do pedido na loja, canal, SKUs e situação (Válido ou Cancelado). Do CPF do comprador fica só uma impressão (HMAC) que serve para conferir, nunca o número. Receber o pedido não matricula ninguém. A tela "Pedidos de marketplace" lista os 50 últimos, sem CPF e com o e-mail de quem resgatou mascarado.
+- **Comportamento esperado**: aviso com assinatura errada = 401; o mesmo aviso repetido não duplica; o que vale é o estado atual do pedido no Bling, não o conteúdo do aviso.
+- **Impacto se descumprida**: CPF de comprador vazado ou acesso liberado por aviso forjado.
+
+### RN-262 - Resgate público com número do pedido e CPF
+- **Definida por**: Paulo (Bah! Tech), a pedido do Valmer
+- **Data**: 2026-10-31
+- **Modulo**: Área do criador > /resgatar-pedido (sem login)
+- **Descricao**: Quem comprou no Mercado Livre ou no TikTok Shop informa número do pedido, CPF, nome e e-mail. Se o pedido é desta área e o CPF bate, os cursos mapeados aos SKUs do pedido são liberados (matrícula de COMPRA, prazo do mapeamento): conta nova recebe o e-mail para criar a senha; quem já tem conta entra com a senha de sempre. Se o pedido ainda não chegou pelo aviso, o sistema procura UMA vez no Bling antes de recusar.
+- **Comportamento esperado**: o pedido de uma área nunca resgata em outra; o curso liberado é registrado com a referência do pedido.
+- **Impacto se descumprida**: comprador sem acesso ao que pagou, ou acesso para quem não comprou.
+
+### RN-263 - Um resgate por pedido
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-31
+- **Modulo**: /resgatar-pedido
+- **Descricao**: Cada pedido libera o acesso uma única vez. Uma segunda tentativa (com o CPF certo) recebe "Este pedido já foi resgatado" com o e-mail usado mascarado (ex.: `ma***@gm***.com`) e a orientação de usar "Esqueci a senha".
+- **Comportamento esperado**: dois resgates simultâneos do mesmo pedido = um só passa.
+- **Impacto se descumprida**: um pedido liberando o curso para várias pessoas.
+
+### RN-264 - Recusa genérica e limite de tentativas no resgate público
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-31
+- **Modulo**: /resgatar-pedido
+- **Descricao**: Pedido inexistente, CPF errado ou SKU sem curso mapeado recebem a MESMA mensagem: "Não encontramos um pedido com esse número e CPF. Confira os dados ou tente de novo em alguns minutos." Código de voucher inválido, vencido, esgotado ou já usado pela pessoa recebem também uma mensagem única. Limite guardado no banco: 10 tentativas por IP a cada 15 min (as duas opções somam) e 5 por pedido ou código. Pedido cancelado avisa que foi cancelado (só depois de o CPF bater).
+- **Comportamento esperado**: a trilha registra cada recusa com o motivo real e o IP, nunca o CPF.
+- **Impacto se descumprida**: descobrir pedidos ou CPFs de terceiros por tentativa e erro.
+
+### RN-265 - Pedido cancelado no marketplace encerra o acesso
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-10-31
+- **Modulo**: Integrações (Bling)
+- **Descricao**: Quando o pedido fica Cancelado no Bling (ou é excluído), as matrículas liberadas por AQUELE pedido são encerradas, com o motivo "Pedido cancelado no Bling" ou "Pedido excluído no Bling". Matrículas de outros pedidos ou de outras origens da mesma pessoa continuam.
+- **Comportamento esperado**: pedido cancelado não pode mais ser resgatado.
+- **Impacto se descumprida**: acesso mantido após devolução ou cancelamento.
+
+### RN-266 - Resgate público com código (Amazon)
+- **Definida por**: Paulo (Bah! Tech), a pedido do Valmer
+- **Data**: 2026-10-31
+- **Modulo**: /resgatar-pedido, opção "Tenho um código" (sem login)
+- **Descricao**: A Amazon não passa pelo Bling. A equipe manda ao comprador, pelo chat da Amazon, um código de voucher de uso único (RN-201). Na página pública, a opção "Tenho um código" pede código, nome e e-mail e segue as regras do voucher (validade, limite de usos, limite por pessoa, "já tem acesso"). Deu certo: a pessoa vira ALUNO; conta nova recebe o e-mail para criar a senha, conta existente entra com a senha de sempre. O link `/resgatar-pedido?codigo=XXXX` abre a opção já preenchida (nada é resgatado sem o clique). O `/resgatar` de quem já está logado continua igual. Não há geração de códigos em lote.
+- **Comportamento esperado**: código recusado não cria conta nem membro; mesma recusa única e mesmo limite da RN-264.
+- **Impacto se descumprida**: código da Amazon sem uso, ou contas criadas por quem chuta códigos.
+
+### RN-270 - Capa do módulo e fileira "Módulos do curso"
+- **Definida por**: Valmer (Líder de Impacto), áudios de 06/11/2026
+- **Data**: 2026-11-06
+- **Modulo**: Admin > Conteúdos > módulo (capa); Vitrine do aluno (`/`)
+- **Descricao**: Cada módulo pode ter uma capinha vertical 3:4 (1080×1440), enviada no botão "Capa" do módulo no editor do conteúdo. A fileira do tipo "Módulos do curso" mostra os módulos de UM curso escolhido, na ordem do curso, como capas verticais com o selo "MÓDULO 1", "MÓDULO 2"... no alto, ícone de play, barra de progresso do aluno no módulo (aulas concluídas ÷ aulas do módulo; só para quem está matriculado) e o título embaixo. Módulo sem capa usa a capa 3:4 do curso; sem nenhuma, aparece o título sobre fundo escuro. Clicar leva à página do curso com aquele módulo aberto.
+- **Comportamento esperado**: o aluno vê só módulos PUBLICADOS de curso fora de rascunho (a equipe vê todos); curso removido ou em rascunho = a fileira some (RN-136). Trocar ou remover a capa apaga o arquivo anterior do armazenamento; remover o módulo (ou o produto) descarta a capa. A mesma imagem não serve a dois lugares.
+- **Impacto se descumprida**: aluno vendo módulo em rascunho, ou capinha quebrada depois de uma troca.
+
+### RN-271 - Fileira de módulos no construtor
+- **Definida por**: Paulo (Bah! Tech), a pedido do Valmer
+- **Data**: 2026-11-06
+- **Modulo**: Construtor da vitrine (`/admin/construtor`)
+- **Descricao**: Novo tipo de fileira "Módulos do curso": exige escolher o curso (busca só de cursos); a ordem é sempre a do curso e a quantidade (3, 5, 7 ou 10) limita quantos módulos aparecem. Se algum módulo do curso não tem capa, o painel avisa "Envie as capas 3:4 em Conteúdos > módulo". Outros tipos de fileira não aceitam curso. As versões já publicadas antes deste tipo continuam válidas sem mudança.
+- **Comportamento esperado**: curso de outra área é recusado ao salvar; trocar a fileira para outro tipo tira o curso.
+- **Impacto se descumprida**: vitrine publicada antiga quebrando, ou fileira apontando para curso de outro criador.
+
+### RN-272 - Modelo pronto "Módulos do curso (estilo Netflix)"
+- **Definida por**: Valmer (Líder de Impacto), áudios de 06/11/2026
+- **Data**: 2026-11-06
+- **Modulo**: Construtor da vitrine > Estrutura da página
+- **Descricao**: "Usar modelo: Módulos do curso (estilo Netflix)" pede o curso e, depois do modal de confirmação de 3 s, troca o DESTAQUE do rascunho pelo do curso (capa 16:9 do curso, selo automático, título e descrição do curso, botão "Continuar assistindo" que leva à próxima aula do aluno nesse curso e "Ver módulos" que abre o curso; avisos do canto como estavam) e põe a fileira "Módulos do curso" no topo. As outras fileiras ficam. Se já existe a fileira de módulos desse curso, ela sobe para o topo (e volta a ficar visível) em vez de duplicar.
+- **Comportamento esperado**: nada vai para os alunos até clicar em Publicar; com 20 fileiras o modelo fica bloqueado até remover uma.
+- **Impacto se descumprida**: vitrine dos alunos mudando sem querer, ou fileira de módulos repetida.
+
+### RN-273 - "Abrir o curso abre os módulos"
+- **Definida por**: Valmer (Líder de Impacto)
+- **Data**: 2026-11-06
+- **Modulo**: Página do curso (`/cursos/[slug]`)
+- **Descricao**: Acima do "Conteúdo do curso" aparece a seção "Módulos" com as mesmas capinhas verticais da vitrine, quando o curso tem 2 ou mais módulos ou algum módulo com capa (curso de 1 módulo sem capa fica como era). Clicar numa capinha (aqui ou na vitrine) abre aquele módulo no acordeão e rola até ele; o endereço `/cursos/<curso>#modulo-<id>` também abre o módulo direto.
+- **Comportamento esperado**: o módulo continua fechando pelo botão; o módulo em andamento segue abrindo sozinho.
+- **Impacto se descumprida**: aluno clicando no módulo e caindo no topo da página, sem achar as aulas.
+
 <!-- Exemplo de registro: -->
 
 <!--

@@ -30,10 +30,11 @@ async function Editor({ params }: { params: Params }) {
   const dados = await produtoParaEditar(criador.id, id);
   if (!dados) notFound();
   const { produto } = dados;
-  const [equipe, capa3x4, capa16x9] = await Promise.all([
+  const [equipe, capa3x4, capa16x9, capasModulos] = await Promise.all([
     equipeDoCriador(criador.id),
     urlDeImagemOuNula(criador.id, dados.capa3x4Chave),
     urlDeImagemOuNula(criador.id, dados.capa16x9Chave),
+    Promise.all(dados.modulos.map((m) => urlDeImagemOuNula(criador.id, m.capaChave))),
   ]);
   const pendencias = pendenciasParaPublicar({
     titulo: produto.titulo,
@@ -41,11 +42,12 @@ async function Editor({ params }: { params: Params }) {
     modulosComAula: dados.modulos.filter((m) => m.status === "PUBLICADO" && m.aulas.length > 0).length,
   });
   const versao = produto.updated_at.toISOString();
-  const modulos = dados.modulos.map((m) => ({
+  const modulos = dados.modulos.map((m, i) => ({
     id: m.id,
     titulo: m.titulo,
     status: m.status,
     versao: m.updated_at.toISOString(),
+    capaUrl: capasModulos[i],
     aulas: m.aulas.map((a) => ({ id: a.id, titulo: a.titulo, versao: a.versao.toISOString(), libera: a.liberaEm ? `Libera ${dataHoraCurta(a.liberaEm)}` : null })),
   }));
   // Dado novo do servidor (versões) remonta o estado local da estrutura.

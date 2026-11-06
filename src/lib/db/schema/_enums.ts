@@ -293,12 +293,15 @@ export type ModeloPagina = (typeof MODELOS_PAGINA)[number];
 export const SITUACOES_PAGINA = ["RASCUNHO", "PUBLICADA"] as const;
 export type SituacaoPagina = (typeof SITUACOES_PAGINA)[number];
 
-/** Integrações de venda externa — Hotmart e Eduzz (ADR-0021, RN-230 a RN-236). */
-export const PLATAFORMAS_INTEGRACAO = ["HOTMART", "EDUZZ"] as const;
+/** Integrações de venda externa — Hotmart e Eduzz (ADR-0021, RN-230 a RN-236); Bling = pedidos de marketplace (ADR-0024). */
+export const PLATAFORMAS_INTEGRACAO = ["HOTMART", "EDUZZ", "BLING"] as const;
 export type PlataformaIntegracao = (typeof PLATAFORMAS_INTEGRACAO)[number];
 
-/** O que o evento externo significa para o acesso (src/lib/integracoes/normalizar.ts). OUTRO = só registrado. */
-export const TIPOS_EVENTO_INTEGRACAO = ["COMPRA_APROVADA", "REEMBOLSO", "CHARGEBACK", "CANCELAMENTO", "ASSINATURA_CANCELADA", "ASSINATURA_ATRASADA", "OUTRO"] as const;
+/**
+ * O que o evento externo significa para o acesso (src/lib/integracoes/regras.ts). OUTRO = só registrado.
+ * PEDIDO_* (Bling): o pedido mudou; o worker relê o pedido na API e o estado atual vence (ADR-0024).
+ */
+export const TIPOS_EVENTO_INTEGRACAO = ["COMPRA_APROVADA", "REEMBOLSO", "CHARGEBACK", "CANCELAMENTO", "ASSINATURA_CANCELADA", "ASSINATURA_ATRASADA", "PEDIDO_ATUALIZADO", "PEDIDO_EXCLUIDO", "OUTRO"] as const;
 export type TipoEventoIntegracao = (typeof TIPOS_EVENTO_INTEGRACAO)[number];
 
 /** Recibo recusado: token/assinatura não confere ou corpo fora do formato (não vira processamento). */
@@ -308,3 +311,11 @@ export type RecusaIntegracao = (typeof RECUSAS_INTEGRACAO)[number];
 /** Processamento do evento: SEM_MAPEAMENTO e ERRO podem ser reprocessados (voltam a PENDENTE). */
 export const SITUACOES_EVENTO_INTEGRACAO = ["PENDENTE", "PROCESSADO", "SEM_MAPEAMENTO", "IGNORADO", "ERRO"] as const;
 export type SituacaoEventoIntegracao = (typeof SITUACOES_EVENTO_INTEGRACAO)[number];
+
+/** Autorização OAuth do Bling (ADR-0024): REAUTORIZAR = o refresh token foi recusado; a tela pede de novo. */
+export const SITUACOES_AUTORIZACAO_INTEGRACAO = ["AGUARDANDO", "AUTORIZADA", "REAUTORIZAR"] as const;
+export type SituacaoAutorizacaoIntegracao = (typeof SITUACOES_AUTORIZACAO_INTEGRACAO)[number];
+
+/** Pedido de marketplace lido do Bling: CANCELADO (situação cancelada ou excluído) não resgata e encerra o acesso. */
+export const SITUACOES_PEDIDO_MARKETPLACE = ["VALIDO", "CANCELADO"] as const;
+export type SituacaoPedidoMarketplace = (typeof SITUACOES_PEDIDO_MARKETPLACE)[number];

@@ -14,7 +14,11 @@ export const NOME_FILA_INTEGRACOES_DLQ = "integracoes-dlq";
 // ponytail: um evento por vez (reembolso e aprovação da mesma compra não correm juntos); por criador se o volume crescer.
 export const CONCORRENCIA_WORKER_INTEGRACOES = 1;
 
-export const esquemaJobIntegracao = z.strictObject({ eventoId: z.uuid() });
+const esquemaJobEvento = z.strictObject({ eventoId: z.uuid() });
+/** Job agendado (sem dado de ninguém): renova os tokens do Bling todo dia (ADR-0024 item 5). */
+export const JOB_RENOVAR_BLING = "renovar-bling";
+export const RENOVACAO_BLING = { id: JOB_RENOVAR_BLING, pattern: "0 4 * * *", tz: "America/Sao_Paulo" } as const;
+export const esquemaJobIntegracao = z.union([esquemaJobEvento, z.strictObject({ tipo: z.literal(JOB_RENOVAR_BLING) })]);
 export type JobIntegracao = z.infer<typeof esquemaJobIntegracao>;
 
 export const OPCOES_JOB_INTEGRACAO = {
@@ -38,7 +42,7 @@ export function filaIntegracoes(): Queue<JobIntegracao> {
 }
 
 export async function enfileirarEventoIntegracao(fila: Queue<JobIntegracao>, dados: unknown): Promise<void> {
-  const job = esquemaJobIntegracao.parse(dados);
+  const job = esquemaJobEvento.parse(dados);
   // jobId = id do evento: enfileirar de novo enquanto o job existe não duplica (reentrega da plataforma).
   await fila.add("evento", job, { ...OPCOES_JOB_INTEGRACAO, jobId: job.eventoId });
 }

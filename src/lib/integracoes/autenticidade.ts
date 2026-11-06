@@ -28,3 +28,14 @@ export function assinaturaEduzzConfere(recebida: string | null, chave: string, c
   const b64 = iguaisEmTempoConstante(r, mac.toString("base64"));
   return hex || b64;
 }
+
+/**
+ * Bling: `X-Bling-Signature-256: sha256=<hex>` = HMAC-SHA256(client_secret, corpo cru em UTF-8)
+ * (developer.bling.com.br/webhooks, "Validação do hash"). Hex em qualquer caixa; sem o prefixo, recusa.
+ */
+export function assinaturaBlingConfere(recebida: string | null, clientSecret: string, corpoCru: string): boolean {
+  const r = recebida?.trim() ?? "";
+  if (!r.toLowerCase().startsWith("sha256=")) return false;
+  const mac = createHmac("sha256", clientSecret).update(corpoCru, "utf8").digest("hex");
+  return iguaisEmTempoConstante(r.slice(7).toLowerCase(), mac);
+}
