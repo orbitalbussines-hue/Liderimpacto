@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { CalendarClock, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, ImageIcon, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { CampoImagem } from "@/components/admin/campo-imagem";
 import { ListaOrdenavel, useOrdemPersistida, type ControlesOrdem } from "@/components/admin/lista-ordenavel";
 import { MenuAdmin } from "@/components/admin/menu-admin";
 import { ModalConfirmacaoBlock } from "@/components/modal-confirmacao-block";
@@ -12,7 +13,7 @@ import { CampoMoldura } from "@/components/ui/campo-moldura";
 import { GrupoChips } from "@/components/ui/grupo-chips";
 import { Selo } from "@/components/ui/selo";
 import type { Resultado } from "@/lib/acao";
-import { acaoCriarAula, acaoEditarModulo, acaoReordenarAulas, acaoRemoverAula, acaoRemoverModulo } from "@/lib/actions/produtos-estrutura";
+import { acaoCriarAula, acaoDefinirCapaModulo, acaoEditarModulo, acaoReordenarAulas, acaoRemoverAula, acaoRemoverModulo } from "@/lib/actions/produtos-estrutura";
 import { ROTULO_STATUS_MODULO } from "@/lib/catalogo/regras";
 import { STATUS_MODULO, type StatusModulo } from "@/lib/db/schema/_enums";
 import { DialogoTitulo } from "./dialogo-titulo";
@@ -30,6 +31,8 @@ export interface ModuloDaEstrutura {
   titulo: string;
   status: StatusModulo;
   versao: string;
+  /** URL assinada da capa 3:4 (fileira "Módulos do curso") ou null. */
+  capaUrl: string | null;
   aulas: AulaDaEstrutura[];
 }
 
@@ -102,6 +105,13 @@ function LinhaAula({ aula, numero, produtoId, controles }: { aula: AulaDaEstrutu
   );
 }
 
+/**
+ * Painéis de capa abertos, fora do estado do componente: a capa grava o `updated_at` do módulo e
+ * o refresh remonta a estrutura (key = versões); sem isto o painel fecharia logo após o envio.
+ * Só o navegador escreve (clique), então o servidor nunca guarda nada aqui.
+ */
+const capasAbertas = new Set<string>();
+
 export interface ModuloEstruturaProps {
   modulo: ModuloDaEstrutura;
   numero: number;
@@ -109,11 +119,18 @@ export interface ModuloEstruturaProps {
   controles: ControlesOrdem;
 }
 
-/** Cartão do módulo: alça, título e situação, menu (editar/remover) e as aulas reordenáveis. */
+/** Cartão do módulo: alça, título e situação, capa 3:4 (painel recolhível), menu (editar/remover) e as aulas reordenáveis. */
 export function ModuloEstrutura({ modulo, numero, produtoId, controles }: ModuloEstruturaProps) {
   const aulas = useOrdemPersistida(modulo.aulas, (itens) => acaoReordenarAulas({ moduloId: modulo.id, itens }));
   const [dialogo, setDialogo] = useState<"editar" | "aula" | "remover" | null>(null);
   const [status, setStatus] = useState<StatusModulo>(modulo.status);
+  const [verCapa, setVerCapaLocal] = useState(() => capasAbertas.has(modulo.id));
+  const setVerCapa = (v: boolean) => {
+    if (v) capasAbertas.add(modulo.id);
+    else capasAbertas.delete(modulo.id);
+    setVerCapaLocal(v);
+  };
+  const idCapa = `capa-modulo-${modulo.id}`;
   const { erro, setErro, pendente, rodar } = useAcaoEstrutura();
   const abrir = (d: typeof dialogo) => {
     setErro(null);
@@ -137,6 +154,18 @@ export function ModuloEstrutura({ modulo, numero, produtoId, controles }: Modulo
             )}
           </div>
         </div>
+        <Button
+          variant="fantasma"
+          size="36"
+          aria-expanded={verCapa}
+          aria-controls={idCapa}
+          aria-label={`${modulo.capaUrl ? "Trocar capa" : "Adicionar capa"} do módulo ${modulo.titulo}`}
+          className="text-accent"
+          onClick={() => setVerCapa(!verCapa)}
+        >
+          <ImageIcon className="size-3.5" aria-hidden />
+          <span className="hidden min-[480px]:inline">{modulo.capaUrl ? "Capa ✓" : "Adicionar capa"}</span>
+        </Button>
         {controles.subirDescer}
         <MenuAdmin
           gatilho={<Button variant="fantasma" size="icone36" aria-label={`Ações do módulo ${modulo.titulo}`} className="text-muted" />}
@@ -147,6 +176,20 @@ export function ModuloEstrutura({ modulo, numero, produtoId, controles }: Modulo
         >
           <MoreVertical aria-hidden />
         </MenuAdmin>
+      </div>
+      <div id={idCapa} hidden={!verCapa} className="border-t border-border px-4 py-3">
+        {verCapa && (
+          <CampoImagem
+            rotulo="Capa do módulo"
+            proporcao="3/4"
+            src={modulo.capaUrl}
+            alt={`Capa do módulo ${numero}: ${modulo.titulo}`}
+            onDefinir={(arquivoId) => acaoDefinirCapaModulo({ moduloId: modulo.id, versao: modulo.versao, arquivoId })}
+            descricaoRemover="A capa sai do módulo e o arquivo é apagado do armazenamento. Sem ela, a fileira usa a capa 3:4 do curso."
+            ajuda="Capinha vertical da fileira de módulos — 1080×1440"
+            classNamePrevia="max-w-[140px]"
+          />
+        )}
       </div>
 
       {aulas.itens.length > 0 ? (

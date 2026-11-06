@@ -5,7 +5,7 @@ import { ErroDeNegocio } from "@/lib/acao";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import type { Transacao } from "@/lib/db";
 import type { PlataformaIntegracao } from "@/lib/db/schema/_enums";
-import { criadores_integracoes as integ, criadores_integracoes_eventos as ev, criadores_integracoes_produtos as mapa, produtos } from "@/lib/db/schema";
+import { criadores_integracoes as integ, criadores_integracoes_eventos as ev, criadores_integracoes_oauth as oauth, criadores_integracoes_produtos as mapa, produtos } from "@/lib/db/schema";
 import { MSG_COLISAO, marcaDeExclusao, travaDeColisao, vivos } from "@/lib/db/soft-delete";
 import { violouUnico } from "@/lib/membros/vinculos";
 import { cifrarSegredo } from "@/lib/webhooks/segredo";
@@ -72,7 +72,7 @@ export async function trocarSegredoIntegracao(tx: Transacao, p: { criadorId: str
   return { versao: i.versao };
 }
 
-/** Desconecta (soft delete) e tira os mapeamentos: a URL antiga passa a responder 404. */
+/** Desconecta (soft delete) e tira os mapeamentos: a URL antiga passa a responder 404. Bling: os tokens são apagados. */
 export async function desconectarIntegracao(tx: Transacao, p: { criadorId: string; autor: string; integracaoId: string; versao: Date }): Promise<{ mapeamentos: number }> {
   const antes = await travada(tx, p.criadorId, p.integracaoId, p.versao);
   await tx.update(integ).set(marcaDeExclusao(p.autor)).where(and(eq(integ.id, p.integracaoId), eq(integ.criador_id, p.criadorId)));
@@ -81,6 +81,11 @@ export async function desconectarIntegracao(tx: Transacao, p: { criadorId: strin
     .set(marcaDeExclusao(p.autor))
     .where(and(eq(mapa.integracao_id, p.integracaoId), eq(mapa.criador_id, p.criadorId), vivos(mapa)))
     .returning({ id: mapa.id });
+  // Só existe no Bling (ADR-0024): a autorização sai junto e os tokens cifrados viram nulo.
+  await tx
+    .update(oauth)
+    .set({ ...marcaDeExclusao(p.autor), tokens_cifrados: null, token_expira_em: null })
+    .where(and(eq(oauth.integracao_id, p.integracaoId), eq(oauth.criador_id, p.criadorId), vivos(oauth)));
   await registrarAuditoria(tx, { userId: p.autor, criadorId: p.criadorId, acao: "excluir", tabela: TABELA, registroId: p.integracaoId, detalhes: `Desconectou a ${ROTULO_PLATAFORMA[antes.plataforma]} (${tirados.length} mapeamento(s) removido(s))` });
   return { mapeamentos: tirados.length };
 }

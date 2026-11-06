@@ -1,13 +1,14 @@
 import { z } from "zod";
-import { PLATAFORMAS_INTEGRACAO } from "@/lib/db/schema/_enums";
+import { CLIENTE_ID_BLING } from "@/lib/integracoes/bling/regras";
 import { PRODUTO_EXTERNO, SEGREDO_EXTERNO } from "@/lib/integracoes/regras";
 import { idSchema, versaoSchema } from "./membros";
 
-/** Integrações Hotmart/Eduzz (RN-230 a RN-236). Mesmos schemas na action e na tela. */
+/** Integrações Hotmart/Eduzz/Bling (RN-230 a RN-236, RN-260). Mesmos schemas na action e na tela. */
 
 const segredo = z.string().trim().regex(SEGREDO_EXTERNO, "Cole o token exato, sem espaços (8 a 200 caracteres).");
 
-export const conectarIntegracaoSchema = z.strictObject({ plataforma: z.enum(PLATAFORMAS_INTEGRACAO, "Plataforma inválida."), segredo });
+/** Só Hotmart e Eduzz por aqui: o Bling conecta com client_id + secret (`conectarBlingSchema`). */
+export const conectarIntegracaoSchema = z.strictObject({ plataforma: z.enum(["HOTMART", "EDUZZ"], "Plataforma inválida."), segredo });
 export const trocarSegredoSchema = z.strictObject({ integracaoId: idSchema, versao: versaoSchema, segredo });
 export const integracaoVersaoSchema = z.strictObject({ integracaoId: idSchema, versao: versaoSchema });
 
@@ -29,3 +30,9 @@ export const criarMapeamentoSchema = z.strictObject({
 
 export const mapeamentoVersaoSchema = z.strictObject({ mapeamentoId: idSchema, versao: versaoSchema });
 export const reprocessarEventoSchema = z.strictObject({ eventoId: idSchema, versao: versaoSchema });
+
+/** Bling (ADR-0024): client_id + client_secret do app que o dono cria no Bling. */
+const clienteId = z.string().trim().regex(CLIENTE_ID_BLING, "Client ID inválido: cole o valor exato do app no Bling.");
+export const conectarBlingSchema = z.strictObject({ clienteId, clientSecret: segredo });
+export const trocarCredenciaisBlingSchema = z.strictObject({ integracaoId: idSchema, versao: versaoSchema, clienteId, clientSecret: segredo });
+export const autorizarBlingSchema = z.strictObject({ integracaoId: idSchema });

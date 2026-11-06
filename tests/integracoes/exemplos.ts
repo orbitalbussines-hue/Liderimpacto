@@ -128,3 +128,43 @@ export function eduzzContrato(o: { contratoId: string; status: string }) {
 
 /** `x-signature` da Eduzz: HMAC-SHA256(chave, corpo cru) em hex. */
 export const assinarEduzz = (chave: string, corpo: string) => createHmac("sha256", chave).update(corpo).digest("hex");
+
+// ---------- Bling (API v3, ADR-0024): formato de https://developer.bling.com.br/webhooks e /referencia ----------
+
+export const pedidoBlingId = () => String(20_000_000_000 + Math.floor(Math.random() * 1e9));
+/** Número do pedido no marketplace, como o Mercado Livre mostra (fictício). */
+export const numeroLojaFicticio = () => `20000${String(Math.floor(Math.random() * 1e10)).padStart(10, "0")}`;
+
+/** Aviso `order.*` (versão v1). No `deleted`, `data` só traz o id. */
+export function blingAviso(o: { evento?: "order.created" | "order.updated" | "order.deleted"; pedidoId: string; numeroLoja?: string; situacao?: number }) {
+  const evento = o.evento ?? "order.created";
+  return {
+    eventId: `01${aleatorio()}${aleatorio()}`,
+    date: new Date().toISOString(),
+    version: "v1",
+    event: evento,
+    companyId: "c0ffee0000000000000000000000beef",
+    data:
+      evento === "order.deleted"
+        ? { id: Number(o.pedidoId) }
+        : { id: Number(o.pedidoId), data: "2026-10-30", numero: 123, numeroLoja: o.numeroLoja ?? "", total: 97, contato: { id: 1 }, vendedor: { id: 0 }, loja: { id: 204000000 }, situacao: { id: 6, valor: o.situacao ?? 1 } },
+  };
+}
+
+/** `GET /pedidos/vendas/{id}` (só os campos que lemos, dados fictícios). */
+export function blingPedido(o: { pedidoId: string; numeroLoja: string; cpf: string; skus?: string[]; situacao?: number }) {
+  return {
+    data: {
+      id: Number(o.pedidoId),
+      numero: 123,
+      numeroLoja: o.numeroLoja,
+      contato: { id: 1, nome: "Comprador Exemplo", tipoPessoa: "F", numeroDocumento: o.cpf },
+      situacao: { id: 6, valor: o.situacao ?? 1 },
+      loja: { id: 204000000 },
+      itens: (o.skus ?? ["LIVRO-01"]).map((codigo) => ({ codigo, descricao: "Produto Exemplo", quantidade: 1, valor: 97 })),
+    },
+  };
+}
+
+/** `X-Bling-Signature-256`: `sha256=` + HMAC-SHA256(client secret, corpo cru) em hex. */
+export const assinarBling = (clientSecret: string, corpo: string) => `sha256=${createHmac("sha256", clientSecret).update(corpo, "utf8").digest("hex")}`;

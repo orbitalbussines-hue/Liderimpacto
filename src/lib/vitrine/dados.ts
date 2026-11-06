@@ -94,11 +94,25 @@ export async function rotulosDasReferencias(criadorId: string, ids: { produtos: 
   return Object.fromEntries([...ps.map((p) => [p.id, p.titulo]), ...as.map((a) => [a.id, `${a.titulo} · ${a.curso}`])]) as Record<string, string>;
 }
 
-/** Opções do construtor: cursos (alvo de botão e item manual) e grupos (quem vê). */
+/**
+ * Módulos que o ALUNO vê na fileira (mesma regra de `estruturaDoProduto`: vivo, PUBLICADO e com
+ * ao menos uma aula viva); `comCapa` = só os que têm capa 3:4 viva. A coluna externa vai ESCRITA
+ * com a tabela ("produtos"."id"): num select de uma tabela só o Drizzle a renderiza como "id"
+ * puro, que dentro da subquery viraria o id do módulo (ver sinais-fator.ts).
+ */
+const modulosDoProduto = (comCapa: boolean) =>
+  sql<number>`(select count(*)::int from produtos_modulos m ${comCapa ? sql`join arquivos a on a.id = m.capa_arquivo_id and a.is_deleted = false` : sql``}
+    where m.produto_id = "produtos"."id" and m.is_deleted = false and m.status = 'PUBLICADO'
+      and exists (select 1 from produtos_modulos_aulas au where au.modulo_id = m.id and au.is_deleted = false))`;
+
+/**
+ * Opções do construtor: cursos (alvo de botão, item manual, fileira e modelo de módulos, com a
+ * contagem de módulos e de capas 3:4 para o aviso "envie as capas") e grupos (quem vê).
+ */
 export async function opcoesDoConstrutor(criadorId: string) {
   const [cursos, grupos] = await Promise.all([
     db
-      .select({ id: produtos.id, titulo: produtos.titulo, status: produtos.status })
+      .select({ id: produtos.id, titulo: produtos.titulo, status: produtos.status, descricao: produtos.descricao, modulos: modulosDoProduto(false), modulosComCapa: modulosDoProduto(true) })
       .from(produtos)
       .where(and(eq(produtos.criador_id, criadorId), vivos(produtos)))
       .orderBy(asc(produtos.titulo)),

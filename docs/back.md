@@ -64,6 +64,7 @@ regra pura em `src/lib/membros/regras.ts`; leitura das telas em `src/lib/membros
 |--------|---------|------|--------|-------|
 | `acaoCriarProduto`, `acaoSalvarProduto`, `acaoAlterarSituacaoProduto`, `acaoDefinirCapaProduto`, `acaoRemoverProduto` | `src/lib/actions/produtos.ts` | DONO, ADMIN | criar / atualizar (campo a campo) / `publicar` / excluir | RN-109, RN-110 |
 | `acaoCriarModulo`, `acaoEditarModulo`, `acaoRemoverModulo`, `acaoReordenarModulos`, `acaoCriarAula`, `acaoRemoverAula`, `acaoReordenarAulas` | `src/lib/actions/produtos-estrutura.ts` | DONO, ADMIN | criar / atualizar / excluir / `reordenar` (ordem antes → depois) | RN-111 |
+| `acaoDefinirCapaModulo({ moduloId, versao, arquivoId \| null })` → `{ versao }` | `src/lib/actions/produtos-estrutura.ts` | DONO, ADMIN | atualizar ("Definiu/Trocou/Removeu a capa 3:4 do módulo") + excluir do arquivo anterior | RN-270 |
 | `acaoSalvarAula`, `acaoDefinirThumbAula`, `acaoAdicionarMaterial`, `acaoRenomearMaterial`, `acaoRemoverMaterial` | `src/lib/actions/aulas.ts` | DONO, ADMIN | criar / atualizar / excluir | RN-111, RN-112 |
 | `acaoLinkDoMaterial` | `src/lib/actions/aulas.ts` | DONO, ADMIN | — (leitura: URL de 5 min) | RN-112 |
 | `acaoIniciarEnvio`, `acaoConfirmarEnvio` | `src/lib/actions/arquivos.ts` | DONO, ADMIN | criar / atualizar (ou excluir, se o HEAD não bate) | RN-112 |
@@ -72,6 +73,10 @@ Tabelas (`src/lib/db/schema/produtos.ts` e `arquivos.ts`): `produtos` → `produ
 `produtos_modulos_aulas` → `produtos_modulos_aulas_materiais`, e `arquivos`. Todas com `criador_id`
 e FK composta para o pai do mesmo criador; ordem única por pai entre os vivos. O vínculo aula ×
 vídeo NÃO está aqui: o pipeline de vídeo (passo 3b) cria a tabela dele e a coluna na aula.
+`produtos_modulos.capa_arquivo_id` (migração `0019_capa_dos_modulos`, aditiva): capa 3:4 do módulo,
+FK composta `(capa_arquivo_id, criador_id)` → `arquivos(id, criador_id)` RESTRICT; conta como uso do
+arquivo (`arquivoParaUsar`) e é descartada ao remover o módulo ou o produto. `cursoDoAluno` devolve
+`modulos[].capaChave` na mesma consulta da estrutura (sem consulta por módulo).
 
 Leituras das telas em `src/lib/catalogo/consultas.ts`; regra pura (publicação, rótulos) em
 `src/lib/catalogo/regras.ts`; invariante "publicado continua publicável" em
@@ -278,16 +283,19 @@ jsonb imutável, `publicada_por` FK usuário, `publicada_em`). Migração `0008_
 ConfigVitrine = {
   destaque: { imagemArquivoId: uuid | null /* null = capa 16:9 do curso */, selo: string | null /* null = "N AULAS" */,
               titulo, descricao, botaoPrincipal: Botao, botaoSecundario: Botao | null, mostrarAvisos },
-  fileiras: { id /* estável */, titulo /* {nome} */, tipo: CONTINUAR|TOP10|NOVIDADES|TRILHAS|MENTORIAS|LISTA|MANUAL,
+  fileiras: { id /* estável */, titulo /* {nome} */, tipo: CONTINUAR|TOP10|NOVIDADES|TRILHAS|MENTORIAS|LISTA|MANUAL|MODULOS,
               quantidade: 3|5|7|10, ordenacao: MANUAL|RECENTES|MAIS_ASSISTIDOS /* ORDENACOES_DO_TIPO */,
-              grupos: uuid[] /* [] = todos */, visivel, itensManuais: { tipo: PRODUTO|AULA, id }[] /* ≤ 10, só MANUAL */ }[] /* ≤ 20 */,
+              grupos: uuid[] /* [] = todos */, visivel, itensManuais: { tipo: PRODUTO|AULA, id }[] /* ≤ 10, só MANUAL */,
+              cursoId?: uuid /* só e obrigatório em MODULOS; opcional para o JSON já publicado seguir válido */ }[] /* ≤ 20 */,
   player: { abas: { descricao, materiais, comentarios, anotacoes }, playlist, autoplay, velocidade, marcadores, avisoCertificado },
 }
 Botao = { texto, acao: CURSO|AULA|CONTINUAR|LINK, alvo /* CURSO/CONTINUAR: produto (CONTINUAR null = onde parou); AULA: aula; LINK: "/..." */ }
 ```
 
 `configVitrineSchema` (strictObject em tudo), `configPadrao(curso)`, `FILEIRAS_PADRAO`, `PLAYER_PADRAO`,
-`mesmaConfig`, `resumoDaMudanca`, `fileiraParaQuem`, `referenciasDaConfig`, `tituloComNome`.
+`mesmaConfig`, `resumoDaMudanca`, `fileiraParaQuem`, `referenciasDaConfig` (inclui o `cursoId` da MODULOS),
+`tituloComNome`, `fileiraDeModulos(id, cursoId)`, `aplicarModeloModulos(config, curso, idNovo)` (modelo
+"Módulos do curso": destaque do curso + MODULOS no topo, sem duplicar; RN-272).
 
 ### Leituras
 
@@ -297,6 +305,7 @@ Botao = { texto, acao: CURSO|AULA|CONTINUAR|LINK, alvo /* CURSO/CONTINUAR: produ
 | `publicadaAgora`, `rascunhoAtual`, `rascunhoEfetivo`, `versoesDaVitrine`, `dadosDoConstrutor`, `rascunhoPadrao`, `cursoPrincipal`, `rotulosDasReferencias`, `opcoesDoConstrutor`, `buscarConteudos` | `vitrine/dados.ts` (sem cache) | tela do construtor |
 | `vitrineDoAluno(q)` / `previaDaVitrine(q, rascunho)` (só equipe; aluno = erro) | `vitrine/resolver.ts` | `{ destaque: DestaqueConfig \| null, fileiras: { id, titulo, variante, tag?, itens: ItemFileira[] }[] }` (só as com itens) |
 | `fileirasVisiveis(q, config)`, `resolverFileira(q, f)`, `resolverDestaque(q, d \| null)`, `gruposDoMembro(q)` | `vitrine/resolver.ts` | peças usadas por `/` e `/previa-vitrine` (`VitrineMontada`) |
+| `resolverFileira` com MODULOS; `cartoesDeModulos(criadorId, curso)` | `vitrine/resolver.ts` | módulos do curso visíveis para quem pede (via `cursoDoAluno`), na ordem: `selo` "MÓDULO N", capa do módulo ou 3:4 do curso, `progresso` só com matrícula, `href` `/cursos/<slug>#modulo-<id>`; curso fora/rascunho = vazia (RN-270, RN-273) |
 | `cartoesEscolhidos(q, itens)`, `visualizacoesPorProduto(criadorId, dias)` | `progresso/consultas.ts` | fileira MANUAL (só o que a pessoa abre) e "mais assistidos" |
 
 ### Actions (`src/lib/actions/vitrine.ts`; `executar()` → `Resultado`; `exigirMembro(EQUIPE)`; criador do HOST)
@@ -1455,6 +1464,48 @@ convenção das fases anteriores: `executar()` → `Resultado`, criador do HOST,
 
 Testes: `tests/integracao/integracoes-hotmart-eduzz.test.ts` (Postgres real, fila injetada) e
 `tests/integracoes/regras.test.ts` (fora de `src/`: a imagem Docker não leva `tests/`, e o build checa os tipos de todo `src/`), com os payloads de exemplo anonimizados de `tests/integracoes/exemplos.ts`.
+
+## Bling: pedidos de marketplace e resgate público (ADR-0024, RN-260 a RN-266)
+
+Migração `0018_integracao_bling_marketplaces` (só aditiva: 3 tabelas; `BLING` e `PEDIDO_ATUALIZADO`/
+`PEDIDO_EXCLUIDO` entram nos CHECKs de plataforma e tipo). A conexão é a linha `BLING` de
+`criadores_integracoes` (segredo cifrado = client secret), na mesma tela `/admin/vendas/integracoes`
+(card próprio + lista "Pedidos de marketplace"), mesma rota de webhook (`/api/integracoes/bling/<id>`,
+`X-Bling-Signature-256: sha256=<hex>`), mesmo recibo e mesma fila da seção anterior.
+
+| Tabela (`src/lib/db/schema/integracoes-bling.ts`) | Colunas |
+|---------------------------------------------------|---------|
+| `criadores_integracoes_oauth` | `integracao_id` (FK composta, uma viva), `cliente_id`, `tokens_cifrados?` (`{a,r}` cifrado, AAD `bling-tokens:<id>`), `token_expira_em?`, `renovado_em?`, `situacao` (`SITUACOES_AUTORIZACAO_INTEGRACAO`), `erro?` |
+| `criadores_integracoes_pedidos` | `integracao_id`, `pedido_id` (id no Bling, único por integração), `numero_loja?`, `numero?`, `loja_id?`, `cpf_hmac?` (64 hex, nunca o CPF), `skus` jsonb, `situacao` VALIDO/CANCELADO, `situacao_bling?`, `sincronizado_em` |
+| `criadores_integracoes_pedidos_resgates` | `pedido_id` (único: um resgate por pedido), `membro_id` (FK composta), `matriculas` jsonb |
+
+| Action | Entrada → saída |
+|--------|-----------------|
+| `acaoConectarBling` (`actions/integracoes.ts`, DONO) | `{ clienteId, clientSecret }` → `{ id, url, versao }` |
+| `acaoTrocarCredenciaisBling` | `{ integracaoId, versao, clienteId, clientSecret }` → `{ versao }` (volta a AGUARDANDO) |
+| `acaoAutorizarBling` | `{ integracaoId }` → `{ url }` do authorize (state preso à sessão) |
+| `acaoResgatarPedido` (`actions/resgate-publico.ts`, sem login) | `{ numeroPedido, cpf, nome, email }` → `{ contaNova, cursos }` |
+| `acaoResgatarCodigo` (sem login) | `{ codigo, nome, email }` → `{ contaNova, cursos }` |
+
+Rotas: `GET <área>/admin/vendas/integracoes/bling/retorno?code=&state=` (DONO; troca o code e volta para
+a tela com `?bling=autorizado|erro`) e a página pública `/resgatar-pedido` (`?codigo=` preenche a opção do
+código; 404 no apex). Leituras em `consultas.ts`: `autorizacaoBling(criadorId)` e `pedidosMarketplace(criadorId)`.
+
+| Arquivo (`src/lib/integracoes/bling/`) | Funções |
+|----------------------------------------|---------|
+| `regras.ts` (puro) | `normalizarBling`, `lerPedidoBling`, `idsDaListaDePedidos`, `situacaoDoPedido` (valor 2 = cancelado), `cpfValido`, `normalizarNumeroLoja`, `prefixoDoPedido`, URLs e rótulos |
+| `cpf.ts` | `hmacDoCpf(criadorId, cpf)` (HKDF do `BETTER_AUTH_SECRET`) |
+| `api.ts` | `pedirToken`, `tokenDeAcesso` (renova com a linha travada; recusa = REAUTORIZAR), `buscarPedidoBling`, `idsPorNumeroLoja`, `cifrarTokens` |
+| `oauth.ts` | `conectarBling`, `trocarCredenciaisBling`, `assinarEstado`/`conferirEstado`, `urlDeAutorizacao`, `concluirAutorizacaoBling`, `renovarTokensBling` (job diário `renovar-bling` no worker) |
+| `pedidos.ts` | `gravarPedido` (cancelado → `encerrarAcesso` do prefixo `bling:<pedido>:`), `prepararEventoBling`/`aplicarEventoBling` (chamados por `processar.ts`), `sincronizarPorNumero` |
+| `resgate.ts` | `resgatarPedidoMarketplace` |
+
+`src/lib/resgates/publico.ts`: teto persistido (`TETO_RESGATE`), recusa na trilha sem CPF,
+`depoisDoResgate` (primeiro acesso pelo `depoisDaVenda`) e `resgatarCodigoPublico` (voucher + `vincularPessoa`).
+Validação: `src/lib/validators/resgate-publico.ts` (CPF com dígito verificador).
+
+Testes: `tests/integracao/integracoes-bling.test.ts` (Postgres real, API do Bling simulada por `fetch`)
+e `tests/integracoes/bling.test.ts` (regras puras), com payloads de exemplo em `tests/integracoes/exemplos.ts`.
 
 ## Páginas e funis (ADR-0022, RN-240 a RN-247) — DONO e ADMIN
 

@@ -4,10 +4,11 @@ import { z } from "zod";
  * Configuração da vitrine (SISTEMA.md §4 `StorefrontConfig` + `StorefrontRow`; RN-135 a RN-138).
  * PURO: serve à action (valida o JSON que chega), ao servidor (resolve a vitrine) e à tela do
  * construtor (mesmas listas e rótulos). O JSON NUNCA entra no banco sem passar por
- * `configVitrineSchema` (`strictObject`: campo a mais = recusa).
+ * `configVitrineSchema` (`strictObject`: campo a mais = recusa). Campo NOVO entra como
+ * `.optional()`: as versões já publicadas (JSON sem ele) continuam válidas (RN-271).
  */
 
-export const TIPOS_FILEIRA = ["CONTINUAR", "TOP10", "NOVIDADES", "TRILHAS", "MENTORIAS", "LISTA", "MANUAL"] as const;
+export const TIPOS_FILEIRA = ["CONTINUAR", "TOP10", "NOVIDADES", "TRILHAS", "MENTORIAS", "LISTA", "MANUAL", "MODULOS"] as const;
 export type TipoFileira = (typeof TIPOS_FILEIRA)[number];
 
 export const QUANTIDADES_FILEIRA = [3, 5, 7, 10] as const;
@@ -27,6 +28,7 @@ export const ROTULO_TIPO_FILEIRA: Record<TipoFileira, string> = {
   MENTORIAS: "Mentorias",
   LISTA: "Minha lista",
   MANUAL: "Escolha manual",
+  MODULOS: "Módulos do curso",
 };
 
 export const ROTULO_ORDENACAO: Record<OrdenacaoFileira, string> = { MANUAL: "Manual", RECENTES: "Mais recentes", MAIS_ASSISTIDOS: "Mais assistidos" };
@@ -36,7 +38,7 @@ export const ROTULO_ACAO: Record<AcaoBotao, string> = { CURSO: "Abrir curso", AU
 /**
  * Ordenações que fazem sentido por tipo (a 1ª é a padrão). Só MENTORIAS tem escolha: as outras
  * têm uma ordem natural (Top 10 = mais vistas; Continuar/Novidades/Lista/Trilhas = mais recentes;
- * Manual = a ordem que a equipe montou).
+ * Manual = a ordem que a equipe montou; Módulos = a ordem dos módulos no curso).
  */
 export const ORDENACOES_DO_TIPO: Record<TipoFileira, readonly OrdenacaoFileira[]> = {
   CONTINUAR: ["RECENTES"],
@@ -46,6 +48,7 @@ export const ORDENACOES_DO_TIPO: Record<TipoFileira, readonly OrdenacaoFileira[]
   MENTORIAS: ["RECENTES", "MAIS_ASSISTIDOS"],
   LISTA: ["RECENTES"],
   MANUAL: ["MANUAL"],
+  MODULOS: ["MANUAL"],
 };
 
 /** Marcador do primeiro nome do aluno no título da fileira ("Continue assistindo, {nome}"). */
@@ -111,10 +114,14 @@ export const fileiraSchema = z
     grupos: z.array(uuid).max(20, "No máximo 20 grupos por fileira."),
     visivel: z.boolean(),
     itensManuais: z.array(itemManualSchema).max(MAX_ITENS_MANUAIS, `No máximo ${MAX_ITENS_MANUAIS} itens escolhidos.`),
+    /** Só MODULOS (obrigatório): o curso cujos módulos a fileira mostra. Opcional no schema: JSON antigo não tem. */
+    cursoId: z.uuid("Escolha o curso da fileira.").optional(),
   })
   .superRefine((f, ctx) => {
     if (!ORDENACOES_DO_TIPO[f.tipo].includes(f.ordenacao)) ctx.addIssue({ code: "custom", message: "Ordenação não combina com o tipo da fileira.", path: ["ordenacao"] });
     if (f.tipo !== "MANUAL" && f.itensManuais.length) ctx.addIssue({ code: "custom", message: "Itens escolhidos só na fileira de escolha manual.", path: ["itensManuais"] });
+    if (f.tipo === "MODULOS" && !f.cursoId) ctx.addIssue({ code: "custom", message: "Escolha o curso da fileira de módulos.", path: ["cursoId"] });
+    if (f.tipo !== "MODULOS" && f.cursoId !== undefined) ctx.addIssue({ code: "custom", message: "Curso só na fileira de módulos do curso.", path: ["cursoId"] });
     if (new Set(f.grupos).size !== f.grupos.length) ctx.addIssue({ code: "custom", message: "Grupo repetido na fileira.", path: ["grupos"] });
   });
 export type FileiraVitrine = z.infer<typeof fileiraSchema>;
@@ -200,6 +207,34 @@ export function novaFileira(id: string): FileiraVitrine {
   return { ...fileiraPadrao(id, "TRILHAS", "Nova fileira"), quantidade: 5 };
 }
 
+/** Fileira "Módulos do curso" (capinhas 3:4 dos módulos, na ordem do curso). */
+export function fileiraDeModulos(id: string, cursoId: string): FileiraVitrine {
+  return { ...fileiraPadrao(id, "MODULOS", ROTULO_TIPO_FILEIRA.MODULOS), cursoId };
+}
+
+/**
+ * Modelo "Módulos do curso (estilo Netflix)" aplicado ao RASCUNHO (RN-272): destaque do curso
+ * (capa 16:9 dele, selo automático, "Continuar assistindo" + "Ver módulos"; avisos como estavam)
+ * e a fileira MODULOS no topo. As outras fileiras ficam; uma MODULOS do mesmo curso já existente
+ * sobe para o topo (visível) em vez de duplicar. Quem chama garante espaço (MAX_FILEIRAS).
+ */
+export function aplicarModeloModulos(c: ConfigVitrine, curso: CursoPrincipal, idNovo: string): ConfigVitrine {
+  const existente = c.fileiras.find((f) => f.tipo === "MODULOS" && f.cursoId === curso.id);
+  return {
+    ...c,
+    destaque: {
+      imagemArquivoId: null,
+      selo: null,
+      titulo: curso.titulo.slice(0, 80),
+      descricao: (curso.descricao ?? "").slice(0, 300),
+      botaoPrincipal: { texto: "Continuar assistindo", acao: "CONTINUAR", alvo: curso.id },
+      botaoSecundario: { texto: "Ver módulos", acao: "CURSO", alvo: curso.id },
+      mostrarAvisos: c.destaque.mostrarAvisos,
+    },
+    fileiras: [existente ? { ...existente, visivel: true } : fileiraDeModulos(idNovo, curso.id), ...c.fileiras.filter((f) => f !== existente)],
+  };
+}
+
 /** Comparação semântica (ordem das chaves não importa; a das fileiras importa). */
 function canonico(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(canonico);
@@ -266,6 +301,7 @@ export function referenciasDaConfig(c: ConfigVitrine) {
   for (const f of c.fileiras) {
     f.grupos.forEach((g) => grupos.add(g));
     for (const i of f.itensManuais) (i.tipo === "PRODUTO" ? produtos : aulas).add(i.id);
+    if (f.cursoId) produtos.add(f.cursoId);
   }
   return { produtos: [...produtos], aulas: [...aulas], grupos: [...grupos], imagem: c.destaque.imagemArquivoId };
 }

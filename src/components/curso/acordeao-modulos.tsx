@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Lock } from "lucide-react";
 import { Cartao } from "@/components/ui/cartao";
 import { cn } from "@/lib/utils";
@@ -51,11 +51,66 @@ function CabecalhoModulo({ modulo, aberto }: { modulo: ModuloCurso; aberto?: boo
   );
 }
 
-function Modulo({ modulo }: { modulo: ModuloCurso }) {
+/** Último pedido de módulo (`#modulo-<id>`); `vez` conta os pedidos, para repetir o mesmo hash. */
+interface Pedido {
+  hash: string;
+  vez: number;
+}
+
+/**
+ * Módulo pedido pela URL (RN-273), por três caminhos só: o hash no carregamento (efeito de
+ * montagem, depois da hidratação), `hashchange` e o clique numa capinha desta página (o Link do
+ * Next troca o hash por pushState, sem `hashchange`). A renderização nunca lê `location`: um
+ * hash trocado por pushState não vira pedido "pendente" num refresh qualquer.
+ */
+function useModuloPedido(): Pedido {
+  const [pedido, setPedido] = useState<Pedido>({ hash: "", vez: 0 });
+  useEffect(() => {
+    const pedir = (hash: string) => {
+      if (hash.startsWith("#modulo-")) setPedido((p) => ({ hash, vez: p.vez + 1 }));
+    };
+    const aoMudarHash = () => pedir(window.location.hash);
+    const aoClicar = (e: MouseEvent) => {
+      const a = e.target instanceof Element ? e.target.closest("a[href]") : null;
+      if (!(a instanceof HTMLAnchorElement)) return;
+      const u = new URL(a.href, window.location.href);
+      if (u.pathname === window.location.pathname) pedir(u.hash);
+    };
+    aoMudarHash(); // hash do carregamento
+    window.addEventListener("hashchange", aoMudarHash);
+    document.addEventListener("click", aoClicar);
+    return () => {
+      window.removeEventListener("hashchange", aoMudarHash);
+      document.removeEventListener("click", aoClicar);
+    };
+  }, []);
+  return pedido;
+}
+
+function Modulo({ modulo, pedido }: { modulo: ModuloCurso; pedido: Pedido }) {
   const [aberto, setAberto] = useState(modulo.estado === "andamento");
+  const [rolar, setRolar] = useState(0);
+  const [vez, setVez] = useState(pedido.vez);
+  // Pedido novo apontando para este módulo: abre, rola até ele e leva o foco.
+  if (vez !== pedido.vez) {
+    setVez(pedido.vez);
+    if (pedido.hash === `#modulo-${modulo.id}`) {
+      setAberto(true);
+      setRolar((n) => n + 1);
+    }
+  }
+  const ref = useRef<HTMLDivElement>(null);
+  const botao = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!rolar) return;
+    const suave = !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    ref.current?.scrollIntoView?.({ block: "start", behavior: suave ? "smooth" : "auto" });
+    // Foco no módulo (teclado/leitor de tela): sem isto o próximo Tab volta para a capinha lá em cima.
+    (botao.current ?? ref.current)?.focus({ preventScroll: true });
+  }, [rolar]);
   const idLista = `modulo-${modulo.id}-aulas`;
   return (
-    <Cartao padding={0} raio={14}>
+    <Cartao ref={ref} id={`modulo-${modulo.id}`} tabIndex={-1} padding={0} raio={14} className="scroll-mt-24">
       {modulo.aulas.length === 0 ? (
         <div className="flex items-center gap-3.5 px-[18px] py-4">
           <CabecalhoModulo modulo={modulo} />
@@ -63,6 +118,7 @@ function Modulo({ modulo }: { modulo: ModuloCurso }) {
       ) : (
         <>
           <button
+            ref={botao}
             type="button"
             aria-expanded={aberto}
             aria-controls={idLista}
@@ -80,12 +136,13 @@ function Modulo({ modulo }: { modulo: ModuloCurso }) {
   );
 }
 
-/** Acordeão de módulos da página do curso. O módulo em andamento nasce aberto. */
+/** Acordeão de módulos da página do curso. O módulo em andamento nasce aberto; `#modulo-<id>` abre aquele. */
 export function AcordeaoModulos({ modulos }: { modulos: ModuloCurso[] }) {
+  const pedido = useModuloPedido();
   return (
     <div className="flex flex-col gap-2.5">
       {modulos.map((modulo) => (
-        <Modulo key={modulo.id} modulo={modulo} />
+        <Modulo key={modulo.id} modulo={modulo} pedido={pedido} />
       ))}
     </div>
   );

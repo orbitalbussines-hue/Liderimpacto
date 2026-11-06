@@ -73,6 +73,8 @@ export interface ModuloDoCurso {
   /** "01", "02"... */
   numero: string;
   titulo: string;
+  /** Capa 3:4 do módulo (chave para `urlDeImagemOuNula`; RN-270) ou null. */
+  capaChave: string | null;
   totalAulas: number;
   duracaoSeg: number;
   estado: EstadoModuloAluno;
@@ -92,6 +94,7 @@ export interface ProximaAula {
 }
 
 const thumb = alias(arquivos, "thumb");
+const capaModulo = alias(arquivos, "capa_modulo");
 
 /** Módulos (aluno: só PUBLICADOS) e aulas vivas do produto, com o progresso do membro, na ordem do curso. */
 async function estruturaDoProduto(q: QuemPede, produtoId: string) {
@@ -102,6 +105,7 @@ async function estruturaDoProduto(q: QuemPede, produtoId: string) {
       moduloTitulo: produtos_modulos.titulo,
       moduloStatus: produtos_modulos.status,
       moduloOrdem: produtos_modulos.ordem,
+      moduloCapaChave: chaveViva(capaModulo),
       id: produtos_modulos_aulas.id,
       titulo: produtos_modulos_aulas.titulo,
       duracaoSeg: produtos_modulos_aulas.duracao_seg,
@@ -118,6 +122,7 @@ async function estruturaDoProduto(q: QuemPede, produtoId: string) {
     .from(produtos_modulos)
     .innerJoin(produtos_modulos_aulas, and(eq(produtos_modulos_aulas.modulo_id, produtos_modulos.id), vivos(produtos_modulos_aulas)))
     .leftJoin(thumb, eq(thumb.id, produtos_modulos_aulas.thumb_arquivo_id))
+    .leftJoin(capaModulo, eq(capaModulo.id, produtos_modulos.capa_arquivo_id))
     .leftJoin(pr, and(eq(pr.aula_id, produtos_modulos_aulas.id), membro ? eq(pr.membro_id, membro) : sql`false`, vivos(pr)))
     .where(
       and(
@@ -147,10 +152,10 @@ const paraAvaliacaoNoCurso = (a: AvaliacaoDoCurso): AvaliacaoNoCurso => ({
 
 function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boolean, linhas: LinhaEstrutura[], agora: Date, avaliacoes: readonly AvaliacaoDoCurso[]) {
   const numeros = new Map<string, string>();
-  const modulos: { id: string; titulo: string; linhas: LinhaEstrutura[] }[] = [];
+  const modulos: { id: string; titulo: string; capaChave: string | null; linhas: LinhaEstrutura[] }[] = [];
   for (const l of linhas) {
     let m = modulos.at(-1);
-    if (m?.id !== l.moduloId) modulos.push((m = { id: l.moduloId, titulo: l.moduloTitulo, linhas: [] }));
+    if (m?.id !== l.moduloId) modulos.push((m = { id: l.moduloId, titulo: l.moduloTitulo, capaChave: l.moduloCapaChave, linhas: [] }));
     m.linhas.push(l);
     numeros.set(l.id, `${modulos.length}.${m.linhas.length}`);
   }
@@ -211,6 +216,7 @@ function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boo
       id: m.id,
       numero: String(i + 1).padStart(2, "0"),
       titulo: m.titulo,
+      capaChave: m.capaChave,
       totalAulas: aulas.length,
       duracaoSeg: aulas.reduce((s, a) => s + (a.duracaoSeg ?? 0), 0),
       estado: aulas.every((a) => a.concluida) ? "concluido" : aulas.every((a) => a.estado === "bloqueada") ? "bloqueado" : "andamento",

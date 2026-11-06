@@ -33,4 +33,5 @@ export * from "./pagamentos";
 export * from "./vendas";
 export * from "./marketing";
 export * from "./integracoes";
+export * from "./integracoes-bling";
 export * from "./paginas";

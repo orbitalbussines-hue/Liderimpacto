@@ -24,6 +24,7 @@ type Erros = Partial<Record<"produtoExterno" | "nomeExterno" | "produtoIds" | "d
 const AJUDA_ID: Record<PlataformaIntegracao, string> = {
   HOTMART: "Na Hotmart: Produtos › o produto › o número em \"ID do produto\".",
   EDUZZ: "Na Eduzz: Produtos › o produto › o código do produto (aparece também no evento recebido abaixo).",
+  BLING: "No Bling: Produtos › o produto › Código (SKU). Os SKUs de cada pedido aparecem em Pedidos de marketplace.",
 };
 
 export interface ConexaoParaMapear {
@@ -36,7 +37,7 @@ export function BotaoNovoMapeamento({ conexoes, cursos }: { conexoes: ConexaoPar
   const [aberto, setAberto] = useState(false);
   return (
     <>
-      <Button size="36" onClick={() => setAberto(true)} disabled={conexoes.length === 0} title={conexoes.length === 0 ? "Conecte a Hotmart ou a Eduzz primeiro." : undefined}>
+      <Button size="36" onClick={() => setAberto(true)} disabled={conexoes.length === 0} title={conexoes.length === 0 ? "Conecte a Hotmart, a Eduzz ou o Bling primeiro." : undefined}>
         <Plus className="size-3.5" aria-hidden />
         Novo mapeamento
       </Button>
@@ -103,7 +104,7 @@ function Formulario({ conexoes, cursos, onFechar }: { conexoes: ConexaoParaMapea
         {conexoes.length > 1 && (
           <Selecao rotulo="Plataforma" value={integracaoId} onChange={(e) => setIntegracaoId(e.target.value)} opcoes={conexoes.map((c) => ({ valor: c.id, rotulo: ROTULO_PLATAFORMA[c.plataforma] }))} erro={erros.integracaoId} />
         )}
-        <Campo rotulo="Id do produto" value={produtoExterno} onChange={(e) => setProdutoExterno(e.target.value)} maxLength={64} tamanho="42" ajuda={erros.produtoExterno ? undefined : AJUDA_ID[plataforma]} erro={erros.produtoExterno} className="font-mono text-[13px]" />
+        <Campo rotulo={plataforma === "BLING" ? "SKU (código do produto no Bling)" : "Id do produto"} value={produtoExterno} onChange={(e) => setProdutoExterno(e.target.value)} maxLength={64} tamanho="42" ajuda={erros.produtoExterno ? undefined : AJUDA_ID[plataforma]} erro={erros.produtoExterno} className="font-mono text-[13px]" />
         <Campo rotulo="Nome do produto (opcional)" value={nomeExterno} onChange={(e) => setNomeExterno(e.target.value)} maxLength={120} tamanho="42" placeholder="Para você reconhecer na lista" erro={erros.nomeExterno} />
         <fieldset className="m-0 flex flex-col border-0 p-0" aria-describedby={erros.produtoIds ? "erro-cursos" : undefined}>
           <legend className="mb-1 p-0 text-[13px] font-semibold">Cursos liberados</legend>

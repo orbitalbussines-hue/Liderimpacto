@@ -12,14 +12,15 @@ import { Cartao } from "@/components/ui/cartao";
 import { GrupoChips } from "@/components/ui/grupo-chips";
 import { acaoDescartarRascunhoVitrine, acaoPublicarVitrine, acaoReverterVitrine, acaoSalvarRascunhoVitrine } from "@/lib/actions/vitrine";
 import { cn } from "@/lib/utils";
-import { novaFileira, resumoDaMudanca, tituloComNome, type ConfigVitrine, type FileiraVitrine } from "@/lib/vitrine/config";
+import { aplicarModeloModulos, novaFileira, resumoDaMudanca, tituloComNome, type ConfigVitrine, type FileiraVitrine } from "@/lib/vitrine/config";
 import { dataHoraCurta } from "../../conteudos/_components/comum";
 import { AbaPlayer } from "./aba-player";
 import { EstruturaVitrine } from "./estrutura-vitrine";
 import { HistoricoVitrine, type VersaoPublicada } from "./historico-vitrine";
+import { ModeloModulos } from "./modelo-modulos";
 import { PreviaVitrine, type Dispositivo } from "./previa-vitrine";
 import { PropriedadesDestaque } from "./propriedades-destaque";
-import { PropriedadesFileira } from "./propriedades-fileira";
+import { PropriedadesFileira, type CursoDoConstrutor } from "./propriedades-fileira";
 import { StatusVitrine, situacaoDoRascunho } from "./status-vitrine";
 import { useRascunho } from "./use-rascunho";
 
@@ -31,13 +32,19 @@ export interface ConstrutorProps {
   historico: VersaoPublicada[];
   imagemUrl: string | null;
   rotulos: Record<string, string>;
-  cursos: { id: string; titulo: string; status: string }[];
+  cursos: CursoDoConstrutor[];
   grupos: { id: string; nome: string }[];
   /** Nome de quem edita ({nome} na lista e autor no histórico). */
   nome: string;
 }
 
-type Confirmacao = { tipo: "publicar" } | { tipo: "descartar" } | { tipo: "remover"; id: string } | { tipo: "reverter"; numero: number } | null;
+type Confirmacao =
+  | { tipo: "publicar" }
+  | { tipo: "descartar" }
+  | { tipo: "remover"; id: string }
+  | { tipo: "reverter"; numero: number }
+  | { tipo: "modelo"; curso: CursoDoConstrutor }
+  | null;
 
 const idNovo = () => `f-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -119,6 +126,16 @@ export function Construtor(p: ConstrutorProps) {
     if (confirmar.tipo === "publicar") return publicar();
     if (confirmar.tipo === "descartar") return trazer(acaoDescartarRascunhoVitrine, {}, "Alterações descartadas: o rascunho voltou ao que está no ar.");
     if (confirmar.tipo === "reverter") return trazer(acaoReverterVitrine, { numero: confirmar.numero }, `A versão ${confirmar.numero} voltou para o rascunho. Publique para ela ir ao ar.`);
+    if (confirmar.tipo === "modelo") {
+      // Só o rascunho muda (o autosave grava); nada vai ao ar até Publicar (RN-272).
+      const { curso } = confirmar;
+      lembrarRotulo(curso.id, curso.titulo);
+      r.mudar((c) => aplicarModeloModulos(c, { id: curso.id, titulo: curso.titulo, descricao: curso.descricao }, idNovo()));
+      setSel("destaque");
+      setConfirmar(null);
+      setAviso({ tom: "ok", texto: `Modelo "Módulos do curso" aplicado com "${curso.titulo}". Confira a prévia e clique em Publicar para os alunos verem.` });
+      return;
+    }
     const id = confirmar.id;
     r.mudar((c) => ({ ...c, fileiras: c.fileiras.filter((f) => f.id !== id) }));
     setSel("destaque");
@@ -134,6 +151,12 @@ export function Construtor(p: ConstrutorProps) {
     if (confirmar?.tipo === "descartar") return { titulo: "Descartar alterações?", mensagem: "O rascunho volta a ser o que está no ar. As mudanças não publicadas se perdem.", botao: "Descartar" };
     if (confirmar?.tipo === "reverter")
       return { titulo: `Reverter para a versão ${confirmar.numero}?`, mensagem: "O rascunho atual é trocado por essa versão. Nada muda para os alunos até você publicar.", botao: "Reverter" };
+    if (confirmar?.tipo === "modelo")
+      return {
+        titulo: "Usar o modelo Módulos do curso?",
+        mensagem: `O destaque atual será trocado pelo do curso "${confirmar.curso.titulo}" (capa horizontal 16:9 do curso, "Continuar assistindo" e "Ver módulos"); a fileira Módulos do curso entra no topo e as outras fileiras ficam. Nada é publicado até você clicar em Publicar.`,
+        botao: "Usar o modelo",
+      };
     const f = config.fileiras.find((x) => confirmar?.tipo === "remover" && x.id === confirmar.id);
     return { titulo: "Remover fileira?", mensagem: `A fileira "${f ? tituloComNome(f.titulo, p.nome) : ""}" sai do rascunho. Os alunos só deixam de vê-la quando você publicar.`, botao: "Remover" };
   };
@@ -216,6 +239,9 @@ export function Construtor(p: ConstrutorProps) {
             onAlternarVisivel={(id) => r.mudar((c) => ({ ...c, fileiras: c.fileiras.map((f) => (f.id === id ? { ...f, visivel: !f.visivel } : f)) }))}
             onAdicionar={adicionar}
           />
+          <div className="mt-3 border-t border-border pt-3">
+            <ModeloModulos cursos={p.cursos} fileiras={config.fileiras} onAplicar={(curso) => setConfirmar({ tipo: "modelo", curso })} />
+          </div>
         </Cartao>
         <Cartao padding={18} como="section" aria-label="Prévia ao vivo" className="order-last min-w-0 bg-surface-2 min-[1200px]:sticky min-[1200px]:top-4 min-[1200px]:order-none">
           <PreviaVitrine versao={r.versao} selecionado={sel} dispositivo={dispositivo} onSelecionar={selecionar} />
@@ -226,6 +252,7 @@ export function Construtor(p: ConstrutorProps) {
               key={fileiraSel.id}
               fileira={fileiraSel}
               grupos={p.grupos}
+              cursos={p.cursos}
               rotulos={rotulos}
               lembrarRotulo={lembrarRotulo}
               onMudar={mudarFileira}

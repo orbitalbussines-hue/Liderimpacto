@@ -18,12 +18,14 @@ import { vincularPessoa } from "@/lib/membros/vinculos";
 import { concederAcesso, encerrarAcesso } from "@/lib/pagamentos/acesso";
 import { depoisDaVenda } from "@/lib/pagamentos/processar";
 import { webhookMatriculas } from "@/lib/webhooks/emitir";
+import { aplicarEventoBling, type PedidoPreparado, prepararEventoBling } from "./bling/pedidos";
 import { acessoAte, chaveDoAcesso, referenciaDoAcesso, ROTULO_PLATAFORMA, ROTULO_TIPO_EVENTO } from "./regras";
 
 /**
  * Worker das integrações (8º Worker de `worker:certificados`, ADR-0021 item 4). Lê a linha PENDENTE com
  * trava, aplica pelo `matricular` (origem COMPRA, autor = sistema, referência estável) e grava o
- * resultado. Idempotente: a mesma compra duas vezes cai na mesma referência (1 matrícula). Efeitos
+ * resultado. Idempotente: a mesma compra duas vezes cai na mesma referência (1 matrícula). Bling (ADR-0024):
+ * o pedido é relido na API ANTES da transação e só espelhado (o comprador resgata depois). Efeitos
  * (notificação, webhook de saída, primeiro acesso) só DEPOIS do commit e sem lançar.
  */
 
@@ -158,8 +160,9 @@ async function cancelarAssinatura(tx: Transacao, l: Linha, agora: Date): Promise
   return { situacao: "PROCESSADO", nota: `${encerradas.length} matrícula(s) encerrada(s).`, depois: () => webhookMatriculas(l.criadorId, encerradas, "MATRICULA_CANCELADA", null) };
 }
 
-async function decidir(tx: Transacao, l: Linha, agora: Date): Promise<Desfecho> {
+async function decidir(tx: Transacao, l: Linha, agora: Date, bling: PedidoPreparado | undefined): Promise<Desfecho> {
   if (!l.integracaoViva) return { situacao: "IGNORADO", nota: "Integração desconectada." };
+  if (l.plataforma === "BLING") return aplicarEventoBling(tx, l, bling, agora);
   switch (l.tipo) {
     case "COMPRA_APROVADA":
       return aprovar(tx, l, agora);
@@ -237,11 +240,12 @@ export type ResultadoIntegracao = SituacaoEventoIntegracao | "nada";
  */
 export async function processarEventoIntegracao(eventoId: string, tentativa = 1, maxTentativas = 1, agora: () => Date = () => new Date()): Promise<ResultadoIntegracao> {
   try {
+    const bling = await prepararEventoBling(eventoId);
     const r = await db.transaction(async (tx) => {
       const l = await linhaTravada(tx, eventoId);
       if (!l || l.situacao !== "PENDENTE") return null;
       const quando = agora();
-      const d = await decidir(tx, l, quando);
+      const d = await decidir(tx, l, quando, bling);
       await gravar(tx, l, d, quando);
       return d;
     });

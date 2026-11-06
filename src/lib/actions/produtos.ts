@@ -243,7 +243,7 @@ export async function acaoDefinirCapaProduto(entrada: unknown) {
 
 /**
  * Remove (soft delete) um produto em RASCUNHO com toda a estrutura (modulos, aulas, materiais) e
- * descarta os arquivos dele. Publicado precisa voltar para rascunho antes (ninguem perde acesso
+ * descarta os arquivos dele (capas do produto e dos modulos, thumbs, anexos). Publicado precisa voltar para rascunho antes (ninguem perde acesso
  * sem querer).
  */
 export async function acaoRemoverProduto(entrada: unknown) {
@@ -259,7 +259,7 @@ export async function acaoRemoverProduto(entrada: unknown) {
         .update(produtos_modulos)
         .set(exclusao)
         .where(and(eq(produtos_modulos.produto_id, p.id), eq(produtos_modulos.criador_id, criador.id), vivos(produtos_modulos)))
-        .returning({ id: produtos_modulos.id });
+        .returning({ id: produtos_modulos.id, capa: produtos_modulos.capa_arquivo_id });
       const idsModulos = modulos.map((m) => m.id);
       const aulas = idsModulos.length
         ? await tx
@@ -282,7 +282,7 @@ export async function acaoRemoverProduto(entrada: unknown) {
             .returning({ arquivo: produtos_modulos_aulas_materiais.arquivo_id })
         : [];
       await tx.update(produtos).set(exclusao).where(travaDeColisao(produtos, p.id, e.versao));
-      const arquivosDoProduto = [p.capa_3x4_arquivo_id, p.capa_16x9_arquivo_id, ...aulas.map((a) => a.thumb), ...materiais.map((m) => m.arquivo)];
+      const arquivosDoProduto = [p.capa_3x4_arquivo_id, p.capa_16x9_arquivo_id, ...modulos.map((m) => m.capa), ...aulas.map((a) => a.thumb), ...materiais.map((m) => m.arquivo)];
       for (const arquivoId of arquivosDoProduto.filter((x): x is string => !!x)) {
         descartados.push(await descartarArquivo(tx, { criadorId: criador.id, arquivoId, autorId: usuario.id, motivo: `produto "${p.titulo}" removido` }));
       }

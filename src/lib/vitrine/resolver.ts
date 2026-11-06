@@ -46,9 +46,45 @@ export interface FileiraResolvida {
 
 export type DestaqueResolvido = DestaqueConfig;
 
+/** Item de fileira antes de assinar a imagem (cartão das consultas ou módulo do curso). */
+type ItemFonte = Pick<ItemCartao, "id" | "titulo" | "subtitulo" | "imagemChave" | "href"> & { progresso?: number; selo?: string };
+
 /** Cartões no formato do `ItemFileira` (só o que o cartão usa viaja para o cliente). */
-async function paraFileira(criadorId: string, itens: readonly (ItemCartao & { progresso?: number })[]): Promise<ItemFileira[]> {
-  return (await comImagens(criadorId, itens)).map((i) => ({ id: i.id, titulo: i.titulo, subtitulo: i.subtitulo, imagemUrl: i.imagemUrl, href: i.href, progresso: i.progresso }));
+async function paraFileira(criadorId: string, itens: readonly ItemFonte[]): Promise<ItemFileira[]> {
+  return (await comImagens(criadorId, itens)).map((i) => ({ id: i.id, titulo: i.titulo, subtitulo: i.subtitulo, imagemUrl: i.imagemUrl, href: i.href, progresso: i.progresso, selo: i.selo }));
+}
+
+type CursoDoAluno = NonNullable<Awaited<ReturnType<typeof cursoDoAluno>>>;
+
+/**
+ * Módulos do curso como cartões 3:4 (RN-270): selo "MÓDULO N", capa do módulo (sem ela, a 3:4
+ * do curso), progresso só com matrícula e link para o módulo aberto na página do curso. Os
+ * módulos já vêm filtrados por `cursoDoAluno` (aluno: só PUBLICADOS; equipe: todos).
+ */
+function itensDeModulos(c: CursoDoAluno): ItemFonte[] {
+  return c.modulos.map((m) => ({
+    id: m.id,
+    titulo: m.titulo,
+    subtitulo: `${m.totalAulas} ${m.totalAulas === 1 ? "aula" : "aulas"}`,
+    imagemChave: m.capaChave ?? c.produto.capa3x4Chave,
+    href: `/cursos/${c.produto.slug}#modulo-${m.id}`,
+    selo: `MÓDULO ${Number(m.numero)}`,
+    progresso: c.matriculado && m.aulas.length ? Math.floor((m.aulas.filter((a) => a.concluida).length * 100) / m.aulas.length) : undefined,
+  }));
+}
+
+/** Cartões dos módulos de um curso já carregado (seção "Módulos" da página do curso). */
+export const cartoesDeModulos = (criadorId: string, c: CursoDoAluno) => paraFileira(criadorId, itensDeModulos(c));
+
+/** Fileira MODULOS: o curso escolhido, se é DESTE criador, vivo e visível para quem pede; senão vazia (some). */
+async function modulosDaFileira(q: QuemPede, cursoId: string | undefined, n: number, agora: Date): Promise<ItemFonte[]> {
+  if (!cursoId) return [];
+  const [p] = await db
+    .select({ slug: produtos.slug })
+    .from(produtos)
+    .where(and(eq(produtos.criador_id, q.criador.id), eq(produtos.id, cursoId), vivos(produtos)));
+  const curso = p ? await cursoDoAluno(q, p.slug, agora) : null;
+  return curso ? itensDeModulos(curso).slice(0, n) : [];
 }
 
 /** Grupos vivos do membro (audiência das fileiras). */
@@ -70,7 +106,7 @@ export async function fileirasVisiveis(q: QuemPede, config: ConfigVitrine | null
   return fileiras.filter((f) => fileiraParaQuem(f, { equipe: ehEquipe(q), grupos }));
 }
 
-async function itensDaFileira(q: QuemPede, f: FileiraVitrine, agora: Date): Promise<(ItemCartao & { progresso?: number })[]> {
+async function itensDaFileira(q: QuemPede, f: FileiraVitrine, agora: Date): Promise<ItemFonte[]> {
   const n = f.quantidade;
   switch (f.tipo) {
     case "CONTINUAR":
@@ -85,6 +121,8 @@ async function itensDaFileira(q: QuemPede, f: FileiraVitrine, agora: Date): Prom
       return (await minhaLista(q, agora)).slice(0, n);
     case "MANUAL":
       return (await cartoesEscolhidos(q, f.itensManuais, agora)).slice(0, n);
+    case "MODULOS":
+      return modulosDaFileira(q, f.cursoId, n, agora);
     case "MENTORIAS": {
       if (f.ordenacao !== "MAIS_ASSISTIDOS") return mentorias(q, n, agora);
       const [todas, vistas] = await Promise.all([mentorias(q, 100, agora), visualizacoesPorProduto(q.criador.id, 30, agora)]);
@@ -112,8 +150,6 @@ async function avisos(q: QuemPede, agora: Date): Promise<DestaqueConfig["avisos"
   if (!novidade && !primeira) return undefined;
   return { novidade: novidade ? `Novo: ${novidade.titulo}` : undefined, ranking: primeira ? { selo: "TOP 1", texto: primeira.titulo } : undefined };
 }
-
-type CursoDoAluno = NonNullable<Awaited<ReturnType<typeof cursoDoAluno>>>;
 
 /** Linha meta + selo + "Continue de onde parou" a partir do curso do destaque. */
 function sobreOCurso(c: CursoDoAluno) {

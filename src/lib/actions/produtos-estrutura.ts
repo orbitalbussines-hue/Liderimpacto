@@ -3,7 +3,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { ErroDeNegocio, executar } from "@/lib/acao";
-import { apagarObjetosDescartados, descartarArquivo } from "@/lib/armazenamento/arquivos";
+import { apagarObjetosDescartados, arquivoParaUsar, descartarArquivo } from "@/lib/armazenamento/arquivos";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { exigirMembro } from "@/lib/auth/autorizacao";
 import { EQUIPE } from "@/lib/auth/permissoes";
@@ -17,7 +17,7 @@ import { idSchema, novaOrdemSchema, statusModuloSchema, tituloSchema, versaoSche
 
 /**
  * Estrutura do produto (DONO e ADMIN, criador do HOST): modulos e aulas — criar, editar modulo,
- * remover (modal block na tela) e reordenar com trava. Ordem 1..n sem buraco (catalogo/ordem.ts).
+ * capa 3:4 do modulo, remover (modal block na tela) e reordenar com trava. Ordem 1..n sem buraco (catalogo/ordem.ts).
  * Ordem das travas, sempre a mesma (sem deadlock): produto -> modulo -> aula.
  */
 
@@ -104,11 +104,51 @@ export async function acaoEditarModulo(entrada: unknown) {
   });
 }
 
-/** Soft delete do modulo VAZIO (com aula dentro e recusado) e fecha o buraco na ordem. */
+/**
+ * Define, troca ou remove (arquivoId nulo) a capa 3:4 do modulo (fileira "Módulos do curso",
+ * RN-270). Trava pela versao do modulo; a anterior e descartada (registro + objeto).
+ */
+export async function acaoDefinirCapaModulo(entrada: unknown) {
+  return executar(async () => {
+    const { usuario, criador } = await exigirMembro(EQUIPE);
+    const e = z.strictObject({ moduloId: idSchema, versao: versaoSchema, arquivoId: idSchema.nullable() }).parse(entrada);
+    const descartada: (string | null)[] = [];
+    const r = await db.transaction(async (tx) => {
+      const { produto, modulo } = await travarModulo(tx, criador.id, e.moduloId);
+      if (e.arquivoId) await arquivoParaUsar(tx, criador.id, e.arquivoId, "IMAGEM");
+      const anterior = modulo.capa_arquivo_id;
+      const [linha] = await tx
+        .update(produtos_modulos)
+        .set({ capa_arquivo_id: e.arquivoId, updated_at: new Date(), modified_by: usuario.id })
+        .where(and(travaDeColisao(produtos_modulos, e.moduloId, e.versao), eq(produtos_modulos.criador_id, criador.id)))
+        .returning({ updated_at: produtos_modulos.updated_at });
+      if (!linha) throw new ErroDeNegocio(MSG_COLISAO);
+      if (anterior && anterior !== e.arquivoId) {
+        descartada.push(await descartarArquivo(tx, { criadorId: criador.id, arquivoId: anterior, autorId: usuario.id, motivo: `capa do módulo "${modulo.titulo}" substituída` }));
+      }
+      await registrarAuditoria(tx, {
+        userId: usuario.id,
+        criadorId: criador.id,
+        acao: "atualizar",
+        tabela: "produtos_modulos",
+        registroId: modulo.id,
+        detalhes: `${e.arquivoId ? (anterior ? "Trocou" : "Definiu") : "Removeu"} a capa 3:4 do módulo "${modulo.titulo}" de "${produto.titulo}"`,
+        dadosAnteriores: { capa_arquivo_id: anterior },
+        dadosNovos: { capa_arquivo_id: e.arquivoId },
+      });
+      return { versao: linha.updated_at.toISOString() };
+    });
+    await apagarObjetosDescartados(criador.id, descartada);
+    return r;
+  });
+}
+
+/** Soft delete do modulo VAZIO (com aula dentro e recusado), descarta a capa e fecha o buraco na ordem. */
 export async function acaoRemoverModulo(entrada: unknown) {
   return executar(async () => {
     const { usuario, criador } = await exigirMembro(EQUIPE);
     const e = z.strictObject({ moduloId: idSchema, versao: versaoSchema }).parse(entrada);
+    const descartados: (string | null)[] = [];
     await db.transaction(async (tx) => {
       const { produto, modulo } = await travarModulo(tx, criador.id, e.moduloId);
       const [{ total }] = await tx
@@ -122,6 +162,9 @@ export async function acaoRemoverModulo(entrada: unknown) {
         .where(and(travaDeColisao(produtos_modulos, e.moduloId, e.versao), eq(produtos_modulos.criador_id, criador.id)))
         .returning({ id: produtos_modulos.id });
       if (!linha) throw new ErroDeNegocio(MSG_COLISAO);
+      if (modulo.capa_arquivo_id) {
+        descartados.push(await descartarArquivo(tx, { criadorId: criador.id, arquivoId: modulo.capa_arquivo_id, autorId: usuario.id, motivo: `módulo "${modulo.titulo}" removido` }));
+      }
       await compactar(tx, MODULOS, produto.id, criador.id);
       await registrarAuditoria(tx, {
         userId: usuario.id,
@@ -130,9 +173,10 @@ export async function acaoRemoverModulo(entrada: unknown) {
         tabela: "produtos_modulos",
         registroId: modulo.id,
         detalhes: `Removeu o módulo "${modulo.titulo}" de "${produto.titulo}" (exclusão lógica)`,
-        dadosAnteriores: { titulo: modulo.titulo, ordem: modulo.ordem, status: modulo.status },
+        dadosAnteriores: { titulo: modulo.titulo, ordem: modulo.ordem, status: modulo.status, capa_arquivo_id: modulo.capa_arquivo_id },
       });
     });
+    await apagarObjetosDescartados(criador.id, descartados);
     return null;
   });
 }

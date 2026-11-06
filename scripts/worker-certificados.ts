@@ -28,7 +28,8 @@
  * Ao subir, reenfileira envios PENDENTES, execuções e campanhas AGENDADAS.
  * Um 8º `Worker` consome a fila `integracoes` (webhooks da Hotmart e da Eduzz, ADR-0021): aplica o evento
  * (acesso, reembolso, assinatura) pelo `matricular`; DLQ `integracoes-dlq`; ao subir, reenfileira os
- * eventos PENDENTES.
+ * eventos PENDENTES. Na mesma fila, o job agendado `renovar-bling` (04:00 de Brasília) renova os tokens
+ * do Bling (ADR-0024) para a conexão não morrer por inatividade.
  */
 import { DelayedError, type Job, Queue, Worker } from "bullmq";
 import {
@@ -100,10 +101,13 @@ import {
   enfileirarEventoIntegracao,
   esquemaJobIntegracao,
   type JobIntegracao,
+  JOB_RENOVAR_BLING,
+  RENOVACAO_BLING,
   NOME_FILA_INTEGRACOES,
   NOME_FILA_INTEGRACOES_DLQ,
   OPCOES_JOB_INTEGRACAO,
 } from "../src/lib/integracoes/fila";
+import { renovarTokensBling } from "../src/lib/integracoes/bling/oauth";
 import { eventosPendentes, processarEventoIntegracao } from "../src/lib/integracoes/processar";
 import {
   CONCORRENCIA_WORKER_WEBHOOKS,
@@ -160,7 +164,13 @@ async function processarPagamento(job: Job<JobPagamento>): Promise<string> {
 }
 
 async function processarIntegracao(job: Job<JobIntegracao>): Promise<string> {
-  const { eventoId } = esquemaJobIntegracao.parse(job.data);
+  const j = esquemaJobIntegracao.parse(job.data);
+  if ("tipo" in j) {
+    const r = await renovarTokensBling();
+    console.log(`[integracoes] Bling: ${r.renovadas} token(s) renovado(s), ${r.falhas} falha(s).`);
+    return `${r.renovadas}`;
+  }
+  const { eventoId } = j;
   const r = await processarEventoIntegracao(eventoId, job.attemptsMade + 1, job.opts.attempts ?? OPCOES_JOB_INTEGRACAO.attempts);
   console.log(`[integracoes] ${eventoId}: ${r} (tentativa ${job.attemptsMade + 1})`);
   return r;
@@ -298,6 +308,7 @@ async function principal() {
   });
   workerIntegracoes.on("error", (e) => console.error("[integracoes] erro do worker:", e.message));
   const filaInt = criarFilaIntegracoes(conexao);
+  await filaInt.upsertJobScheduler(RENOVACAO_BLING.id, { pattern: RENOVACAO_BLING.pattern, tz: RENOVACAO_BLING.tz }, { name: JOB_RENOVAR_BLING, data: { tipo: JOB_RENOVAR_BLING } });
   const eventosInt = await eventosPendentes();
   for (const eventoId of eventosInt) await enfileirarEventoIntegracao(filaInt, { eventoId });
   await filaInt.close();

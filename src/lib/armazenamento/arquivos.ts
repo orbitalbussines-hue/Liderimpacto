@@ -4,7 +4,7 @@ import { ErroDeNegocio } from "@/lib/acao";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import type { Transacao } from "@/lib/db";
 import type { FinalidadeArquivo } from "@/lib/db/schema/_enums";
-import { arquivos, criadores_trilhas, produtos, produtos_modulos_aulas, produtos_modulos_aulas_materiais } from "@/lib/db/schema";
+import { arquivos, criadores_trilhas, produtos, produtos_modulos, produtos_modulos_aulas, produtos_modulos_aulas_materiais } from "@/lib/db/schema";
 import { marcaDeExclusao, vivos } from "@/lib/db/soft-delete";
 import { apagarObjeto } from "./cliente";
 
@@ -12,7 +12,7 @@ import { apagarObjeto } from "./cliente";
  * Registro dos arquivos no banco, usado pelas actions do catalogo DENTRO da transacao delas.
  * `criadorId` SEMPRE do host. Um arquivo e usado em UM lugar so (capa, thumb ou material):
  * trocar/remover apaga o objeto, e um segundo uso ficaria com a imagem quebrada. Capa de trilha
- * (passo 7) conta como uso.
+ * (passo 7) e capa do modulo (RN-270) contam como uso.
  */
 
 export const MSG_ARQUIVO_INVALIDO = "Arquivo inválido ou ainda não confirmado. Envie de novo.";
@@ -25,6 +25,8 @@ async function emUso(tx: Transacao, arquivoId: string): Promise<boolean> {
     .where(and(or(eq(produtos.capa_3x4_arquivo_id, arquivoId), eq(produtos.capa_16x9_arquivo_id, arquivoId)), vivos(produtos)))
     .limit(1);
   if (p) return true;
+  const [mod] = await tx.select({ id: produtos_modulos.id }).from(produtos_modulos).where(and(eq(produtos_modulos.capa_arquivo_id, arquivoId), vivos(produtos_modulos))).limit(1);
+  if (mod) return true;
   const [a] = await tx
     .select({ id: produtos_modulos_aulas.id })
     .from(produtos_modulos_aulas)

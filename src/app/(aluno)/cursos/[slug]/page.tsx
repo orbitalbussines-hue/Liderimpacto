@@ -15,11 +15,13 @@ import { Cartao } from "@/components/ui/cartao";
 import { EspacoImagem } from "@/components/ui/espaco-imagem";
 import { Esqueleto } from "@/components/ui/esqueleto";
 import { IconeQuadrado } from "@/components/ui/icone-quadrado";
+import { Fileira } from "@/components/vitrine/fileira";
 import { urlDeImagemOuNula } from "@/lib/armazenamento/cliente";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
 import { ROTULO_TIPO_PRODUTO } from "@/lib/catalogo/regras";
 import { cursoDoAluno } from "@/lib/progresso/consultas";
+import { cartoesDeModulos } from "@/lib/vitrine/resolver";
 
 export const metadata: Metadata = { title: "Curso" };
 
@@ -85,7 +87,9 @@ async function PaginaDoCurso({ params }: { params: Params }) {
   if (!curso) notFound();
   const { produto } = curso;
   // ponytail: foto do professor fica de fora até existir o envio de foto de perfil (avatar com iniciais).
-  const capaUrl = await urlDeImagemOuNula(q.criador.id, produto.capa3x4Chave);
+  // Capinhas dos módulos (RN-273): com 2+ módulos ou alguma capa; curso de 1 módulo sem capa fica como era.
+  const comCapinhas = curso.modulos.length >= 2 || curso.modulos.some((m) => m.capaChave);
+  const [capaUrl, capinhas] = await Promise.all([urlDeImagemOuNula(q.criador.id, produto.capa3x4Chave), comCapinhas ? cartoesDeModulos(q.criador.id, curso) : []]);
   const capa = (classe: string) => (
     <div className={classe}>
       <div className="overflow-hidden rounded-2xl">
@@ -107,6 +111,7 @@ async function PaginaDoCurso({ params }: { params: Params }) {
           acoes={curso.matriculado && q.membro.id ? <BotaoFavoritar alvo={{ produtoId: produto.id }} favoritoInicial={curso.favorito} /> : undefined}
         />
         <Progresso curso={curso} />
+        <Fileira titulo="Módulos" nivel="h2" variante="modulo" itens={capinhas} sangrar={false} />
         <section className="flex flex-col gap-3.5" aria-labelledby="conteudo-do-curso">
           <h2 id="conteudo-do-curso" className="m-0 font-sans text-lg font-extrabold tracking-normal">
             Conteúdo do curso

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, ilike, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, ilike, inArray, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import type { StatusProduto, TipoProduto } from "@/lib/db/schema/_enums";
@@ -16,6 +16,7 @@ const curinga = (texto: string) => `%${texto.replace(/[\\%_]/g, (c) => `\\${c}`)
 
 const capa3x4 = alias(arquivos, "capa_3x4");
 const capa16x9 = alias(arquivos, "capa_16x9");
+const capaModulo = alias(arquivos, "capa_modulo");
 
 /** Aulas vivas de modulos vivos do produto (coluna externa escrita com a tabela: ver sinais-fator.ts). */
 const totalDeAulas = sql<number>`(select count(*)::int from produtos_modulos_aulas a join produtos_modulos m on m.id = a.modulo_id
@@ -89,8 +90,9 @@ export async function produtoParaEditar(criadorId: string, produtoId: string) {
     .where(and(eq(produtos.id, produtoId), eq(produtos.criador_id, criadorId), vivos(produtos)));
   if (!p) return null;
   const modulos = await db
-    .select()
+    .select({ ...getTableColumns(produtos_modulos), capaChave: sql<string | null>`case when ${capaModulo.is_deleted} = false then ${capaModulo.chave} end` })
     .from(produtos_modulos)
+    .leftJoin(capaModulo, eq(capaModulo.id, produtos_modulos.capa_arquivo_id))
     .where(and(eq(produtos_modulos.produto_id, produtoId), eq(produtos_modulos.criador_id, criadorId), vivos(produtos_modulos)))
     .orderBy(asc(produtos_modulos.ordem));
   const aulas = modulos.length

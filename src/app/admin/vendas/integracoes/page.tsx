@@ -6,9 +6,10 @@ import type { Coluna, Linha, TomSelo } from "@/components/admin/tabela-tipos";
 import { Cartao, CartaoTitulo } from "@/components/ui/cartao";
 import { Selo } from "@/components/ui/selo";
 import { membroDaPagina } from "@/lib/auth/guarda";
-import { urlDaPlataforma } from "@/lib/criador/area";
-import { PLATAFORMAS_INTEGRACAO, type PlataformaIntegracao } from "@/lib/db/schema/_enums";
-import { eventosRecentes, integracoesDoCriador, mapeamentosDoCriador } from "@/lib/integracoes/consultas";
+import { enderecoDaArea, urlDaPlataforma } from "@/lib/criador/area";
+import type { PlataformaIntegracao } from "@/lib/db/schema/_enums";
+import { urlDeRetornoBling } from "@/lib/integracoes/bling/regras";
+import { autorizacaoBling, eventosRecentes, integracoesDoCriador, mapeamentosDoCriador, pedidosMarketplace } from "@/lib/integracoes/consultas";
 import { NOME_DO_TOKEN, REPROCESSAVEIS, ROTULO_PLATAFORMA, ROTULO_SITUACAO_EVENTO, ROTULO_TIPO_EVENTO, urlDoWebhook, type SituacaoNaTela } from "@/lib/integracoes/regras";
 import { produtosParaMatricular } from "@/lib/matriculas/consultas";
 import { dataHoraCurta } from "../../conteudos/_components/comum";
@@ -18,12 +19,14 @@ import { ABAS_VENDAS_LINKS } from "../_components/comum";
 import { CopiarLink } from "../ofertas/_components/copiar-link";
 import { AcoesConexao, FormConectar } from "./_components/conexao";
 import { BotaoNovoMapeamento, ExcluirMapeamento, Reprocessar } from "./_components/mapeamentos";
+import { CartaoBling, PedidosMarketplace } from "./_components/secao-bling";
 import { TabelaSimples } from "./_components/tabela-simples";
 
 export const metadata: Metadata = { title: "Integrações" };
 
-/** Passo a passo curto de cada plataforma (RN-230): onde pegar o token e onde colar a URL. */
-const PASSOS: Record<PlataformaIntegracao, { antes: string[]; depois: string[] }> = {
+/** Passo a passo curto de cada plataforma (RN-230): onde pegar o token e onde colar a URL. O Bling tem card próprio. */
+const COM_TOKEN = ["HOTMART", "EDUZZ"] as const;
+const PASSOS: Record<Exclude<PlataformaIntegracao, "BLING">, { antes: string[]; depois: string[] }> = {
   HOTMART: {
     antes: ["Na Hotmart, abra Ferramentas › Webhook (API e notificações).", "Na aba Autenticação, copie o Hottok e cole aqui embaixo."],
     depois: [
@@ -65,10 +68,29 @@ const COLUNAS_EVENTOS: Coluna[] = [
   { titulo: "Ações", largura: 140 },
 ];
 
-async function Integracoes() {
+const MOTIVOS_BLING: Record<string, string> = {
+  sessao: "Autorização vencida ou de outra sessão. Clique de novo em Autorizar no Bling.",
+  negado: "O Bling não autorizou. Tente de novo.",
+  falha: "Não foi possível concluir com o Bling. Confira o Client ID e o Client Secret e autorize de novo.",
+};
+
+type Busca = PageProps<"/admin/vendas/integracoes">["searchParams"];
+
+async function Integracoes({ searchParams }: { searchParams: Busca }) {
   const { criador } = await membroDaPagina(["DONO"]);
-  const [conexoes, mapas, eventos, cursos] = await Promise.all([integracoesDoCriador(criador.id), mapeamentosDoCriador(criador.id), eventosRecentes(criador.id), produtosParaMatricular(criador.id)]);
+  const [conexoes, mapas, eventos, cursos, autorizacao, pedidos, sp] = await Promise.all([
+    integracoesDoCriador(criador.id),
+    mapeamentosDoCriador(criador.id),
+    eventosRecentes(criador.id),
+    produtosParaMatricular(criador.id),
+    autorizacaoBling(criador.id),
+    pedidosMarketplace(criador.id),
+    searchParams,
+  ]);
   const base = urlDaPlataforma();
+  const bling = conexoes.find((c) => c.plataforma === "BLING") ?? null;
+  // Volta do OAuth (`bling/retorno`): só texto curto que a própria rota montou.
+  const retorno = sp.bling === "autorizado" ? { ok: true, motivo: null } : sp.bling === "erro" ? { ok: false, motivo: Object.hasOwn(MOTIVOS_BLING, String(sp.motivo)) ? MOTIVOS_BLING[String(sp.motivo)] : MOTIVOS_BLING.falha } : null;
   const semMapa = eventos.filter((e) => e.situacao === "SEM_MAPEAMENTO").length;
 
   const linhasMapa: Linha[] = mapas.map((m) => [
@@ -102,7 +124,7 @@ async function Integracoes() {
           Conexões
         </CartaoTitulo>
         <div className="grid items-start gap-4 desk:grid-cols-2">
-          {PLATAFORMAS_INTEGRACAO.map((p) => {
+          {COM_TOKEN.map((p) => {
             const c = conexoes.find((x) => x.plataforma === p);
             const url = c ? urlDoWebhook(base, p, c.id) : null;
             return (
@@ -132,6 +154,13 @@ async function Integracoes() {
               </Cartao>
             );
           })}
+          <CartaoBling
+            conexao={bling}
+            autorizacao={autorizacao}
+            urlRetorno={urlDeRetornoBling(enderecoDaArea(criador.slug).url)}
+            urlWebhook={bling ? urlDoWebhook(base, "BLING", bling.id) : null}
+            retorno={retorno}
+          />
         </div>
       </section>
 
@@ -154,12 +183,14 @@ async function Integracoes() {
             Últimos eventos
           </CartaoTitulo>
           <p className="m-0 text-[13px] text-muted">
-            Os 50 avisos mais recentes da Hotmart e da Eduzz.
+            Os 50 avisos mais recentes da Hotmart, da Eduzz e do Bling.
             {semMapa > 0 && ` ${semMapa} ${semMapa === 1 ? "compra espera" : "compras esperam"} mapeamento: mapeie o produto e clique em Reprocessar.`}
           </p>
         </div>
         <TabelaSimples colunas={COLUNAS_EVENTOS} linhas={linhasEventos} chaves={eventos.map((e) => e.reciboId)} vazio="Nenhum evento recebido ainda." />
       </section>
+
+      {bling && <PedidosMarketplace pedidos={pedidos} />}
 
       <p className="m-0 text-[13px] text-muted">
         Vendas pelo link de compra da própria área usam o Stripe:{" "}
@@ -172,12 +203,12 @@ async function Integracoes() {
   );
 }
 
-/** Vendas › Integrações (só DONO, RN-230 a RN-236): Hotmart e Eduzz liberam o acesso pelo webhook. */
-export default function PaginaIntegracoes() {
+/** Vendas › Integrações (só DONO, RN-230 a RN-236, RN-260): Hotmart e Eduzz liberam pelo webhook; Bling, pelo resgate do pedido. */
+export default function PaginaIntegracoes({ searchParams }: PageProps<"/admin/vendas/integracoes">) {
   return (
-    <MolduraAbas titulo="Integrações" meta="Venda na Hotmart ou na Eduzz e o acesso é liberado aqui automaticamente" abas={ABAS_VENDAS_LINKS} ativa="Integrações">
+    <MolduraAbas titulo="Integrações" meta="Venda na Hotmart, na Eduzz ou nos marketplaces (Bling) e o acesso é liberado aqui" abas={ABAS_VENDAS_LINKS} ativa="Integrações">
       <Suspense fallback={<CarregandoLista />}>
-        <Integracoes />
+        <Integracoes searchParams={searchParams} />
       </Suspense>
     </MolduraAbas>
   );

@@ -13,6 +13,10 @@ export interface FileiraProps {
   tag?: string;
   variante?: VarianteCartao;
   itens: ItemFileira[];
+  /** Nível do título: h3 na vitrine (abaixo do h1 do destaque); h2 numa página com seções (curso). */
+  nivel?: "h2" | "h3";
+  /** Sangra até a borda da tela (vitrine). Falso = fica na coluna (página do curso, ao lado da lateral). */
+  sangrar?: boolean;
 }
 
 const SETA =
@@ -22,7 +26,7 @@ const SETA =
  * Fileira horizontal da vitrine. Sangra até a borda da tela (margem negativa = padding
  * lateral da área) e sem itens não renderiza nada (docs/SISTEMA.md §6).
  */
-export function Fileira({ titulo, tag, variante = "padrao", itens }: FileiraProps) {
+export function Fileira({ titulo, tag, variante = "padrao", itens, nivel: Titulo = "h3", sangrar = true }: FileiraProps) {
   const rolagem = useRef<HTMLUListElement>(null);
   if (itens.length === 0) return null;
 
@@ -34,7 +38,8 @@ export function Fileira({ titulo, tag, variante = "padrao", itens }: FileiraProp
   return (
     <section className="group/fileira relative flex flex-col gap-2.5" aria-label={titulo}>
       <div className="flex items-baseline gap-2.5">
-        <h3 className="m-0 font-sans text-[17px] font-bold tracking-[-.005em] desk:text-[21px]">{titulo}</h3>
+        {/* h2 = seção de página (curso): mesmo estilo dos h2 irmãos ("Conteúdo do curso"). */}
+        <Titulo className={cn("m-0 font-sans", Titulo === "h2" ? "text-lg font-extrabold tracking-normal" : "text-[17px] font-bold tracking-[-.005em] desk:text-[21px]")}>{titulo}</Titulo>
         {tag && (
           <Selo forma="etiqueta" className="px-[7px] font-extrabold tracking-[.12em]">
             {tag}
@@ -46,7 +51,10 @@ export function Fileira({ titulo, tag, variante = "padrao", itens }: FileiraProp
           ref={rolagem}
           tabIndex={0}
           aria-label={`${titulo}: role para o lado`}
-          className="scrollbar-oculta -mx-5 flex scroll-px-5 snap-x snap-proximity list-none gap-3 overflow-x-auto px-5 pt-1.5 pb-3 desk:-mx-10 desk:scroll-px-10 desk:px-10"
+          className={cn(
+            "scrollbar-oculta flex snap-x snap-proximity list-none gap-3 overflow-x-auto pt-1.5 pb-3",
+            sangrar ? "-mx-5 scroll-px-5 px-5 desk:-mx-10 desk:scroll-px-10 desk:px-10" : "px-1",
+          )}
         >
           {itens.map((item, i) => (
             <li key={item.id} className="shrink-0 snap-start">

@@ -28,15 +28,17 @@ export interface DestaqueConfig {
   mostrarAvisos: boolean;
 }
 
-export type FileiraTipo = "CONTINUAR" | "TOP10" | "NOVIDADES" | "TRILHAS" | "MENTORIAS" | "LISTA" | "MANUAL";
+export type FileiraTipo = "CONTINUAR" | "TOP10" | "NOVIDADES" | "TRILHAS" | "MENTORIAS" | "LISTA" | "MANUAL" | "MODULOS";
 
-export type VarianteCartao = "padrao" | "progresso" | "top10" | "novo";
+/** `modulo`: capa vertical 3:4 com selo "MÓDULO N", play e progresso (fileira "Módulos do curso", RN-270). */
+export type VarianteCartao = "padrao" | "progresso" | "top10" | "novo" | "modulo";
 
 /** Tipo da fileira do construtor -> visual do cartão. */
 export function varianteDoTipo(tipo: FileiraTipo): VarianteCartao {
   if (tipo === "CONTINUAR") return "progresso";
   if (tipo === "TOP10") return "top10";
   if (tipo === "NOVIDADES") return "novo";
+  if (tipo === "MODULOS") return "modulo";
   return "padrao";
 }
 
@@ -46,8 +48,8 @@ export interface ItemFileira {
   subtitulo?: string;
   imagemUrl?: string;
   href: string;
-  /** 0 a 100 (variante progresso). */
+  /** 0 a 100 (variantes progresso e modulo). */
   progresso?: number;
-  /** Selo do canto (variante novo). Padrão "Novo"; `null` suprime. */
+  /** Selo do canto (variante novo; padrão "Novo", `null` suprime) ou do alto ("MÓDULO 2", variante modulo). */
   selo?: string | null;
 }
