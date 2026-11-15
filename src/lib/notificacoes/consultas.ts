@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import type { TipoNotificacao } from "@/lib/db/schema/_enums";
 import { criadores_membros_notificacoes as n } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
+import { notificarAulasLiberadas } from "./gerar";
 import { RETENCAO_DIAS, TETO_CONTADOR, linkDaNotificacao, textoDaNotificacao } from "./regras";
 
 /**
@@ -62,8 +63,12 @@ export async function notificacoesDoMembro(
   };
 }
 
-/** Não lidas, contando até o teto (`TETO_CONTADOR + 1` = "99+"): só o índice parcial é lido. */
+/**
+ * Não lidas, contando até o teto (`TETO_CONTADOR + 1` = "99+"): só o índice parcial é lido. Antes,
+ * gera as AULA_NOVA das aulas "X dias depois da matrícula" que chegaram no dia (RN-274).
+ */
 export async function contarNaoLidas(criadorId: string, membroId: string, agora = new Date()): Promise<number> {
+  await notificarAulasLiberadas(criadorId, membroId, agora);
   const r = await db.execute<{ total: number }>(sql`
     select count(*)::int as total from (
       select 1 from ${n}

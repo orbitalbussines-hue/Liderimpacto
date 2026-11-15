@@ -108,6 +108,13 @@ export const liberaEmSchema = z.iso
   .transform((v) => new Date(v))
   .nullable();
 
+/** "Liberar X dias depois da matricula" (RN-274): inteiro de 1 a 3650, ou nulo. */
+export const liberaAposDiasSchema = z
+  .int("Informe os dias em número inteiro.")
+  .min(1, "Use de 1 a 3650 dias.")
+  .max(3650, "Use de 1 a 3650 dias.")
+  .nullable();
+
 /** Nova ordem dos irmaos: TODOS os vivos, cada um com a versao que a tela viu (trava). */
 export const novaOrdemSchema = z
   .array(z.strictObject({ id: idSchema, versao: versaoSchema }))

@@ -7,6 +7,7 @@ import { apagarObjetosDescartados, arquivoParaUsar, descartarArquivo } from "@/l
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { exigirMembro } from "@/lib/auth/autorizacao";
 import { EQUIPE } from "@/lib/auth/permissoes";
+import { imagensDoConteudo } from "@/lib/catalogo/conteudo-aula";
 import { pendenciasDoProduto } from "@/lib/catalogo/publicacao";
 import { mensagemDePendencias, ROTULO_STATUS_PRODUTO } from "@/lib/catalogo/regras";
 import { pedirReindexacao } from "@/lib/conhecimento/pedir";
@@ -266,7 +267,7 @@ export async function acaoRemoverProduto(entrada: unknown) {
             .update(produtos_modulos_aulas)
             .set(exclusao)
             .where(and(inArray(produtos_modulos_aulas.modulo_id, idsModulos), eq(produtos_modulos_aulas.criador_id, criador.id), vivos(produtos_modulos_aulas)))
-            .returning({ id: produtos_modulos_aulas.id, thumb: produtos_modulos_aulas.thumb_arquivo_id })
+            .returning({ id: produtos_modulos_aulas.id, thumb: produtos_modulos_aulas.thumb_arquivo_id, conteudo: produtos_modulos_aulas.conteudo })
         : [];
       const materiais = aulas.length
         ? await tx
@@ -282,7 +283,7 @@ export async function acaoRemoverProduto(entrada: unknown) {
             .returning({ arquivo: produtos_modulos_aulas_materiais.arquivo_id })
         : [];
       await tx.update(produtos).set(exclusao).where(travaDeColisao(produtos, p.id, e.versao));
-      const arquivosDoProduto = [p.capa_3x4_arquivo_id, p.capa_16x9_arquivo_id, ...modulos.map((m) => m.capa), ...aulas.map((a) => a.thumb), ...materiais.map((m) => m.arquivo)];
+      const arquivosDoProduto = [p.capa_3x4_arquivo_id, p.capa_16x9_arquivo_id, ...modulos.map((m) => m.capa), ...aulas.map((a) => a.thumb), ...aulas.flatMap((a) => imagensDoConteudo(a.conteudo)), ...materiais.map((m) => m.arquivo)];
       for (const arquivoId of arquivosDoProduto.filter((x): x is string => !!x)) {
         descartados.push(await descartarArquivo(tx, { criadorId: criador.id, arquivoId, autorId: usuario.id, motivo: `produto "${p.titulo}" removido` }));
       }

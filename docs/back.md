@@ -65,7 +65,7 @@ regra pura em `src/lib/membros/regras.ts`; leitura das telas em `src/lib/membros
 | `acaoCriarProduto`, `acaoSalvarProduto`, `acaoAlterarSituacaoProduto`, `acaoDefinirCapaProduto`, `acaoRemoverProduto` | `src/lib/actions/produtos.ts` | DONO, ADMIN | criar / atualizar (campo a campo) / `publicar` / excluir | RN-109, RN-110 |
 | `acaoCriarModulo`, `acaoEditarModulo`, `acaoRemoverModulo`, `acaoReordenarModulos`, `acaoCriarAula`, `acaoRemoverAula`, `acaoReordenarAulas` | `src/lib/actions/produtos-estrutura.ts` | DONO, ADMIN | criar / atualizar / excluir / `reordenar` (ordem antes → depois) | RN-111 |
 | `acaoDefinirCapaModulo({ moduloId, versao, arquivoId \| null })` → `{ versao }` | `src/lib/actions/produtos-estrutura.ts` | DONO, ADMIN | atualizar ("Definiu/Trocou/Removeu a capa 3:4 do módulo") + excluir do arquivo anterior | RN-270 |
-| `acaoSalvarAula`, `acaoDefinirThumbAula`, `acaoAdicionarMaterial`, `acaoRenomearMaterial`, `acaoRemoverMaterial` | `src/lib/actions/aulas.ts` | DONO, ADMIN | criar / atualizar / excluir | RN-111, RN-112 |
+| `acaoSalvarAula`, `acaoDefinirThumbAula`, `acaoAdicionarMaterial`, `acaoRenomearMaterial`, `acaoRemoverMaterial` | `src/lib/actions/aulas.ts` | DONO, ADMIN | criar / atualizar / excluir | RN-111, RN-112, RN-274, RN-275 |
 | `acaoLinkDoMaterial` | `src/lib/actions/aulas.ts` | DONO, ADMIN | — (leitura: URL de 5 min) | RN-112 |
 | `acaoIniciarEnvio`, `acaoConfirmarEnvio` | `src/lib/actions/arquivos.ts` | DONO, ADMIN | criar / atualizar (ou excluir, se o HEAD não bate) | RN-112 |
 
@@ -77,6 +77,15 @@ vídeo NÃO está aqui: o pipeline de vídeo (passo 3b) cria a tabela dele e a c
 FK composta `(capa_arquivo_id, criador_id)` → `arquivos(id, criador_id)` RESTRICT; conta como uso do
 arquivo (`arquivoParaUsar`) e é descartada ao remover o módulo ou o produto. `cursoDoAluno` devolve
 `modulos[].capaChave` na mesma consulta da estrutura (sem consulta por módulo).
+`produtos_modulos_aulas.conteudo` (migração `0022_conteudo_da_aula`, aditiva; RN-275): `jsonb` nulo
+com os blocos da aula (CHECK: nulo ou array; até 40 blocos e o formato de cada um no zod
+`conteudoAulaSchema`, `src/lib/catalogo/conteudo-aula.ts`). `acaoSalvarAula` aceita `conteudo?`
+(ausente = não mexe; `[]`/`null` = sem blocos, gravado como `null`) e então deriva `descricao` dos
+blocos TEXTO; imagem que ENTRA passa por `arquivoParaUsar`, a que SAI é descartada; a trilha leva
+só o resumo ("conteudo: 3 blocos → 5 blocos (2 imagens, 1 vídeo)"). Remover aula ou produto
+descarta as imagens do conteúdo; o estúdio IA grava a descrição sugerida no primeiro bloco TEXTO.
+`aulaDeLeitura` (`catalogo/consultas.ts`) = sem vídeo vivo e com blocos: `produtoParaEditar` e
+`cursoDoAluno`/`aulaParaPlayer` devolvem `leitura` em cada aula (selo "Leitura").
 
 Leituras das telas em `src/lib/catalogo/consultas.ts`; regra pura (publicação, rótulos) em
 `src/lib/catalogo/regras.ts`; invariante "publicado continua publicável" em
@@ -92,9 +101,13 @@ Leituras das telas em `src/lib/catalogo/consultas.ts`; regra pura (publicação,
   `iniciarEnvioMultipart` / `assinarPartesMultipart` / `concluirEnvioMultipart` /
   `abortarEnvioMultipart`, `urlDeLeitura` (5 min), `urlDeImagem` (janela de 1 h, para o
   `next/image`), `urlDeImagemOuNula`, `cabecalhoDoObjeto` (HEAD), `apagarObjeto`, `prepararBucket`.
+- `imagens.ts` (server-only): `chavesDasImagens(criadorId, ids)` / `urlsDasImagens(criadorId, ids)`
+  para imagens referenciadas por id num JSON (blocos das páginas, conteúdo da aula): só as DESTE
+  criador, IMAGEM, disponível e viva; as outras ficam fora do mapa e o bloco some.
   Toda função recebe `{ bucket, criadorId, chave }` e recusa chave fora de `criadores/<criadorId>/`.
 - `arquivos.ts` (server-only, dentro da transação de quem chama): `arquivoParaUsar` (deste
-  criador, DISPONIVEL, finalidade certa, sem outro uso), `descartarArquivo` (soft delete + trilha,
+  criador, DISPONIVEL, finalidade certa, sem outro uso: capa, thumb, material, capa de trilha ou
+  de módulo, ou imagem do conteúdo de uma aula viva, RN-275), `descartarArquivo` (soft delete + trilha,
   devolve a chave) e `apagarObjetosDescartados` (depois do commit, best-effort).
 - Buckets criados por `npm run armazenamento:preparar` (idempotente, aplica o CORS).
 
@@ -236,16 +249,19 @@ cursoDoAluno → {
   totais: { aulas, duracaoSeg, materiais },
 }
 ModuloDoCurso = { id, numero: "01", titulo, totalAulas, duracaoSeg, estado: "concluido" | "andamento" | "bloqueado", aulas: AulaDoCurso[] }
-AulaDoCurso = { id, numero: "1.2", titulo, duracaoSeg, thumbChave, href,
+AulaDoCurso = { id, numero: "1.2", titulo, duracaoSeg, leitura /* RN-275: selo "Leitura" */, thumbChave, href,
   estado: "bloqueada" | "concluida" | "atual" | "pendente", concluida, percentual,
   motivoBloqueio: null | "INDISPONIVEL" | "MATRICULA" | "LIBERACAO" | "AVALIACAO" | "PRE_REQUISITO", // AVALIACAO: passo 7
-  liberaEm: Date | null, preRequisito: { id, numero, titulo } | null }
+  liberaEm: Date | null, // data EFETIVA para quem pede: libera_em ou dia da matrícula + libera_apos_dias (RN-274)
+  preRequisito: { id, numero, titulo } | null }
 
 aulaParaPlayer → {
-  aula: { id, numero, titulo, descricao, duracaoSeg, capitulos: { inicioSeg, titulo }[], thumbChave },
+  aula: { id, numero, titulo, descricao /* null sem `pode` */, duracaoSeg, capitulos: { inicioSeg, titulo }[], thumbChave },
   modulo: { id, numero, titulo }, produto: { id, titulo, slug, tipo },
   pode: boolean, motivoBloqueio,
   video: { id, situacao: "ENVIANDO" | "PROCESSANDO" | "PRONTO" | "FALHOU" } | null, // PRONTO + pode: acaoIniciarReproducao({ aulaId })
+  conteudo: { blocos: BlocoConteudo[], imagens: Record<arquivoId, url | null> } | null, // RN-275; null sem `pode` ou sem blocos
+  leitura: boolean,                                  // pode && sem vídeo && com blocos: conteúdo no lugar do player
   materiais: { id, nome, tipo: "PDF" | "DOC" | "LINK", url: string | null, tamanhoBytes }[], // [] sem acesso; arquivo: acaoLinkDoMaterial({ materialId })
   anotacoes: { id, tempoSeg, texto, versao }[],     // só as do membro
   progresso: { percentual, concluida, concluidaPor, ultimaPosicaoSeg, segundosAssistidos },
@@ -616,12 +632,14 @@ moderacao.ts: fixarPublicacao(m, postId, versao, fixar); ocultar(m, alvo, versao
 canais.ts: garantirCanalGeral(exec, criadorId, autorId); criarCanal; salvarCanal; removerCanal
 anexos.ts: iniciarEnvioDeAnexo(p, { nome, mime, tamanho }); confirmarEnvioDeAnexo(p, arquivoId); linkDoAnexo(q, anexoId)
 notificacoes/gerar.ts (depois do commit; NUNCA lançam): notificarComentario, notificarCurtidaNoPost, notificarCanal (AVISO/POST_FIXADO),
-  notificarAulaNova, notificarCertificado, notificarMatriculas, notificarDenuncia, arquivarNotificacoesAntigas(agora?, dias = 90)
+  notificarAulaNova, notificarAulasLiberadas(criadorId, membroId, agora?), notificarCertificado, notificarMatriculas, notificarDenuncia,
+  arquivarNotificacoesAntigas(agora?, dias = 90)
 ```
 
 Eventos que já existiam e agora notificam (depois do commit): vídeo da aula PRONTO pela primeira vez
 (`aplicarEvento` em `src/lib/video/registro.ts`: AULA_NOVA para os matriculados, se a aula já é
-visível), certificado emitido (`emitir`), matrícula criada/reativada (`acaoMatricular`,
+visível; aula "X dias depois da matrícula" só para quem já chegou no dia — os outros recebem a mesma
+AULA_NOVA, uma vez, quando o dia chega: `contarNaoLidas` chama `notificarAulasLiberadas`, RN-274), certificado emitido (`emitir`), matrícula criada/reativada (`acaoMatricular`,
 `acaoReativarMatricula`, importação CSV; `matricularGrupo(tx, p, novas?)` devolve os ids no 3º
 parâmetro). Tentativa corrigida NÃO notifica: o resultado aparece na hora da finalização.
 
@@ -992,6 +1010,7 @@ player -> acaoIniciarReproducao (sessao de reproducao + token 10 min) -> /api/vi
 | `src/lib/video/registro.ts` | Leitura do video e eventos do worker (idempotentes: so valem em PROCESSANDO) |
 | `src/lib/video/entrega.ts` | Playlist, chave e segmento protegidos (os route handlers so repassam) |
 | `src/lib/video/acesso.ts` / `acesso-aula.ts` | `podeAssistir` (RN-114, puro) e `acessoDaAula` (aula/modulo/produto + matricula valendo, para o token e a entrega) |
+| `src/lib/video/liberacao.ts` | `liberacaoEfetiva({ liberaEm, liberaAposDias }, iniciadaEm)` (puro: data fixa, ou meia-noite de Brasília do dia da matricula + N, RN-274) e `liberacaoPorMatriculaSql` (a mesma conta em SQL, `AT TIME ZONE`; `liberadaParaQuemPedeSql` em `src/lib/progresso/visao.ts` filtra a vitrine do aluno). `acessoDaAula` passa a matricula viva com o `iniciada_em` (`matriculaValendo`, `src/lib/matriculas/consultas.ts`) |
 | `src/lib/video/sessoes.ts` / `reproducao.ts` | Limite de telas (puro) e sessoes de reproducao no banco |
 | `src/lib/video/regras.ts` | Allowlist, partes do multipart, caminhos HLS aceitos (tela e servidor) |
 | `src/lib/video/worker.ts` | Um job: baixa, processa, sobe, evento; erro legivel para a tela |

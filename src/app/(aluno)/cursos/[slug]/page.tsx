@@ -40,7 +40,7 @@ function paraAcordeao(modulos: Curso["modulos"]): ModuloCurso[] {
     aulas: m.aulas.map((a) => ({
       id: a.id,
       titulo: `${a.numero} · ${a.titulo}`,
-      duracao: duracaoCurta(a.duracaoSeg),
+      duracao: a.leitura ? "Leitura" : duracaoCurta(a.duracaoSeg),
       estado: a.estado === "bloqueada" ? "pendente" : a.estado,
       href: a.href,
       bloqueio: textoDoBloqueio(a) ?? undefined,

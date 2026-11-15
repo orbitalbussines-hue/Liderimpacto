@@ -88,7 +88,7 @@ export function idDoVideo(entrada: string): { provedor: ProvedorVideo; id: strin
 export const urlDoPlayer = (v: { provedor: ProvedorVideo; id: string }) =>
   v.provedor === "YOUTUBE" ? `https://www.youtube-nocookie.com/embed/${v.id}?rel=0` : `https://player.vimeo.com/video/${v.id}?dnt=1`;
 
-const videoSchema = z
+export const videoSchema = z
   .strictObject({ tipo: z.literal("VIDEO"), provedor: z.enum(PROVEDORES_VIDEO, { error: "Vídeo: só YouTube ou Vimeo." }), id: z.string().max(20, "Vídeo inválido.") })
   .refine((v) => (v.provedor === "YOUTUBE" ? RE_ID_YOUTUBE : RE_ID_VIMEO).test(v.id), { message: "Vídeo: cole o link do YouTube ou do Vimeo.", path: ["id"] });
 

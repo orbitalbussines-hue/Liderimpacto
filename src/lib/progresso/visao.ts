@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { criadores_membros_favoritos as fav, produtos, produtos_matriculas, produtos_modulos, produtos_modulos_aulas } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
 import { valeAgora } from "@/lib/matriculas/consultas";
+import { liberacaoPorMatriculaSql } from "@/lib/video/liberacao";
 
 /**
  * Peças comuns das consultas do aluno (consultas.ts e consultas-curso.ts). `QuemPede` é o que
@@ -32,7 +33,12 @@ export function matriculaValendoSql(q: QuemPede, agora: Date): SQL<boolean> {
     and ${pm.is_deleted} = false and ${valeAgora(agora)})`;
 }
 
-/** Aula visível na vitrine: aula, módulo e produto vivos, módulo PUBLICADO, produto do status pedido, já liberada. */
+/**
+ * Aula visível na vitrine: aula, módulo e produto vivos, módulo PUBLICADO, produto do status pedido,
+ * já liberada na DATA (`libera_em`). A aula "X dias depois da matrícula" depende de quem pede: some
+ * com `liberadaParaQuemPedeSql` nas consultas de UM membro; nas de todos (TOP 10) ela aparece (o
+ * player confere de novo).
+ */
 export function aulaNaVitrine(criadorId: string, agora: Date, statusProduto: SQL = sql`${produtos.status} <> 'RASCUNHO'`): SQL {
   return and(
     eq(produtos_modulos_aulas.criador_id, criadorId),
@@ -43,6 +49,20 @@ export function aulaNaVitrine(criadorId: string, agora: Date, statusProduto: SQL
     statusProduto,
     sql`(${produtos_modulos_aulas.libera_em} is null or ${produtos_modulos_aulas.libera_em} <= ${agora})`,
   )!;
+}
+
+/**
+ * Aula "X dias depois da matrícula" (RN-274) já liberada no calendário de QUEM PEDE: a matrícula
+ * valendo dele no produto (`produtos` da consulta externa) + N dias. Equipe: sempre (prévia, sem
+ * calendário). Aula sem esse modo: sempre (a data fixa fica com `aulaNaVitrine`).
+ */
+export function liberadaParaQuemPedeSql(q: QuemPede, agora: Date): SQL<boolean> {
+  const dias = produtos_modulos_aulas.libera_apos_dias;
+  if (ehEquipe(q)) return sql<boolean>`true`;
+  if (!q.membro.id) return sql<boolean>`${dias} is null`;
+  const pm = produtos_matriculas;
+  return sql<boolean>`(${dias} is null or exists (select 1 from ${pm} where ${pm.membro_id} = ${q.membro.id} and ${pm.produto_id} = ${produtos.id}
+    and ${pm.is_deleted} = false and ${valeAgora(agora)} and ${liberacaoPorMatriculaSql(pm.iniciada_em, dias)} <= ${agora}))`;
 }
 
 /** Posição do módulo entre os módulos PUBLICADOS vivos do produto (o "Módulo X" que o aluno vê). */

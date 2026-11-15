@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { ErroDeNegocio } from "@/lib/acao";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import type { Transacao } from "@/lib/db";
@@ -12,7 +12,7 @@ import { apagarObjeto } from "./cliente";
  * Registro dos arquivos no banco, usado pelas actions do catalogo DENTRO da transacao delas.
  * `criadorId` SEMPRE do host. Um arquivo e usado em UM lugar so (capa, thumb ou material):
  * trocar/remover apaga o objeto, e um segundo uso ficaria com a imagem quebrada. Capa de trilha
- * (passo 7) e capa do modulo (RN-270) contam como uso.
+ * (passo 7), capa do modulo (RN-270) e imagem do conteudo da aula (RN-275) contam como uso.
  */
 
 export const MSG_ARQUIVO_INVALIDO = "Arquivo inválido ou ainda não confirmado. Envie de novo.";
@@ -30,7 +30,13 @@ async function emUso(tx: Transacao, arquivoId: string): Promise<boolean> {
   const [a] = await tx
     .select({ id: produtos_modulos_aulas.id })
     .from(produtos_modulos_aulas)
-    .where(and(eq(produtos_modulos_aulas.thumb_arquivo_id, arquivoId), vivos(produtos_modulos_aulas)))
+    // ponytail: o `@>` no conteudo varre as aulas vivas (sem indice); indice GIN em `conteudo` se o volume pedir.
+    .where(
+      and(
+        or(eq(produtos_modulos_aulas.thumb_arquivo_id, arquivoId), sql`${produtos_modulos_aulas.conteudo} @> ${JSON.stringify([{ arquivoId }])}::jsonb`),
+        vivos(produtos_modulos_aulas),
+      ),
+    )
     .limit(1);
   if (a) return true;
   const [m] = await tx

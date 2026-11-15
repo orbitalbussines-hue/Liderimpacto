@@ -1,7 +1,10 @@
 import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { urlsDasImagens } from "@/lib/armazenamento/imagens";
 import { avaliacaoQueTrava, avaliacoesDoProduto, type AvaliacaoDoCurso } from "@/lib/avaliacoes/estrutura";
+import { aulaDeLeitura } from "@/lib/catalogo/consultas";
+import { imagensDoConteudo, type BlocoConteudo } from "@/lib/catalogo/conteudo-aula";
 import { db } from "@/lib/db";
 import type { ConclusaoAula, SituacaoVideo, StatusProduto, TipoMaterial, TipoProduto } from "@/lib/db/schema/_enums";
 import {
@@ -19,8 +22,9 @@ import {
 } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
 import { legendasDaAula, urlDaLegenda } from "@/lib/legendas/consultas";
-import { matriculaAtiva } from "@/lib/matriculas/consultas";
+import { matriculaValendo } from "@/lib/matriculas/consultas";
 import { motivoDoBloqueio, type MotivoBloqueio } from "@/lib/video/acesso";
+import { liberacaoEfetiva } from "@/lib/video/liberacao";
 import { PLAYER_PADRAO, type PlayerConfig } from "@/lib/vitrine/config";
 import type { ProgressoDoCurso } from "./consultas";
 import { podeConcluirManual, retomarEm } from "./regras";
@@ -41,6 +45,8 @@ export interface AulaDoCurso {
   numero: string;
   titulo: string;
   duracaoSeg: number | null;
+  /** Aula de leitura (sem vídeo, com conteúdo em blocos; RN-275): selo "Leitura" no lugar da duração. */
+  leitura: boolean;
   thumbChave: string | null;
   href: string;
   /** bloqueada (não abre) > concluida > atual (a próxima a assistir) > pendente. */
@@ -48,7 +54,10 @@ export interface AulaDoCurso {
   concluida: boolean;
   percentual: number;
   motivoBloqueio: MotivoBloqueio | null;
-  /** Para o texto "Libera em 20/10" (motivo LIBERACAO). */
+  /**
+   * Para o texto "Libera em 20/10" (motivo LIBERACAO): a data EFETIVA para quem pede — a data fixa
+   * ou o dia da matrícula dele + N (RN-274; sem matrícula, a aula "X dias" fica nula).
+   */
   liberaEm: Date | null;
   /** Para o texto "Conclua a aula 1.2 antes" (motivo PRE_REQUISITO). */
   preRequisito: { id: string; numero: string; titulo: string } | null;
@@ -109,7 +118,9 @@ async function estruturaDoProduto(q: QuemPede, produtoId: string) {
       id: produtos_modulos_aulas.id,
       titulo: produtos_modulos_aulas.titulo,
       duracaoSeg: produtos_modulos_aulas.duracao_seg,
+      leitura: aulaDeLeitura,
       liberaEm: produtos_modulos_aulas.libera_em,
+      liberaAposDias: produtos_modulos_aulas.libera_apos_dias,
       preRequisitoId: produtos_modulos_aulas.pre_requisito_aula_id,
       thumbChave: chaveViva(thumb),
       percentual: sql<number>`coalesce(${pr.percentual}, 0)::int`,
@@ -150,7 +161,7 @@ const paraAvaliacaoNoCurso = (a: AvaliacaoDoCurso): AvaliacaoNoCurso => ({
   href: `/avaliacoes/${a.id}`,
 });
 
-function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boolean, linhas: LinhaEstrutura[], agora: Date, avaliacoes: readonly AvaliacaoDoCurso[]) {
+function montarCurso(q: QuemPede, statusProduto: StatusProduto, matricula: { iniciadaEm: Date } | null, linhas: LinhaEstrutura[], agora: Date, avaliacoes: readonly AvaliacaoDoCurso[]) {
   const numeros = new Map<string, string>();
   const modulos: { id: string; titulo: string; capaChave: string | null; linhas: LinhaEstrutura[] }[] = [];
   for (const l of linhas) {
@@ -164,9 +175,10 @@ function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boo
   const motivo = (l: LinhaEstrutura) => {
     const pre = l.preRequisitoId ? publicadas.get(l.preRequisitoId) : undefined;
     return motivoDoBloqueio(
-      { papel: q.membro.papel, matriculaAtiva: matriculado },
+      { papel: q.membro.papel, matricula },
       {
         liberaEm: l.liberaEm,
+        liberaAposDias: l.liberaAposDias,
         statusProduto,
         statusModulo: l.moduloStatus,
         preRequisitoCumprido: !pre || pre.concluida,
@@ -199,13 +211,14 @@ function montarCurso(q: QuemPede, statusProduto: StatusProduto, matriculado: boo
       numero: numeros.get(l.id)!,
       titulo: l.titulo,
       duracaoSeg: l.duracaoSeg,
+      leitura: l.leitura,
       thumbChave: l.thumbChave,
       href: hrefDaAula(l.id),
       estado: m ? "bloqueada" : l.concluida ? "concluida" : l.id === proxima?.aulaId ? "atual" : "pendente",
       concluida: l.concluida,
       percentual: l.percentual,
       motivoBloqueio: m,
-      liberaEm: l.liberaEm,
+      liberaEm: liberacaoEfetiva(l, matricula?.iniciadaEm ?? null),
       preRequisito: pre ? { id: pre.id, numero: numeros.get(pre.id)!, titulo: pre.titulo } : null,
       avaliacaoPendente: m === "AVALIACAO" ? (({ id, titulo }) => ({ id, titulo }))(avaliacaoQueTrava(avaliacoes, l.moduloOrdem)!) : null,
     };
@@ -259,20 +272,26 @@ async function produtoVisivel(q: QuemPede, filtro: { slug: string } | { id: stri
   return p;
 }
 
-const matriculadoEm = async (q: QuemPede, produtoId: string, agora: Date) =>
-  ehEquipe(q) || (!!q.membro.id && (await matriculaAtiva(q.criador.id, q.membro.id, produtoId, agora)));
+/**
+ * Matrícula valendo do ALUNO (com o `iniciada_em` do calendário "X dias", RN-274). A equipe conta
+ * como matriculada e não tem calendário (prévia: tudo liberado).
+ */
+async function matriculaDoAluno(q: QuemPede, produtoId: string, agora: Date) {
+  const matricula = !ehEquipe(q) && q.membro.id ? await matriculaValendo(q.criador.id, q.membro.id, produtoId, agora) : null;
+  return { matriculado: ehEquipe(q) || matricula !== null, matricula };
+}
 
 /** Tudo da página do curso. `null` = não existe neste criador (ou é rascunho, para o aluno): 404. */
 export async function cursoDoAluno(q: QuemPede, slug: string, agora = new Date()) {
   const p = await produtoVisivel(q, { slug });
   if (!p) return null;
-  const [linhas, matriculado, favorito, avaliacoes] = await Promise.all([
+  const [linhas, { matriculado, matricula }, favorito, avaliacoes] = await Promise.all([
     estruturaDoProduto(q, p.id),
-    matriculadoEm(q, p.id, agora),
+    matriculaDoAluno(q, p.id, agora),
     estaNaLista(q, { produtoId: p.id }),
     avaliacoesDoProduto(q.criador.id, p.id, q.membro.id),
   ]);
-  const c = montarCurso(q, p.status, matriculado, linhas, agora, avaliacoes);
+  const c = montarCurso(q, p.status, matricula, linhas, agora, avaliacoes);
   const aulaIds = linhas.filter((l) => l.moduloStatus === "PUBLICADO").map((l) => l.id);
   const [{ materiais }] = aulaIds.length
     ? await db.select({ materiais: sql<number>`count(*)::int` }).from(mat).where(and(inArray(mat.aula_id, aulaIds), eq(mat.criador_id, q.criador.id), vivos(mat)))
@@ -326,29 +345,31 @@ export interface MaterialDoPlayer {
  */
 export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Date(), player: PlayerConfig = PLAYER_PADRAO) {
   const [base] = await db
-    .select({ produtoId: produtos_modulos.produto_id, descricao: produtos_modulos_aulas.descricao, capitulos: produtos_modulos_aulas.capitulos })
+    .select({ produtoId: produtos_modulos.produto_id, descricao: produtos_modulos_aulas.descricao, capitulos: produtos_modulos_aulas.capitulos, conteudo: produtos_modulos_aulas.conteudo })
     .from(produtos_modulos_aulas)
     .innerJoin(produtos_modulos, eq(produtos_modulos.id, produtos_modulos_aulas.modulo_id))
     .where(and(eq(produtos_modulos_aulas.id, aulaId), eq(produtos_modulos_aulas.criador_id, q.criador.id), vivos(produtos_modulos_aulas), vivos(produtos_modulos)));
   if (!base) return null;
   const p = await produtoVisivel(q, { id: base.produtoId });
   if (!p) return null;
-  const [linhas, matriculado, autoplay, avaliacoes] = await Promise.all([
+  const [linhas, { matriculado, matricula }, autoplay, avaliacoes] = await Promise.all([
     estruturaDoProduto(q, p.id),
-    matriculadoEm(q, p.id, agora),
+    matriculaDoAluno(q, p.id, agora),
     db.select({ v: usuarios.reproducao_automatica }).from(usuarios).where(eq(usuarios.id, q.usuario.id)).then((r) => r[0]?.v ?? true),
     avaliacoesDoProduto(q.criador.id, p.id, q.membro.id),
   ]);
   const l = linhas.find((x) => x.id === aulaId);
   if (!l) return null; // módulo oculto, para o aluno
-  const c = montarCurso(q, p.status, matriculado, linhas, agora, avaliacoes);
+  const c = montarCurso(q, p.status, matricula, linhas, agora, avaliacoes);
   const motivo = c.motivos.get(aulaId) ?? null;
   const pode = motivo === null;
   const indice = linhas.indexOf(l);
   const vizinha = (x: LinhaEstrutura | undefined): AulaVizinha | null => (x ? { id: x.id, numero: c.numeros.get(x.id)!, titulo: x.titulo, href: hrefDaAula(x.id) } : null);
   const aberta = (x: LinhaEstrutura) => c.motivos.get(x.id) === null;
   const membro = q.membro.id;
-  const [video, materiais, anotacoes, favorito, legendas] = await Promise.all([
+  // Aula bloqueada não entrega blocos nem URL de imagem (RN-275): o servidor é o único portão.
+  const blocos: BlocoConteudo[] = pode ? (base.conteudo ?? []) : [];
+  const [video, materiais, anotacoes, favorito, legendas, imagens] = await Promise.all([
     db.select({ id: vid.id, situacao: vid.situacao }).from(vid).where(and(eq(vid.aula_id, aulaId), eq(vid.criador_id, q.criador.id), vivos(vid))).then((r) => r[0] ?? null),
     pode
       ? db
@@ -368,6 +389,7 @@ export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Da
     estaNaLista(q, { aulaId }),
     // Legendas só com `pode` (a rota do .vtt confere de novo com `acessoDaAula`).
     pode ? legendasDaAula(q.criador.id, aulaId) : Promise.resolve([]),
+    blocos.length ? urlsDasImagens(q.criador.id, imagensDoConteudo(blocos)) : Promise.resolve({}),
   ]);
   const faltam = c.progresso.total - c.progresso.concluidas;
   const flags: FlagsPlayer = {
@@ -380,13 +402,17 @@ export async function aulaParaPlayer(q: QuemPede, aulaId: string, agora = new Da
     aulasParaCertificado: player.avisoCertificado && q.membro.papel === "ALUNO" && matriculado && faltam > 0 ? faltam : null,
   };
   return {
-    aula: { id: l.id, numero: c.numeros.get(l.id)!, titulo: l.titulo, descricao: base.descricao, duracaoSeg: l.duracaoSeg, capitulos: base.capitulos as Capitulo[], thumbChave: l.thumbChave },
+    aula: { id: l.id, numero: c.numeros.get(l.id)!, titulo: l.titulo, descricao: pode ? base.descricao : null, duracaoSeg: l.duracaoSeg, capitulos: base.capitulos as Capitulo[], thumbChave: l.thumbChave },
     modulo: { id: l.moduloId, numero: c.numeros.get(l.id)!.split(".")[0], titulo: l.moduloTitulo },
     produto: { id: p.id, titulo: p.titulo, slug: p.slug, tipo: p.tipo as TipoProduto, corMarca: p.corMarca },
     pode,
     motivoBloqueio: motivo,
     /** Só com `pode`: o player chama `acaoIniciarReproducao({ aulaId })` quando `situacao` = PRONTO. */
     video: video as { id: string; situacao: SituacaoVideo } | null,
+    /** Blocos + URL assinada de cada imagem (só com `pode`; null = sem conteúdo, vale a `descricao`). */
+    conteudo: blocos.length ? { blocos, imagens } : null,
+    /** Sem vídeo e com conteúdo: o conteúdo ocupa o lugar do player e a conclusão é pelo botão. */
+    leitura: pode && !video && blocos.length > 0,
     materiais: materiais as MaterialDoPlayer[],
     /** `<track>` do player e aba Transcrição (RN-180). */
     legendas: legendas.map((l) => ({ id: l.id, idioma: l.idioma, rotulo: l.rotulo, url: urlDaLegenda(l.id) })),

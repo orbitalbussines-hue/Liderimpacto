@@ -67,3 +67,11 @@ produção. O app é multi-criador (ADR-0002): um arquivo de um criador nunca po
 
 ### Neutras
 - Um arquivo é usado em um lugar só (capa, thumb ou material): trocar/remover apaga o objeto.
+
+## Adendo (2026-11-15): imagem do conteúdo da aula (RN-275)
+Imagens dentro de `produtos_modulos_aulas.conteudo` (jsonb, blocos da aula) seguem a mesma regra: uma
+imagem, um lugar. `emUso` também procura o id no conteúdo das aulas vivas (`conteudo @> [{arquivoId}]`,
+sem índice; GIN se o volume pedir), a imagem que sai do conteúdo é descartada e a URL ao aluno é a
+assinada curta das thumbs, emitida só quando a aula está liberada para ele. Não se adotou o reuso
+livre das páginas de venda (ADR-0022) porque aqui trocar a thumb apagaria o objeto ainda usado no
+conteúdo. Vídeo ENVIADO dentro do conteúdo fica fora: o pipeline HLS (ADR-0005) é um vídeo por aula.

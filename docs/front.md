@@ -52,5 +52,10 @@ export default function LayoutAluno({ children }: LayoutProps<"/">) {
 - Mutacao por Server Action, nunca por `fetch` para rota propria.
 - Toda acao assincrona: botao desabilitado enquanto processa, erro visivel na tela.
 - Acao critica: `ModalConfirmacaoBlock` (3 s).
+- Texto do criador e sempre TEXTO (nunca `dangerouslySetInnerHTML`): blocos da pagina de venda
+  (`components/paginas/blocos.tsx`) e conteudo da aula (`(aluno)/aula/[id]/_components/blocos-aula.tsx`,
+  RN-275: paragrafos, link `http(s)` pelo `TextoComLinks`, imagem `next/image` na proporcao natural com
+  link para o tamanho cheio, video so pelo `urlDoPlayer`). Editor dos blocos da aula:
+  `admin/conteudos/[id]/aulas/[aulaId]/_components/conteudo-aula.tsx` (reusa `ImagemDoStorage` das paginas).
 - Mobile-first; tabela com rolagem horizontal no celular.
 - Mensagens em PT-BR, claras, sem detalhe tecnico.

@@ -4,13 +4,13 @@ import { db } from "@/lib/db";
 import type { PapelCriador } from "@/lib/db/schema/_enums";
 import { produtos, produtos_modulos, produtos_modulos_aulas } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
-import { matriculaAtiva } from "@/lib/matriculas/consultas";
+import { matriculaValendo } from "@/lib/matriculas/consultas";
 import { avaliacaoPendenteSql } from "@/lib/avaliacoes/sql";
 import { preRequisitoCumpridoSql } from "@/lib/progresso/sql";
 import { motivoDoBloqueio, type MotivoBloqueio } from "./acesso";
 
 /**
- * Dados da aula (aula, módulo e produto vivos DESTE criador) + matrícula e pré-requisito de quem
+ * Dados da aula (aula, módulo e produto vivos DESTE criador) + matrícula (com o `iniciada_em`, RN-274) e pré-requisito de quem
  * pede, e a decisão de `motivoDoBloqueio`. Usado pelo token (actions), pela entrega (playlist e
  * chave), pelo progresso (beacon/action) e pelos materiais: as portas decidem igual.
  * `null` = a aula não existe neste criador.
@@ -24,6 +24,7 @@ export async function acessoDaAula(
   const [a] = await db
     .select({
       liberaEm: produtos_modulos_aulas.libera_em,
+      liberaAposDias: produtos_modulos_aulas.libera_apos_dias,
       statusModulo: produtos_modulos.status,
       statusProduto: produtos.status,
       produtoId: produtos.id,
@@ -44,7 +45,7 @@ export async function acessoDaAula(
     );
   if (!a) return null;
   // A matrícula só importa para o ALUNO (a equipe passa sem ela).
-  const ativa = quem.papel === "ALUNO" && quem.membroId !== null && (await matriculaAtiva(criadorId, quem.membroId, a.produtoId, agora));
-  const motivo = motivoDoBloqueio({ papel: quem.papel, matriculaAtiva: ativa }, a, agora);
+  const matricula = quem.papel === "ALUNO" && quem.membroId !== null ? await matriculaValendo(criadorId, quem.membroId, a.produtoId, agora) : null;
+  const motivo = motivoDoBloqueio({ papel: quem.papel, matricula }, a, agora);
   return { pode: motivo === null, motivo, produtoId: a.produtoId };
 }

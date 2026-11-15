@@ -9,6 +9,7 @@ import { ALLOWLIST, extensaoDe } from "@/lib/armazenamento/regras";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { exigirMembro, MSG_SEM_PERMISSAO } from "@/lib/auth/autorizacao";
 import { EQUIPE, TODOS_OS_MEMBROS } from "@/lib/auth/permissoes";
+import { conteudoAulaSchema, descricaoDoConteudo, imagensDoConteudo, mesmoConteudo, resumoDoConteudo, type BlocoConteudo } from "@/lib/catalogo/conteudo-aula";
 import { pedirReindexacao } from "@/lib/conhecimento/pedir";
 import { db, type Transacao } from "@/lib/db";
 import { arquivos, produtos_modulos, produtos_modulos_aulas, produtos_modulos_aulas_materiais } from "@/lib/db/schema";
@@ -19,6 +20,7 @@ import {
   descricaoSchema,
   erroDeCapitulosNaDuracao,
   idSchema,
+  liberaAposDiasSchema,
   liberaEmSchema,
   materialNovoSchema,
   nomeMaterialSchema,
@@ -27,8 +29,9 @@ import {
 } from "@/lib/validators/catalogo";
 
 /**
- * Editor da aula (DONO e ADMIN, criador do HOST): dados, liberacao, pre-requisito, capitulos,
- * thumb e materiais. O VIDEO da aula fica com o pipeline de video (passo 3b).
+ * Editor da aula (DONO e ADMIN, criador do HOST): dados, liberacao (com a matricula, numa data ou
+ * N dias depois da matricula: um modo so, RN-274), pre-requisito, capitulos, conteudo em blocos
+ * (RN-275), thumb e materiais. O VIDEO da aula fica com o pipeline de video (passo 3b).
  */
 
 /** Aula DESTE criador (viva) e o produto dela, travada na versao que a tela abriu. */
@@ -68,6 +71,22 @@ async function conferirPreRequisito(tx: Transacao, criadorId: string, aulaId: st
   }
 }
 
+/**
+ * Imagens do conteudo (RN-275), na transacao: a que ENTROU passa por `arquivoParaUsar` (deste
+ * criador, IMAGEM, DISPONIVEL, viva, sem outro uso); a mantida nao (o `emUso` acusaria a propria
+ * aula); a que SAIU e descartada. Devolve as chaves para apagar depois do commit.
+ */
+async function trocarImagensDoConteudo(tx: Transacao, criadorId: string, autorId: string, antes: BlocoConteudo[] | null, depois: BlocoConteudo[] | null) {
+  const velhas = imagensDoConteudo(antes);
+  const novas = imagensDoConteudo(depois);
+  for (const id of novas.filter((x) => !velhas.includes(x))) await arquivoParaUsar(tx, criadorId, id, "IMAGEM");
+  const descartadas: (string | null)[] = [];
+  for (const id of velhas.filter((x) => !novas.includes(x))) {
+    descartadas.push(await descartarArquivo(tx, { criadorId, arquivoId: id, autorId, motivo: "imagem do conteúdo da aula removida" }));
+  }
+  return descartadas;
+}
+
 export async function acaoSalvarAula(entrada: unknown) {
   return executar(async () => {
     const { usuario, criador } = await exigirMembro(EQUIPE);
@@ -78,35 +97,57 @@ export async function acaoSalvarAula(entrada: unknown) {
         titulo: tituloSchema,
         descricao: descricaoSchema,
         liberaEm: liberaEmSchema,
+        // Ausente = "nada" (telas e chamadas antigas); os dois juntos são recusados (RN-274).
+        liberaAposDias: liberaAposDiasSchema.default(null),
         preRequisitoAulaId: idSchema.nullable(),
         capitulos: capitulosSchema,
+        // Ausente = nao mexe no conteudo (chamadas antigas); [] ou null = sem blocos (RN-275).
+        conteudo: conteudoAulaSchema.nullable().optional(),
       })
+      .refine((v) => v.liberaEm === null || v.liberaAposDias === null, "Escolha um modo de liberação: numa data OU dias depois da matrícula.")
       .parse(entrada);
+    // Com conteudo, a descricao e derivada dos blocos TEXTO (busca, assistente e e-mails seguem lendo ela).
+    const conteudo = e.conteudo === undefined ? undefined : e.conteudo?.length ? e.conteudo : null;
+    const descricao = conteudo === undefined ? e.descricao : descricaoDoConteudo(conteudo);
+    const descartadas: (string | null)[] = [];
     const r = await db.transaction(async (tx) => {
       const { aula, produtoId } = await travarAula(tx, criador.id, e.aulaId, e.versao);
       if (e.preRequisitoAulaId) await conferirPreRequisito(tx, criador.id, aula.id, produtoId, e.preRequisitoAulaId);
       const erroCapitulos = erroDeCapitulosNaDuracao(e.capitulos, aula.duracao_seg);
       if (erroCapitulos) throw new ErroDeNegocio(erroCapitulos);
-      const novo = { titulo: e.titulo, descricao: e.descricao, libera_em: e.liberaEm, pre_requisito_aula_id: e.preRequisitoAulaId, capitulos: e.capitulos };
+      // Antes do UPDATE: com o conteudo novo gravado, o `emUso` acusaria a propria aula.
+      const mudouConteudo = conteudo !== undefined && !mesmoConteudo(aula.conteudo, conteudo);
+      if (mudouConteudo) descartadas.push(...(await trocarImagensDoConteudo(tx, criador.id, usuario.id, aula.conteudo, conteudo)));
+      const novo = { titulo: e.titulo, descricao, libera_em: e.liberaEm, libera_apos_dias: e.liberaAposDias, pre_requisito_aula_id: e.preRequisitoAulaId, capitulos: e.capitulos };
       const [linha] = await tx
         .update(produtos_modulos_aulas)
-        .set({ ...novo, updated_at: new Date(), modified_by: usuario.id })
+        .set({ ...novo, ...(conteudo !== undefined && { conteudo }), updated_at: new Date(), modified_by: usuario.id })
         .where(and(travaDeColisao(produtos_modulos_aulas, aula.id, e.versao), eq(produtos_modulos_aulas.criador_id, criador.id)))
         .returning({ updated_at: produtos_modulos_aulas.updated_at });
       if (!linha) throw new ErroDeNegocio(MSG_COLISAO);
-      const mudou = (Object.keys(novo) as (keyof typeof novo)[]).filter((k) => JSON.stringify(aula[k]) !== JSON.stringify(novo[k]));
+      const mudou: string[] = (Object.keys(novo) as (keyof typeof novo)[]).filter((k) => JSON.stringify(aula[k]) !== JSON.stringify(novo[k]));
+      const antes: Record<string, unknown> = Object.fromEntries(mudou.map((k) => [k, aula[k as keyof typeof novo]]));
+      const depois: Record<string, unknown> = Object.fromEntries(mudou.map((k) => [k, novo[k as keyof typeof novo]]));
+      // Conteudo na trilha so resumido ("3 blocos (1 imagem)"), nunca o JSON inteiro.
+      let resumo = "";
+      if (mudouConteudo) {
+        antes.conteudo = resumoDoConteudo(aula.conteudo);
+        depois.conteudo = resumoDoConteudo(conteudo);
+        resumo = `conteudo: ${antes.conteudo} → ${depois.conteudo}`;
+      }
       await registrarAuditoria(tx, {
         userId: usuario.id,
         criadorId: criador.id,
         acao: "atualizar",
         tabela: "produtos_modulos_aulas",
         registroId: aula.id,
-        detalhes: `Alterou a aula "${aula.titulo}" (${mudou.join(", ") || "sem mudanças"})`,
-        dadosAnteriores: Object.fromEntries(mudou.map((k) => [k, aula[k]])),
-        dadosNovos: Object.fromEntries(mudou.map((k) => [k, novo[k]])),
+        detalhes: `Alterou a aula "${aula.titulo}" (${[...mudou, resumo].filter(Boolean).join(", ") || "sem mudanças"})`,
+        dadosAnteriores: antes,
+        dadosNovos: depois,
       });
       return { versao: linha.updated_at.toISOString() };
     });
+    await apagarObjetosDescartados(criador.id, descartadas);
     // Base de conhecimento (ADR-0014): título/descrição da aula, depois do commit.
     await pedirReindexacao(criador.id, { tipo: "AULA", aulaId: e.aulaId }, usuario.id);
     return r;

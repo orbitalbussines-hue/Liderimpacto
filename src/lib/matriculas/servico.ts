@@ -124,14 +124,17 @@ export async function matricular(tx: Transacao, p: PedidoMatricula): Promise<Res
   }
 
   if (atual) {
-    const depois = { status: "ATIVA" as const, origem: p.origem, iniciada_em: agora, expira_em: expiraEm, motivo_cancelamento: null, referencia_externa: referencia ?? atual.referencia_externa };
+    // Reativar mantém o calendário da 1ª matrícula (RN-274: aulas "X dias" já alcançadas não voltam a
+    // travar). Só a PENDENTE, que nunca deu acesso, começa a contar agora.
+    const iniciadaEm = atual.status === "PENDENTE" ? agora : atual.iniciada_em;
+    const depois = { status: "ATIVA" as const, origem: p.origem, iniciada_em: iniciadaEm, expira_em: expiraEm, motivo_cancelamento: null, referencia_externa: referencia ?? atual.referencia_externa };
     await registrarAuditoria(tx, {
       ...trilha,
       acao: "atualizar",
       registroId: atual.id,
       detalhes: `Reativou a matrícula de ${membro.email} em "${produto.titulo}" (${p.origem})`,
-      dadosAnteriores: { status: atual.status, origem: atual.origem, expira_em: iso(atual.expira_em), motivo_cancelamento: atual.motivo_cancelamento },
-      dadosNovos: { ...depois, iniciada_em: iso(agora), expira_em: iso(expiraEm) },
+      dadosAnteriores: { status: atual.status, origem: atual.origem, iniciada_em: iso(atual.iniciada_em), expira_em: iso(atual.expira_em), motivo_cancelamento: atual.motivo_cancelamento },
+      dadosNovos: { ...depois, iniciada_em: iso(iniciadaEm), expira_em: iso(expiraEm) },
     });
     // Mesma trava de quem edita pela tela (cancelar/expiracao nao pegam o lock do par).
     const [l] = await tx

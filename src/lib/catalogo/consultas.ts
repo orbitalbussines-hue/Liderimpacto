@@ -22,6 +22,14 @@ const capaModulo = alias(arquivos, "capa_modulo");
 const totalDeAulas = sql<number>`(select count(*)::int from produtos_modulos_aulas a join produtos_modulos m on m.id = a.modulo_id
   where m.produto_id = "produtos"."id" and m.is_deleted = false and a.is_deleted = false)`;
 
+/**
+ * Aula de LEITURA (RN-275): sem vídeo vivo e com ao menos um bloco de conteúdo. Mesma regra na
+ * estrutura do admin e na do aluno (selo "Leitura" no lugar da duração). Coluna externa escrita
+ * com a tabela: numa consulta de tabela única o Drizzle omite o prefixo e o `id` viraria o do vídeo.
+ */
+export const aulaDeLeitura = sql<boolean>`(jsonb_array_length(coalesce("produtos_modulos_aulas"."conteudo", '[]'::jsonb)) > 0
+  and not exists (select 1 from produtos_modulos_aulas_videos v where v.aula_id = "produtos_modulos_aulas"."id" and v.is_deleted = false))`;
+
 export interface FiltrosProdutos {
   busca?: string;
   tipo?: TipoProduto;
@@ -103,6 +111,8 @@ export async function produtoParaEditar(criadorId: string, produtoId: string) {
           titulo: produtos_modulos_aulas.titulo,
           ordem: produtos_modulos_aulas.ordem,
           liberaEm: produtos_modulos_aulas.libera_em,
+          liberaAposDias: produtos_modulos_aulas.libera_apos_dias,
+          leitura: aulaDeLeitura,
           versao: produtos_modulos_aulas.updated_at,
         })
         .from(produtos_modulos_aulas)

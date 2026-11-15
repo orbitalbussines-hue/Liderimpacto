@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { BlocoConteudo } from "@/lib/catalogo/conteudo-aula";
 import { check, foreignKey, index, integer, jsonb, pgTable, text, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { colunasAuditoria, instante } from "./_compartilhado";
 import { STATUS_MODULO, STATUS_PRODUTO, TIPOS_MATERIAL, TIPOS_PRODUTO, listaSql } from "./_enums";
@@ -110,8 +111,15 @@ export const produtos_modulos_aulas = pgTable(
     duracao_seg: integer("duracao_seg"),
     thumb_arquivo_id: uuid("thumb_arquivo_id"),
     capitulos: jsonb("capitulos").$type<Capitulo[]>().notNull().default([]),
-    /** Liberacao programada (drip); nula = liberada com a matricula. */
+    /** Blocos de texto/imagem/vídeo (RN-275, `conteudoAulaSchema`); nulo = só a `descricao`. */
+    conteudo: jsonb("conteudo").$type<BlocoConteudo[]>(),
+    /** Liberacao programada numa data (drip, igual para todos); nula = sem data. */
     libera_em: instante("libera_em"),
+    /**
+     * Liberacao N dias depois da matricula de CADA aluno (RN-274, `liberacaoEfetiva`). No maximo um
+     * dos dois modos (a action zera o outro); as duas nulas = liberada com a matricula.
+     */
+    libera_apos_dias: integer("libera_apos_dias"),
     /** Aula do MESMO produto que precisa estar concluida antes (conferido na action). */
     pre_requisito_aula_id: uuid("pre_requisito_aula_id"),
     ...colunasAuditoria,
@@ -137,6 +145,9 @@ export const produtos_modulos_aulas = pgTable(
     check("ck_produtos_modulos_aulas_duracao", sql`duracao_seg is null or duracao_seg >= 0`),
     check("ck_produtos_modulos_aulas_pre_requisito", sql`pre_requisito_aula_id is null or pre_requisito_aula_id <> id`),
     check("ck_produtos_modulos_aulas_capitulos", sql`jsonb_typeof(capitulos) = 'array'`),
+    check("ck_produtos_modulos_aulas_conteudo", sql`conteudo is null or jsonb_typeof(conteudo) = 'array'`),
+    check("ck_produtos_modulos_aulas_libera_apos_dias", sql`libera_apos_dias is null or libera_apos_dias between 1 and 3650`),
+    check("ck_produtos_modulos_aulas_um_modo_liberacao", sql`libera_em is null or libera_apos_dias is null`),
   ],
 );
 

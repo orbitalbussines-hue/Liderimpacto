@@ -1,10 +1,10 @@
 import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { urlDeImagemOuNula } from "@/lib/armazenamento/cliente";
+import { chavesDasImagens, urlsDasImagens } from "@/lib/armazenamento/imagens";
 import { AUTOR_SISTEMA } from "@/lib/conhecimento/regras";
 import { db } from "@/lib/db";
 import {
-  arquivos,
   criadores_funis as funis,
   criadores_ofertas as ofertas,
   criadores_paginas as paginas,
@@ -70,16 +70,6 @@ export async function proximaEtapa(criadorId: string, funil: { etapas: EtapaFuni
   return p?.slug ?? null;
 }
 
-/** Chave de cada imagem DESTE criador (IMAGEM disponível). */
-async function chavesDasImagens(criadorId: string, ids: string[]): Promise<Map<string, string>> {
-  if (!ids.length) return new Map();
-  const linhas = await db
-    .select({ id: arquivos.id, chave: arquivos.chave })
-    .from(arquivos)
-    .where(and(eq(arquivos.criador_id, criadorId), inArray(arquivos.id, ids), eq(arquivos.finalidade, "IMAGEM"), eq(arquivos.status, "DISPONIVEL"), vivos(arquivos)));
-  return new Map(linhas.map((l) => [l.id, l.chave]));
-}
-
 export async function urlDaImagemDaPagina(criadorId: string, arquivoId: string | null): Promise<string | null> {
   if (!arquivoId) return null;
   return urlDeImagemOuNula(criadorId, (await chavesDasImagens(criadorId, [arquivoId])).get(arquivoId) ?? null);
@@ -88,8 +78,8 @@ export async function urlDaImagemDaPagina(criadorId: string, arquivoId: string |
 /** Tudo que os blocos mostram além do texto. Referência que sumiu ou de outro criador = ausente (o bloco some). */
 export async function dadosParaRender(criadorId: string, config: ConfigPagina): Promise<DadosRender> {
   const r = referenciasDaConfig(config);
-  const [chaves, cursos, listaOfertas] = await Promise.all([
-    chavesDasImagens(criadorId, r.imagens),
+  const [imagens, cursos, listaOfertas] = await Promise.all([
+    urlsDasImagens(criadorId, r.imagens),
     r.produtos.length
       ? db
           .select({ produtoId: produtos.id, curso: produtos.titulo, moduloId: modulos.id, modulo: modulos.titulo, aula: aulas.titulo })
@@ -106,8 +96,6 @@ export async function dadosParaRender(criadorId: string, config: ConfigPagina): 
           .where(and(eq(ofertas.criador_id, criadorId), inArray(ofertas.id, r.ofertas), eq(ofertas.situacao, "ATIVA"), vivos(ofertas)))
       : [],
   ]);
-  const imagens: DadosRender["imagens"] = {};
-  await Promise.all([...chaves].map(async ([id, chave]) => void (imagens[id] = await urlDeImagemOuNula(criadorId, chave))));
   const porCurso: DadosRender["cursos"] = {};
   for (const l of cursos) {
     const c = (porCurso[l.produtoId] ??= { titulo: l.curso, modulos: [] });

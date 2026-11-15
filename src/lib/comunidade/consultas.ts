@@ -21,7 +21,7 @@ import { vivos } from "@/lib/db/soft-delete";
 import { avaliacaoPendenteSql } from "@/lib/avaliacoes/sql";
 import { proximoEventoDoMembro, type EventoDoMembro } from "@/lib/eventos/consultas";
 import { preRequisitoCumpridoSql } from "@/lib/progresso/sql";
-import { aulaNaVitrine, matriculaValendoSql, type QuemPede } from "@/lib/progresso/visao";
+import { aulaNaVitrine, liberadaParaQuemPedeSql, matriculaValendoSql, type QuemPede } from "@/lib/progresso/visao";
 import { acessoDaAula } from "@/lib/video/acesso-aula";
 import { codificarCursor, decodificarCursor, DIAS_MEMBROS_ATIVOS, enqueteAberta, FINALIDADE_IMAGEM, iniciais, resumo, type OrdemFeed } from "./regras";
 import { canalVisivelSql, ocultoVisivelSql, silenciadoAte } from "./sql";
@@ -414,6 +414,7 @@ export async function aulasParaRelacionar(q: QuemPede, limite = 30, agora = new 
       and(
         aulaNaVitrine(q.criador.id, agora),
         matriculaValendoSql(q, agora),
+        liberadaParaQuemPedeSql(q, agora),
         sql`not ${avaliacaoPendenteSql(produtos_modulos.id, q.membro.id)}`,
         preRequisitoCumpridoSql(aulas.pre_requisito_aula_id, q.membro.id),
       ),

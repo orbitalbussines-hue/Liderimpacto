@@ -21,6 +21,14 @@ import { SituacaoProduto } from "./_components/situacao-produto";
 
 export const metadata: Metadata = { title: "Editar produto" };
 
+/** Selo da aula na estrutura: "Libera 20/10 08:00" ou "Libera 7 dias após a matrícula" (RN-274). */
+const seloDeLiberacao = (a: { liberaEm: Date | null; liberaAposDias: number | null }) =>
+  a.liberaAposDias !== null
+    ? `Libera ${a.liberaAposDias} ${a.liberaAposDias === 1 ? "dia" : "dias"} após a matrícula`
+    : a.liberaEm
+      ? `Libera ${dataHoraCurta(a.liberaEm)}`
+      : null;
+
 type Params = Promise<{ id: string }>;
 
 async function Editor({ params }: { params: Params }) {
@@ -48,7 +56,7 @@ async function Editor({ params }: { params: Params }) {
     status: m.status,
     versao: m.updated_at.toISOString(),
     capaUrl: capasModulos[i],
-    aulas: m.aulas.map((a) => ({ id: a.id, titulo: a.titulo, versao: a.versao.toISOString(), libera: a.liberaEm ? `Libera ${dataHoraCurta(a.liberaEm)}` : null })),
+    aulas: m.aulas.map((a) => ({ id: a.id, titulo: a.titulo, versao: a.versao.toISOString(), libera: seloDeLiberacao(a), leitura: a.leitura })),
   }));
   // Dado novo do servidor (versões) remonta o estado local da estrutura.
   const assinatura = modulos.map((m) => `${m.id}:${m.versao}:${m.aulas.map((a) => a.versao).join(",")}`).join("|");

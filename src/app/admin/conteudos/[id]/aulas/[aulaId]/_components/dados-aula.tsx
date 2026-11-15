@@ -2,22 +2,29 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { AreaTexto } from "@/components/ui/area-texto";
 import { Button } from "@/components/ui/button";
 import { Campo } from "@/components/ui/campo";
 import { Selecao } from "@/components/ui/selecao";
 import { acaoSalvarAula } from "@/lib/actions/aulas";
+import type { BlocoConteudo } from "@/lib/catalogo/conteudo-aula";
 import type { Capitulo } from "@/lib/db/schema/produtos";
 import { formatarTempo, lerTempo } from "@/lib/validators/catalogo";
 import { CapitulosAula, erroDoCapitulo, type CapituloEditavel } from "./capitulos-aula";
+import { aulaAntigaIntacta, ConteudoAula, editaveisDe, paraConteudo, type BlocoEditavel } from "./conteudo-aula";
 
 export interface DadosAulaProps {
   aula: {
     id: string;
     titulo: string;
     descricao: string;
+    /** Blocos (RN-275); null = aula antiga, abre com a descrição num bloco de texto. */
+    conteudo: BlocoConteudo[] | null;
+    /** URL assinada das imagens do conteúdo (prévia). */
+    imagens: Record<string, string | null>;
     /** ISO ou null. */
     liberaEm: string | null;
+    /** N dias depois da matrícula de cada aluno (RN-274) ou null. */
+    liberaAposDias: number | null;
     preRequisitoAulaId: string | null;
     capitulos: Capitulo[];
     duracaoSeg: number | null;
@@ -39,12 +46,24 @@ function paraCampoLocal(iso: string | null): string {
 }
 const paraIso = (local: string) => (local ? new Date(`${local}:00${FUSO}`).toISOString() : null);
 
-/** Dados da aula: título, descrição, liberação, pré-requisito e capítulos. Um "Salvar" com trava. */
+/** Um modo de liberação por aula (RN-274): a action recusa data e dias juntos. */
+type ModoLiberacao = "matricula" | "data" | "dias";
+const MODOS: { valor: ModoLiberacao; rotulo: string }[] = [
+  { valor: "matricula", rotulo: "Liberada com a matrícula" },
+  { valor: "data", rotulo: "Numa data" },
+  { valor: "dias", rotulo: "Alguns dias depois da matrícula" },
+];
+/** Vazio = null; o resto vai como número e o servidor confere (inteiro de 1 a 3650). */
+const lerDias = (v: string) => (v.trim() ? Number(v.trim()) : null);
+
+/** Dados da aula: título, conteúdo, liberação, pré-requisito e capítulos. Um "Salvar" com trava. */
 export function DadosAula({ aula, aulasDoProduto }: DadosAulaProps) {
   const router = useRouter();
   const [capitulos, setCapitulos] = useState<CapituloEditavel[]>(() =>
     aula.capitulos.map((c, i) => ({ chave: `cap-inicial-${i}`, tempo: formatarTempo(c.inicioSeg), titulo: c.titulo })),
   );
+  const [blocos, setBlocos] = useState<BlocoEditavel[]>(() => editaveisDe(aula.conteudo, aula.imagens, aula.descricao));
+  const [modo, setModo] = useState<ModoLiberacao>(aula.liberaAposDias !== null ? "dias" : aula.liberaEm ? "data" : "matricula");
   const [erro, setErro] = useState<string | null>(null);
   const [feito, setFeito] = useState(false);
   const [pendente, iniciar] = useTransition();
@@ -58,13 +77,24 @@ export function DadosAula({ aula, aulasDoProduto }: DadosAulaProps) {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
         setErro(null);
+        const c = paraConteudo(blocos);
+        if ("erro" in c) {
+          // Leva o foco (e a rolagem) ao bloco com problema: o erro aparece lá embaixo, junto do Salvar.
+          e.currentTarget.querySelectorAll<HTMLElement>("[data-bloco]")[c.bloco]?.focus();
+          return setErro(c.erro);
+        }
+        // Aula antiga sem mexer nos blocos: não grava conteúdo (sem vídeo, ela não vira de leitura).
+        const intacta = aulaAntigaIntacta(aula.conteudo, aula.descricao, blocos);
         iniciar(async () => {
           const r = await acaoSalvarAula({
             aulaId: aula.id,
             versao: aula.versao,
             titulo: String(f.get("titulo") ?? ""),
-            descricao: String(f.get("descricao") ?? ""),
-            liberaEm: paraIso(String(f.get("liberaEm") ?? "")),
+            // Com conteúdo, o servidor deriva a descrição dos blocos de texto; ausente, mantém o conteúdo.
+            descricao: intacta ? aula.descricao : "",
+            conteudo: intacta ? undefined : c.conteudo,
+            liberaEm: modo === "data" ? paraIso(String(f.get("liberaEm") ?? "")) : null,
+            liberaAposDias: modo === "dias" ? lerDias(String(f.get("liberaAposDias") ?? "")) : null,
             preRequisitoAulaId: String(f.get("preRequisito") ?? "") || null,
             capitulos: capitulos.map((c) => ({ inicioSeg: lerTempo(c.tempo) ?? -1, titulo: c.titulo.trim() })),
           });
@@ -75,16 +105,47 @@ export function DadosAula({ aula, aulasDoProduto }: DadosAulaProps) {
       }}
     >
       <Campo rotulo="Título" name="titulo" defaultValue={aula.titulo} required minLength={2} maxLength={160} tamanho="42" autoComplete="off" />
-      <AreaTexto rotulo="Descrição" name="descricao" defaultValue={aula.descricao} maxLength={5000} rows={5} />
+      <ConteudoAula
+        blocos={blocos}
+        onMudar={(b) => {
+          setBlocos(b);
+          setFeito(false);
+        }}
+      />
       <div className="grid gap-5 desk:grid-cols-2">
-        <Campo
+        <Selecao
           rotulo="Liberação"
-          name="liberaEm"
-          type="datetime-local"
-          defaultValue={paraCampoLocal(aula.liberaEm)}
-          tamanho="42"
-          ajuda="Horário de Brasília. Vazio = libera junto com a matrícula."
+          name="modoLiberacao"
+          value={modo}
+          onChange={(e) => setModo(e.target.value as ModoLiberacao)}
+          opcoes={MODOS}
         />
+        {modo === "data" && (
+          <Campo
+            rotulo="Data de liberação"
+            name="liberaEm"
+            type="datetime-local"
+            defaultValue={paraCampoLocal(aula.liberaEm)}
+            required
+            tamanho="42"
+            ajuda="Horário de Brasília. Igual para todos os alunos."
+          />
+        )}
+        {modo === "dias" && (
+          <Campo
+            rotulo="Dias depois da matrícula"
+            name="liberaAposDias"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={3650}
+            step={1}
+            defaultValue={aula.liberaAposDias ?? ""}
+            required
+            tamanho="42"
+            ajuda="Conta do dia da matrícula de cada aluno (libera à meia-noite de Brasília)."
+          />
+        )}
         <Selecao
           rotulo="Pré-requisito"
           name="preRequisito"
