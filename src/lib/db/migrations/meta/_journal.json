@@ -141,6 +141,13 @@
       "when": 1793963070079,
       "tag": "0019_capa_dos_modulos",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794756627053,
+      "tag": "0020_integracao_pagina_de_vendas",
+      "breakpoints": true
     }
   ]
 }

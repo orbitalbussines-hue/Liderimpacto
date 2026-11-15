@@ -6,13 +6,13 @@ import type { RecusaIntegracao } from "@/lib/db/schema/_enums";
 import { criadores_integracoes as integ, criadores_integracoes_eventos as ev, integracoes_recibos as recibos, type Integracao } from "@/lib/db/schema";
 import { vivos } from "@/lib/db/soft-delete";
 import { decifrarSegredo } from "@/lib/webhooks/segredo";
-import { assinaturaBlingConfere, assinaturaEduzzConfere, hottokConfere } from "./autenticidade";
+import { assinaturaBlingConfere, assinaturaEduzzConfere, assinaturaPaginaConfere, hottokConfere } from "./autenticidade";
 import { enfileirarComPrazo } from "./fila";
 import { normalizar, plataformaDoSegmento, TAMANHO_MAXIMO_CORPO, TETO_RECUSAS_POR_CONEXAO } from "./regras";
 import { aadDaIntegracao } from "./servico";
 
 /**
- * Recepção do webhook da Hotmart, da Eduzz e do Bling (ADR-0021 item 3, ADR-0024): a URL leva o id da conexão (diz QUAL
+ * Recepção do webhook da Hotmart, da Eduzz, do Bling e da página de vendas própria (ADR-0021 item 3, ADR-0024, ADR-0025): a URL leva o id da conexão (diz QUAL
  * segredo conferir e de qual criador é), a credencial é o hottok/assinatura (Bling: HMAC com o client secret) conferido em tempo
  * constante. Grava o recibo (append-only, idempotente pelo id do evento, sem dado pessoal) e a linha de
  * processamento (o comprador fica só nela) e enfileira — responde rápido; o trabalho é do worker.
@@ -53,7 +53,9 @@ export async function receberEventoIntegracao(
       ? hottokConfere(p.cabecalhos.get("x-hotmart-hottok"), segredo)
       : plataforma === "EDUZZ"
         ? assinaturaEduzzConfere(p.cabecalhos.get("x-signature"), segredo, p.corpo)
-        : assinaturaBlingConfere(p.cabecalhos.get("x-bling-signature-256"), segredo, p.corpo);
+        : plataforma === "PAGINA"
+          ? assinaturaPaginaConfere(p.cabecalhos.get("x-assinatura"), segredo, p.corpo)
+          : assinaturaBlingConfere(p.cabecalhos.get("x-bling-signature-256"), segredo, p.corpo);
   if (!autentico) {
     await registrarRecusa(i, "TOKEN_INVALIDO");
     return nao(401, "Token inválido.");

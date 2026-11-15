@@ -168,3 +168,18 @@ export function blingPedido(o: { pedidoId: string; numeroLoja: string; cpf: stri
 
 /** `X-Bling-Signature-256`: `sha256=` + HMAC-SHA256(client secret, corpo cru) em hex. */
 export const assinarBling = (clientSecret: string, corpo: string) => `sha256=${createHmac("sha256", clientSecret).update(corpo, "utf8").digest("hex")}`;
+
+// ---------- Página de vendas própria (ADR-0025): o mesmo corpo que a página Liderança Inteligente monta (src/lider.ts de lá) ----------
+
+export const pedidoPagina = () => `LI-${Array.from({ length: 10 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"[Math.floor(Math.random() * 32)]).join("")}`;
+export function paginaCompra(o: { pedido?: string; evento?: string; produto?: string; email?: string; nome?: string } = {}) {
+  return {
+    id: o.pedido ?? pedidoPagina(),
+    evento: o.evento ?? "compra_aprovada",
+    produto: o.produto ?? "lideranca-inteligente",
+    valor_centavos: 9700,
+    pago_em: "2026-11-14T15:00:00.000Z",
+    comprador: { nome: o.nome ?? "Maria Exemplo", email: o.email ?? emailFicticio(), cpf: "52998224725", telefone: "44999998888" },
+  };
+}
+export const assinarPagina = (segredo: string, corpo: string) => `sha256=${createHmac("sha256", segredo).update(corpo).digest("hex")}`;

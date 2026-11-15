@@ -18,11 +18,12 @@ export const PRODUTO_EXTERNO = /^[A-Za-z0-9_-]{1,64}$/;
 /** Hottok / chave de assinatura: 8 a 200 caracteres visíveis, sem espaço. */
 export const SEGREDO_EXTERNO = /^[\x21-\x7E]{8,200}$/;
 
-export const ROTULO_PLATAFORMA: Record<PlataformaIntegracao, string> = { HOTMART: "Hotmart", EDUZZ: "Eduzz", BLING: "Bling" };
-/** Nome do segredo como cada plataforma chama (Bling: o client secret do app, que também assina o webhook). */
-export const NOME_DO_TOKEN: Record<PlataformaIntegracao, string> = { HOTMART: "Hottok", EDUZZ: "Chave secreta", BLING: "Client secret" };
-export const SEGMENTO_URL: Record<PlataformaIntegracao, string> = { HOTMART: "hotmart", EDUZZ: "eduzz", BLING: "bling" };
-export const plataformaDoSegmento = (s: string): PlataformaIntegracao | null => (s === "hotmart" ? "HOTMART" : s === "eduzz" ? "EDUZZ" : s === "bling" ? "BLING" : null);
+export const ROTULO_PLATAFORMA: Record<PlataformaIntegracao, string> = { HOTMART: "Hotmart", EDUZZ: "Eduzz", BLING: "Bling", PAGINA: "Página de vendas" };
+/** Nome do segredo como cada plataforma chama (Bling: o client secret do app; página: o LIDER_WEBHOOK_SEGREDO dela). */
+export const NOME_DO_TOKEN: Record<PlataformaIntegracao, string> = { HOTMART: "Hottok", EDUZZ: "Chave secreta", BLING: "Client secret", PAGINA: "Segredo" };
+export const SEGMENTO_URL: Record<PlataformaIntegracao, string> = { HOTMART: "hotmart", EDUZZ: "eduzz", BLING: "bling", PAGINA: "pagina" };
+export const plataformaDoSegmento = (s: string): PlataformaIntegracao | null =>
+  s === "hotmart" ? "HOTMART" : s === "eduzz" ? "EDUZZ" : s === "bling" ? "BLING" : s === "pagina" ? "PAGINA" : null;
 
 export const ROTULO_TIPO_EVENTO: Record<TipoEventoIntegracao, string> = {
   COMPRA_APROVADA: "Compra aprovada",
@@ -173,8 +174,42 @@ export function normalizarEduzz(json: unknown): EventoNormalizado[] | null {
   return produtos.map((produtoExterno, i) => ({ ...base, eventoId: i === 0 ? eventoId : `${eventoId}-${i + 1}`.slice(0, 100), produtoExterno }));
 }
 
-export const normalizar = (plataforma: PlataformaIntegracao, json: unknown) =>
-  plataforma === "HOTMART" ? normalizarHotmart(json) : plataforma === "EDUZZ" ? normalizarEduzz(json) : normalizarBling(json);
+const TIPOS_PAGINA: Record<string, TipoEventoIntegracao> = { compra_aprovada: "COMPRA_APROVADA" };
+
+/**
+ * Página de vendas própria (ADR-0025): `{ id: "LI-...", evento: "compra_aprovada", produto, valor_centavos, pago_em,
+ * comprador: { nome, email, cpf, telefone } }`. O id do pedido é o evento E a transação (reenvio do mesmo pedido =
+ * mesmo recibo, mesma matrícula). CPF e telefone são ignorados: não guardamos.
+ */
+export function normalizarPagina(json: unknown): EventoNormalizado[] | null {
+  const raiz = obj(json);
+  const eventoId = id(raiz.id);
+  const evento = texto(raiz.evento)?.slice(0, 60) ?? null;
+  if (!eventoId || !evento) return null;
+  const pessoa = obj(raiz.comprador);
+  return [
+    {
+      eventoId,
+      evento,
+      tipo: TIPOS_PAGINA[evento] ?? "OUTRO",
+      transacao: eventoId,
+      assinatura: null,
+      produtoExterno: id(raiz.produto, PRODUTO_EXTERNO),
+      email: email(pessoa.email),
+      nome: nome(pessoa.nome),
+      proximaCobranca: null,
+      ocorridoEm: data(raiz.pago_em),
+    },
+  ];
+}
+
+const NORMALIZADORES: Record<PlataformaIntegracao, (json: unknown) => EventoNormalizado[] | null> = {
+  HOTMART: normalizarHotmart,
+  EDUZZ: normalizarEduzz,
+  BLING: normalizarBling,
+  PAGINA: normalizarPagina,
+};
+export const normalizar = (plataforma: PlataformaIntegracao, json: unknown) => NORMALIZADORES[plataforma](json);
 
 // ---------- acesso ----------
 

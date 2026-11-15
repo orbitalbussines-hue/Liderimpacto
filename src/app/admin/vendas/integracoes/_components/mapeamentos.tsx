@@ -25,6 +25,7 @@ const AJUDA_ID: Record<PlataformaIntegracao, string> = {
   HOTMART: "Na Hotmart: Produtos › o produto › o número em \"ID do produto\".",
   EDUZZ: "Na Eduzz: Produtos › o produto › o código do produto (aparece também no evento recebido abaixo).",
   BLING: "No Bling: Produtos › o produto › Código (SKU). Os SKUs de cada pedido aparecem em Pedidos de marketplace.",
+  PAGINA: "O código que a página manda em todo aviso (o do livro Liderança Inteligente é lideranca-inteligente).",
 };
 
 export interface ConexaoParaMapear {
@@ -37,7 +38,7 @@ export function BotaoNovoMapeamento({ conexoes, cursos }: { conexoes: ConexaoPar
   const [aberto, setAberto] = useState(false);
   return (
     <>
-      <Button size="36" onClick={() => setAberto(true)} disabled={conexoes.length === 0} title={conexoes.length === 0 ? "Conecte a Hotmart, a Eduzz ou o Bling primeiro." : undefined}>
+      <Button size="36" onClick={() => setAberto(true)} disabled={conexoes.length === 0} title={conexoes.length === 0 ? "Conecte a Hotmart, a Eduzz, o Bling ou a página de vendas primeiro." : undefined}>
         <Plus className="size-3.5" aria-hidden />
         Novo mapeamento
       </Button>

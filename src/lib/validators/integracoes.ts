@@ -7,8 +7,8 @@ import { idSchema, versaoSchema } from "./membros";
 
 const segredo = z.string().trim().regex(SEGREDO_EXTERNO, "Cole o token exato, sem espaços (8 a 200 caracteres).");
 
-/** Só Hotmart e Eduzz por aqui: o Bling conecta com client_id + secret (`conectarBlingSchema`). */
-export const conectarIntegracaoSchema = z.strictObject({ plataforma: z.enum(["HOTMART", "EDUZZ"], "Plataforma inválida."), segredo });
+/** Hotmart, Eduzz e página de vendas por aqui: o Bling conecta com client_id + secret (`conectarBlingSchema`). */
+export const conectarIntegracaoSchema = z.strictObject({ plataforma: z.enum(["HOTMART", "EDUZZ", "PAGINA"], "Plataforma inválida."), segredo });
 export const trocarSegredoSchema = z.strictObject({ integracaoId: idSchema, versao: versaoSchema, segredo });
 export const integracaoVersaoSchema = z.strictObject({ integracaoId: idSchema, versao: versaoSchema });
 

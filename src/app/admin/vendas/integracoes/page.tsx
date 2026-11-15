@@ -25,7 +25,7 @@ import { TabelaSimples } from "./_components/tabela-simples";
 export const metadata: Metadata = { title: "Integrações" };
 
 /** Passo a passo curto de cada plataforma (RN-230): onde pegar o token e onde colar a URL. O Bling tem card próprio. */
-const COM_TOKEN = ["HOTMART", "EDUZZ"] as const;
+const COM_TOKEN = ["HOTMART", "EDUZZ", "PAGINA"] as const;
 const PASSOS: Record<Exclude<PlataformaIntegracao, "BLING">, { antes: string[]; depois: string[] }> = {
   HOTMART: {
     antes: ["Na Hotmart, abra Ferramentas › Webhook (API e notificações).", "Na aba Autenticação, copie o Hottok e cole aqui embaixo."],
@@ -41,6 +41,17 @@ const PASSOS: Record<Exclude<PlataformaIntegracao, "BLING">, { antes: string[]; 
       "No Console, em Webhook › + Nova configuração, cole a URL acima e escolha a mesma chave em \"Chave de acesso\".",
       "Marque os eventos do MyEduzz: Fatura paga, reembolsada, cancelada, chargeback e Contrato atualizado. Crie e ative (o teste da Eduzz aparece em Últimos eventos).",
       "Mapeie abaixo cada produto da Eduzz para os cursos daqui.",
+    ],
+  },
+  PAGINA: {
+    antes: [
+      "Página de vendas própria (checkout próprio, ex.: Liderança Inteligente): cada compra paga libera os cursos sozinha.",
+      "Gere um segredo longo (32 caracteres ou mais) e cole aqui embaixo. O mesmo valor vai na página, em LIDER_WEBHOOK_SEGREDO.",
+    ],
+    depois: [
+      "No Easypanel da página de vendas, ponha a URL acima em LIDER_WEBHOOK_URL e o mesmo segredo em LIDER_WEBHOOK_SEGREDO, e reinicie.",
+      "Mapeie abaixo o produto lideranca-inteligente para o(s) curso(s) que a compra libera.",
+      "Compras pagas antes da ligação: no painel da página, abra o pedido e clique em Reenviar aviso de acesso.",
     ],
   },
 };
@@ -183,7 +194,7 @@ async function Integracoes({ searchParams }: { searchParams: Busca }) {
             Últimos eventos
           </CartaoTitulo>
           <p className="m-0 text-[13px] text-muted">
-            Os 50 avisos mais recentes da Hotmart, da Eduzz e do Bling.
+            Os 50 avisos mais recentes da Hotmart, da Eduzz, do Bling e da página de vendas.
             {semMapa > 0 && ` ${semMapa} ${semMapa === 1 ? "compra espera" : "compras esperam"} mapeamento: mapeie o produto e clique em Reprocessar.`}
           </p>
         </div>
