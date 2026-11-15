@@ -42,13 +42,13 @@ describe("caminho HLS aceito na rota", () => {
 
 describe("podeAssistir (RN-114)", () => {
   const agora = new Date("2026-10-14T12:00:00Z");
-  const aula = { liberaEm: null, statusProduto: "PUBLICADO", statusModulo: "PUBLICADO", preRequisitoCumprido: true, avaliacaoPendente: false } as const;
-  const aluno = { papel: "ALUNO", matriculaAtiva: true } as const;
+  const aula = { liberaEm: null, liberaAposDias: null, statusProduto: "PUBLICADO", statusModulo: "PUBLICADO", preRequisitoCumprido: true, avaliacaoPendente: false } as const;
+  const aluno = { papel: "ALUNO", matricula: { iniciadaEm: new Date("2026-10-01T12:00:00Z") } } as const;
 
   it("equipe sempre (SUPER_ADMIN chega como DONO), mesmo em rascunho e sem matrícula", () => {
-    const rascunho = { liberaEm: new Date("2030-01-01"), statusProduto: "RASCUNHO", statusModulo: "RASCUNHO", preRequisitoCumprido: false, avaliacaoPendente: true } as const;
-    expect(podeAssistir({ papel: "DONO", matriculaAtiva: false }, rascunho, agora)).toBe(true);
-    expect(podeAssistir({ papel: "ADMIN", matriculaAtiva: false }, rascunho, agora)).toBe(true);
+    const rascunho = { liberaEm: new Date("2030-01-01"), liberaAposDias: null, statusProduto: "RASCUNHO", statusModulo: "RASCUNHO", preRequisitoCumprido: false, avaliacaoPendente: true } as const;
+    expect(podeAssistir({ papel: "DONO", matricula: null }, rascunho, agora)).toBe(true);
+    expect(podeAssistir({ papel: "ADMIN", matricula: null }, rascunho, agora)).toBe(true);
   });
 
   it("ALUNO matriculado assiste aula liberada de produto publicado ou não listado", () => {
@@ -58,24 +58,24 @@ describe("podeAssistir (RN-114)", () => {
   });
 
   it("ALUNO NÃO assiste: sem matrícula valendo, produto rascunho, módulo rascunho, aula não liberada", () => {
-    expect(podeAssistir({ papel: "ALUNO", matriculaAtiva: false }, aula, agora)).toBe(false);
+    expect(podeAssistir({ papel: "ALUNO", matricula: null }, aula, agora)).toBe(false);
     expect(podeAssistir(aluno, { ...aula, statusProduto: "RASCUNHO" }, agora)).toBe(false);
     expect(podeAssistir(aluno, { ...aula, statusModulo: "RASCUNHO" }, agora)).toBe(false);
     expect(podeAssistir(aluno, { ...aula, liberaEm: new Date(agora.getTime() + 1) }, agora)).toBe(false);
-    expect(podeAssistir({ papel: null, matriculaAtiva: true }, aula, agora)).toBe(false);
+    expect(podeAssistir({ papel: null, matricula: { iniciadaEm: new Date("2026-10-01T12:00:00Z") } }, aula, agora)).toBe(false);
     expect(podeAssistir(aluno, { ...aula, preRequisitoCumprido: false }, agora)).toBe(false);
     expect(podeAssistir(aluno, { ...aula, avaliacaoPendente: true }, agora)).toBe(false);
   });
 
   it("motivo do bloqueio na ordem que a tela explica (RN-118)", () => {
-    const tudoFechado = { liberaEm: new Date("2030-01-01"), statusProduto: "PUBLICADO", statusModulo: "PUBLICADO", preRequisitoCumprido: false, avaliacaoPendente: true } as const;
-    expect(motivoDoBloqueio({ papel: "ALUNO", matriculaAtiva: false }, tudoFechado, agora)).toBe("MATRICULA");
+    const tudoFechado = { liberaEm: new Date("2030-01-01"), liberaAposDias: null, statusProduto: "PUBLICADO", statusModulo: "PUBLICADO", preRequisitoCumprido: false, avaliacaoPendente: true } as const;
+    expect(motivoDoBloqueio({ papel: "ALUNO", matricula: null }, tudoFechado, agora)).toBe("MATRICULA");
     expect(motivoDoBloqueio(aluno, tudoFechado, agora)).toBe("LIBERACAO");
     expect(motivoDoBloqueio(aluno, { ...tudoFechado, liberaEm: null }, agora)).toBe("AVALIACAO");
     expect(motivoDoBloqueio(aluno, { ...tudoFechado, liberaEm: null, avaliacaoPendente: false }, agora)).toBe("PRE_REQUISITO");
     expect(motivoDoBloqueio(aluno, { ...tudoFechado, statusModulo: "RASCUNHO" }, agora)).toBe("INDISPONIVEL");
-    expect(motivoDoBloqueio({ papel: null, matriculaAtiva: false }, aula, agora)).toBe("INDISPONIVEL");
-    expect(motivoDoBloqueio({ papel: "ADMIN", matriculaAtiva: false }, tudoFechado, agora)).toBeNull();
+    expect(motivoDoBloqueio({ papel: null, matricula: null }, aula, agora)).toBe("INDISPONIVEL");
+    expect(motivoDoBloqueio({ papel: "ADMIN", matricula: null }, tudoFechado, agora)).toBeNull();
     expect(motivoDoBloqueio(aluno, aula, agora)).toBeNull();
   });
 });

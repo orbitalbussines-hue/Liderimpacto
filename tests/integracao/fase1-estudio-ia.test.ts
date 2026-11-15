@@ -108,6 +108,34 @@ describe("IA do Estúdio", () => {
     expect(await ia.sugestoesDaAula(x.A.id, x.aula.id)).toEqual([]);
   });
 
+  it("aula com conteúdo em blocos (RN-275): troca o primeiro TEXTO, mantém o resto e a trilha registra o que foi gravado", async () => {
+    const x = await cenario();
+    const IMG = crypto.randomUUID();
+    const blocos = [
+      { tipo: "TEXTO" as const, texto: "A" },
+      { tipo: "IMAGEM" as const, arquivoId: IMG, alt: "Mapa" },
+      { tipo: "TEXTO" as const, texto: "B" },
+    ];
+    const [aula] = await db.update(s.produtos_modulos_aulas).set({ conteudo: blocos, descricao: "A\n\nB" }).where(eq(s.produtos_modulos_aulas.id, x.aula.id)).returning();
+    const g = await ia.gerarSugestao({ criadorId: x.A.id, autorId: x.dono.id, aulaId: x.aula.id }, new Falso({ resposta: JSON.stringify(RESPOSTA) }));
+    await db.transaction((tx) => ia.aplicarSugestao(tx, { criadorId: x.A.id, autor: x.dono.id, sugestaoId: g.id, versao: g.versao, parte: "DESCRICAO", aulaVersao: aula.updated_at }));
+    const [depois] = await db.select().from(s.produtos_modulos_aulas).where(eq(s.produtos_modulos_aulas.id, x.aula.id));
+    expect(depois.conteudo).toEqual([{ tipo: "TEXTO", texto: RESPOSTA.descricao }, blocos[1], blocos[2]]);
+    expect(depois.descricao).toBe(`${RESPOSTA.descricao}\n\nB`);
+    const t = (await db.select().from(s.auditoria).where(eq(s.auditoria.registro_id, x.aula.id))).find((r) => r.detalhes.includes("sugeridos pela IA"))!;
+    expect(t.dados_anteriores).toEqual({ descricao: "A\n\nB", conteudo: "3 blocos (1 imagem)" });
+    expect(t.dados_novos).toEqual({ descricao: depois.descricao, conteudo: "3 blocos (1 imagem)" });
+
+    // 40 blocos sem TEXTO: não insere o 41º (o editor recusaria o próximo salvar).
+    const x2 = await cenario();
+    const cheio = Array.from({ length: 40 }, () => blocos[1]);
+    const [a2] = await db.update(s.produtos_modulos_aulas).set({ conteudo: cheio }).where(eq(s.produtos_modulos_aulas.id, x2.aula.id)).returning();
+    const g2 = await ia.gerarSugestao({ criadorId: x2.A.id, autorId: x2.dono.id, aulaId: x2.aula.id }, new Falso({ resposta: JSON.stringify(RESPOSTA) }));
+    await expect(db.transaction((tx) => ia.aplicarSugestao(tx, { criadorId: x2.A.id, autor: x2.dono.id, sugestaoId: g2.id, versao: g2.versao, parte: "DESCRICAO", aulaVersao: a2.updated_at }))).rejects.toThrow(/40 blocos/);
+    const [intacta] = await db.select().from(s.produtos_modulos_aulas).where(eq(s.produtos_modulos_aulas.id, x2.aula.id));
+    expect(intacta.conteudo).toHaveLength(40);
+  });
+
   it("fora do formato: grava descartada (custo conta no limite) e recusa; sem chave, sem legenda e outro criador recusam", async () => {
     const x = await cenario();
     const antes = await ia.geracoesDeHoje(x.A.id);

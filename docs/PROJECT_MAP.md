@@ -6,11 +6,11 @@
 
 | Metrica | Total |
 |---------|-------|
-| Arquivos TS/TSX | 968 |
-| Tabelas (Drizzle) | 94 |
-| Server Actions (arquivos) | 48 |
-| Rotas de API | 20 |
-| Paginas | 122 |
+| Arquivos TS/TSX | 998 |
+| Tabelas (Drizzle) | 97 |
+| Server Actions (arquivos) | 49 |
+| Rotas de API | 22 |
+| Paginas | 123 |
 | Componentes | 161 |
 
 ## Arvore (profundidade 3)
@@ -109,6 +109,9 @@ app/
     requisitos-senha.tsx
   recuperar-senha/
     form-recuperar.tsx
+    page.tsx
+  resgatar-pedido/
+    form-resgatar-pedido.tsx
     page.tsx
   apple-icon.png
   favicon.ico
@@ -363,6 +366,7 @@ lib/
     produtos-estrutura.ts
     produtos.ts
     progresso.ts
+    resgate-publico.ts
     seguranca.ts
     tags.ts
     tema.ts
@@ -384,6 +388,7 @@ lib/
     arquivos.ts
     cliente.ts
     envio.ts
+    imagens.ts
     regras.test.ts
     regras.ts
   assistente/
@@ -444,6 +449,8 @@ lib/
     tentativas.ts
   catalogo/
     consultas.ts
+    conteudo-aula.test.ts
+    conteudo-aula.ts
     ordem.ts
     publicacao.ts
     regras.test.ts
@@ -525,6 +532,7 @@ lib/
     regras.test.ts
     regras.ts
   integracoes/
+    bling/
     autenticidade.ts
     consultas.ts
     fila.ts
@@ -602,6 +610,7 @@ lib/
     config.test.ts
     config.ts
     consultas.ts
+    exportar-leads.ts
     funis.ts
     leads.ts
     metricas.ts
@@ -632,6 +641,8 @@ lib/
     sql.ts
     top10.ts
     visao.ts
+  resgates/
+    publico.ts
   tags/
     servico.ts
   trilhas/
@@ -661,6 +672,7 @@ lib/
     perfil.test.ts
     perfil.ts
     progresso.ts
+    resgate-publico.ts
     senha.test.ts
     senha.ts
     tags.ts
@@ -677,12 +689,16 @@ lib/
     ffmpeg.test.ts
     ffmpeg.ts
     fila.ts
+    liberacao.test.ts
+    liberacao.ts
     playlist.test.ts
     playlist.ts
     processar.ts
     provedor-proprio.test.ts
     provedor-proprio.ts
     provedor.ts
+    reconferir.test.ts
+    reconferir.ts
     registro.ts
     regras.test.ts
     regras.ts
@@ -694,6 +710,7 @@ lib/
     worker.ts
   vitrine/
     cache.ts
+    config.test.ts
     config.ts
     dados.ts
     resolver.ts
@@ -838,6 +855,15 @@ proxy.ts
 ### `criadores_desafios_participacoes` — src/lib/db/schema/gamificacao.ts
 `id`, `criador_id`, `desafio_id`, `membro_id`, `concluido_em`, `recompensa_entregue_em`, `recompensa_entregue_por`
 
+### `criadores_integracoes_oauth` — src/lib/db/schema/integracoes-bling.ts
+`id`, `criador_id`, `integracao_id`, `cliente_id`, `tokens_cifrados`, `token_expira_em`, `renovado_em`, `situacao`, `erro`
+
+### `criadores_integracoes_pedidos` — src/lib/db/schema/integracoes-bling.ts
+`id`, `criador_id`, `integracao_id`, `pedido_id`, `numero_loja`, `numero`, `loja_id`, `cpf_hmac`, `skus`, `situacao`, `situacao_bling`, `sincronizado_em`
+
+### `criadores_integracoes_pedidos_resgates` — src/lib/db/schema/integracoes-bling.ts
+`id`, `criador_id`, `pedido_id`, `membro_id`, `matriculas`
+
 ### `criadores_integracoes` — src/lib/db/schema/integracoes.ts
 `id`, `criador_id`, `plataforma`, `segredo_cifrado`, `segredo_final`
 
@@ -860,13 +886,13 @@ proxy.ts
 `id`, `criador_id`, `nome`, `conteudo`, `publico`, `situacao`, `agendada_para`, `iniciada_em`, `concluida_em`, `cancelada_em`, `total_destinatarios`
 
 ### `criadores_automacoes` — src/lib/db/schema/marketing.ts
-`id`, `criador_id`, `nome`, `gatilho`, `produto_id`, `dias`, `atraso_minutos`, `conteudo`, `tag_id`, `situacao`
+`id`, `criador_id`, `nome`, `gatilho`, `produto_id`, `dias`, `atraso_minutos`, `conteudo`, `tag_id`, `pagina_id`, `funil_id`, `situacao`
 
 ### `criadores_emails_envios` — src/lib/db/schema/marketing.ts
-`id`, `criador_id`, `membro_id`, `origem`, `campanha_id`, `automacao_id`, `chave`, `situacao`, `motivo`, `tentativas`, `enviado_em`, `aberto_em`, `aberturas`, `clicado_em`, `cliques`
+`id`, `criador_id`, `membro_id`, `lead_id`, `origem`, `campanha_id`, `automacao_id`, `chave`, `situacao`, `motivo`, `tentativas`, `enviado_em`, `aberto_em`, `aberturas`, `clicado_em`, `cliques`
 
 ### `criadores_automacoes_execucoes` — src/lib/db/schema/marketing.ts
-`id`, `criador_id`, `automacao_id`, `membro_id`, `referencia`, `situacao`, `executar_em`, `executada_em`, `tag_aplicada`, `envio_id`, `motivo`
+`id`, `criador_id`, `automacao_id`, `membro_id`, `lead_id`, `referencia`, `situacao`, `executar_em`, `executada_em`, `tag_aplicada`, `envio_id`, `motivo`
 
 ### `criadores_emails_descadastros` — src/lib/db/schema/marketing.ts
 `id`, `criador_id`, `destinatario_hash`, `destinatario_mascarado`, `origem`
@@ -908,10 +934,10 @@ proxy.ts
 `id`, `criador_id`, `codigo`, `titulo`, `slug`, `descricao`, `tipo`, `capa_3x4_arquivo_id`, `capa_16x9_arquivo_id`, `status`, `publicado_em`, `professor_membro_id`, `cor_marca`
 
 ### `produtos_modulos` — src/lib/db/schema/produtos.ts
-`id`, `criador_id`, `produto_id`, `ordem`, `titulo`, `status`
+`id`, `criador_id`, `produto_id`, `ordem`, `titulo`, `status`, `capa_arquivo_id`
 
 ### `produtos_modulos_aulas` — src/lib/db/schema/produtos.ts
-`id`, `criador_id`, `modulo_id`, `ordem`, `titulo`, `descricao`, `duracao_seg`, `thumb_arquivo_id`, `capitulos`, `libera_em`, `pre_requisito_aula_id`
+`id`, `criador_id`, `modulo_id`, `ordem`, `titulo`, `descricao`, `duracao_seg`, `thumb_arquivo_id`, `capitulos`, `conteudo`, `libera_em`, `libera_apos_dias`, `pre_requisito_aula_id`
 
 ### `produtos_modulos_aulas_materiais` — src/lib/db/schema/produtos.ts
 `id`, `criador_id`, `aula_id`, `nome`, `tipo`, `arquivo_id`, `url`
@@ -1008,6 +1034,8 @@ proxy.ts
 | Rota | Metodos |
 |------|---------|
 | `/admin/analytics/exportar` | GET |
+| `/admin/paginas/leads/exportar` | GET |
+| `/admin/vendas/integracoes/bling/retorno` | GET |
 | `/api/assistente` | POST |
 | `/api/email/abertura` | GET |
 | `/api/email/clique` | GET |
@@ -1054,7 +1082,7 @@ proxy.ts
 - `src/lib/actions/feedbacks.ts`: `acaoDarFeedback()`, `acaoRemoverFeedback()`
 - `src/lib/actions/gamificacao.ts`: `acaoSalvarConfigGamificacao()`, `acaoSalvarDesafio()`, `acaoPublicarDesafio()`, `acaoEncerrarDesafio()`, `acaoExcluirDesafio()`, `acaoMarcarRecompensaEntregue()`, `acaoAjustarPontos()`, `acaoParticiparDoDesafio()`
 - `src/lib/actions/grupos.ts`: `acaoCriarGrupo()`, `acaoRenomearGrupo()`, `acaoRemoverGrupo()`
-- `src/lib/actions/integracoes.ts`: `acaoConectarIntegracao()`, `acaoTrocarSegredoIntegracao()`, `acaoDesconectarIntegracao()`, `acaoCriarMapeamento()`, `acaoExcluirMapeamento()`, `acaoReprocessarEventoIntegracao()`
+- `src/lib/actions/integracoes.ts`: `acaoConectarIntegracao()`, `acaoTrocarSegredoIntegracao()`, `acaoDesconectarIntegracao()`, `acaoCriarMapeamento()`, `acaoExcluirMapeamento()`, `acaoReprocessarEventoIntegracao()`, `acaoConectarBling()`, `acaoTrocarCredenciaisBling()`, `acaoAutorizarBling()`
 - `src/lib/actions/legendas.ts`: `acaoEnviarLegenda()`, `acaoRemoverLegenda()`
 - `src/lib/actions/matriculas-importacao.ts`: `acaoImportarMatriculas()`
 - `src/lib/actions/matriculas.ts`: `acaoMatricular()`, `acaoCancelarMatricula()`, `acaoAlterarExpiracao()`, `acaoReativarMatricula()`, `acaoBuscarMembros()`
@@ -1066,15 +1094,16 @@ proxy.ts
 - `src/lib/actions/paginas.ts`: `acaoCriarPagina()`, `acaoSalvarRascunhoPagina()`, `acaoPublicarPagina()`, `acaoDespublicarPagina()`, `acaoExcluirPagina()`, `acaoPrepararImagemPagina()`, `acaoCriarFunil()`, `acaoSalvarFunil()`, `acaoExcluirFunil()`
 - `src/lib/actions/perfil.ts`: `acaoSalvarPerfil()`
 - `src/lib/actions/preferencias.ts`: `acaoSalvarPreferencias()`
-- `src/lib/actions/produtos-estrutura.ts`: `acaoCriarModulo()`, `acaoEditarModulo()`, `acaoRemoverModulo()`, `acaoReordenarModulos()`, `acaoCriarAula()`, `acaoRemoverAula()`, `acaoReordenarAulas()`
+- `src/lib/actions/produtos-estrutura.ts`: `acaoCriarModulo()`, `acaoEditarModulo()`, `acaoDefinirCapaModulo()`, `acaoRemoverModulo()`, `acaoReordenarModulos()`, `acaoCriarAula()`, `acaoRemoverAula()`, `acaoReordenarAulas()`
 - `src/lib/actions/produtos.ts`: `acaoCriarProduto()`, `acaoSalvarProduto()`, `acaoAlterarSituacaoProduto()`, `acaoDefinirCapaProduto()`, `acaoRemoverProduto()`
 - `src/lib/actions/progresso.ts`: `acaoRegistrarProgresso()`, `acaoConcluirAula()`
+- `src/lib/actions/resgate-publico.ts`: `acaoResgatarPedido()`, `acaoResgatarCodigo()`
 - `src/lib/actions/seguranca.ts`: `acaoIniciarTotp()`, `acaoConfirmarTotp()`, `acaoNovosCodigos()`, `acaoTrocarSenha()`, `acaoEncerrarOutrasSessoes()`
 - `src/lib/actions/tags.ts`: `acaoCriarTag()`, `acaoSalvarTag()`, `acaoExcluirTag()`, `acaoAplicarTag()`, `acaoRemoverTag()`
 - `src/lib/actions/tema.ts`: `alterarTema()`
 - `src/lib/actions/trilhas.ts`: `acaoCriarTrilha()`, `acaoSalvarTrilha()`, `acaoDefinirCapaTrilha()`, `acaoAlterarSituacaoTrilha()`, `acaoRemoverTrilha()`, `acaoAdicionarItemTrilha()`, `acaoSalvarItemTrilha()`, `acaoRemoverItemTrilha()`, `acaoReordenarItensTrilha()`
 - `src/lib/actions/usuarios-senha.ts`: `acaoGerarLinkDeSenha()`
-- `src/lib/actions/videos.ts`: `acaoIniciarEnvioVideo()`, `acaoAssinarPartesVideo()`, `acaoConcluirEnvioVideo()`, `acaoCancelarEnvioVideo()`, `acaoReprocessarVideo()`, `acaoIniciarReproducao()`, `acaoRenovarReproducao()`
+- `src/lib/actions/videos.ts`: `acaoIniciarEnvioVideo()`, `acaoAssinarPartesVideo()`, `acaoConcluirEnvioVideo()`, `acaoCancelarEnvioVideo()`, `acaoReprocessarVideo()`, `acaoReaproveitarVideo()`, `acaoIniciarReproducao()`, `acaoRenovarReproducao()`
 - `src/lib/actions/vitrine.ts`: `acaoSalvarRascunhoVitrine()`, `acaoPublicarVitrine()`, `acaoReverterVitrine()`, `acaoDescartarRascunhoVitrine()`, `acaoBuscarConteudoVitrine()`, `acaoPrepararImagemDestaque()`
 - `src/lib/actions/vouchers.ts`: `acaoCriarVoucher()`, `acaoSalvarVoucher()`, `acaoMudarSituacaoVoucher()`, `acaoExcluirVoucher()`, `acaoResgatarVoucher()`
 - `src/lib/actions/webhooks.ts`: `acaoCriarWebhook()`, `acaoSalvarWebhook()`, `acaoMudarSituacaoWebhook()`, `acaoRotacionarSegredoWebhook()`, `acaoExcluirWebhook()`, `acaoReenviarEntrega()`
@@ -1203,3 +1232,4 @@ proxy.ts
 - `src/app/previa-pagina/[id]/page.tsx`
 - `src/app/primeiro-acesso/page.tsx`
 - `src/app/recuperar-senha/page.tsx`
+- `src/app/resgatar-pedido/page.tsx`

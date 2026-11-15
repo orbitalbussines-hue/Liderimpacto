@@ -7,6 +7,7 @@ import {
   criadores_conhecimento_documentos as documentos,
   criadores_conhecimento_documentos_trechos as trechos,
   produtos,
+  produtos_matriculas,
   produtos_modulos as modulos,
   produtos_modulos_aulas as aulas,
 } from "@/lib/db/schema";
@@ -22,7 +23,8 @@ import { consultaDaPergunta } from "./regras";
  * 1. SQL (grosso, garante que curso pago não vaza): trecho e documento vivos, documento incluído,
  *    aula/módulo/curso vivos; para ALUNO, curso publicado/não listado + módulo publicado +
  *    matrícula VALENDO agora. Texto da equipe sem curso vale para todos os membros.
- * 2. JS (fino, a MESMA regra do vídeo): `motivoDoBloqueio` por aula (liberação programada,
+ * 2. JS (fino, a MESMA regra do vídeo): `motivoDoBloqueio` por aula (liberação programada — na
+ *    data ou N dias depois da matrícula DESTE aluno, RN-274 —,
  *    avaliação que trava o módulo, pré-requisito). Equipe passa sempre.
  *
  * `produtos` = cursos em que o assistente aparece (null = todos). Ranking: `ts_rank_cd` sobre o
@@ -78,12 +80,13 @@ export async function recuperarTrechos(
   if (opcoes.produtos) {
     condicoes.push(opcoes.produtos.length ? or(isNull(produtos.id), inArray(produtos.id, [...opcoes.produtos])) : isNull(produtos.id));
   }
+  // Matrícula valendo do aluno no curso do trecho; o `iniciada_em` dela conta a aula "X dias" (RN-274).
+  const daMatricula = sql`from produtos_matriculas pm
+    where pm.produto_id = ${produtos.id} and pm.membro_id = ${quem.membroId}::uuid and pm.criador_id = ${criadorId}::uuid
+      and pm.is_deleted = false and pm.status = 'ATIVA' and (pm.expira_em is null or pm.expira_em > ${agora})`;
+  const iniciadaEm = (!equipe && quem.membroId ? sql`(select pm.iniciada_em ${daMatricula})` : sql`null`).mapWith(produtos_matriculas.iniciada_em);
   if (!equipe) {
-    const matricula = quem.membroId
-      ? sql`exists (select 1 from produtos_matriculas pm
-          where pm.produto_id = ${produtos.id} and pm.membro_id = ${quem.membroId}::uuid and pm.criador_id = ${criadorId}::uuid
-            and pm.is_deleted = false and pm.status = 'ATIVA' and (pm.expira_em is null or pm.expira_em > ${agora}))`
-      : sql`false`;
+    const matricula = quem.membroId ? sql`exists (select 1 ${daMatricula})` : sql`false`;
     condicoes.push(
       or(isNull(produtos.id), and(ne(produtos.status, "RASCUNHO"), or(isNull(modulos.id), eq(modulos.status, "PUBLICADO")), matricula)),
     );
@@ -104,6 +107,8 @@ export async function recuperarTrechos(
       produtoTitulo: produtos.titulo,
       relevancia,
       liberaEm: aulas.libera_em,
+      liberaAposDias: aulas.libera_apos_dias,
+      iniciadaEm,
       statusModulo: modulos.status,
       statusProduto: produtos.status,
       preRequisitoCumprido: preRequisitoCumpridoSql(aulas.pre_requisito_aula_id, quem.membroId),
@@ -122,10 +127,11 @@ export async function recuperarTrechos(
   const saida: TrechoRecuperado[] = [];
   for (const l of linhas) {
     if (l.aulaId && l.statusModulo && l.statusProduto) {
-      // Matrícula já conferida no SQL para o aluno; aqui as travas da aula (mesma regra do vídeo).
+      // Matrícula já conferida no SQL para o aluno; aqui as travas da aula (mesma regra do vídeo,
+      // com o calendário DESTA matrícula). Equipe passa sem matrícula.
       const motivo = motivoDoBloqueio(
-        { papel: quem.papel, matriculaAtiva: true },
-        { liberaEm: l.liberaEm, statusModulo: l.statusModulo, statusProduto: l.statusProduto, preRequisitoCumprido: l.preRequisitoCumprido, avaliacaoPendente: l.avaliacaoPendente },
+        { papel: quem.papel, matricula: l.iniciadaEm ? { iniciadaEm: l.iniciadaEm } : null },
+        { liberaEm: l.liberaEm, liberaAposDias: l.liberaAposDias, statusModulo: l.statusModulo, statusProduto: l.statusProduto, preRequisitoCumprido: l.preRequisitoCumprido, avaliacaoPendente: l.avaliacaoPendente },
         agora,
       );
       if (motivo) continue;

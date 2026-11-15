@@ -1,0 +1,3 @@
+ALTER TABLE "produtos_modulos_aulas" ADD COLUMN "libera_apos_dias" integer;--> statement-breakpoint
+ALTER TABLE "produtos_modulos_aulas" ADD CONSTRAINT "ck_produtos_modulos_aulas_libera_apos_dias" CHECK (libera_apos_dias is null or libera_apos_dias between 1 and 3650);--> statement-breakpoint
+ALTER TABLE "produtos_modulos_aulas" ADD CONSTRAINT "ck_produtos_modulos_aulas_um_modo_liberacao" CHECK (libera_em is null or libera_apos_dias is null);

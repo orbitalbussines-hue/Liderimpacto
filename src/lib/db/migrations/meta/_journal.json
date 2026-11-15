@@ -148,6 +148,20 @@
       "when": 1794756627053,
       "tag": "0020_integracao_pagina_de_vendas",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794761425798,
+      "tag": "0021_libera_apos_dias",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794763752933,
+      "tag": "0022_conteudo_da_aula",
+      "breakpoints": true
     }
   ]
 }

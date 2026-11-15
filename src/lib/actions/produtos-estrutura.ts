@@ -7,6 +7,7 @@ import { apagarObjetosDescartados, arquivoParaUsar, descartarArquivo } from "@/l
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { exigirMembro } from "@/lib/auth/autorizacao";
 import { EQUIPE } from "@/lib/auth/permissoes";
+import { imagensDoConteudo } from "@/lib/catalogo/conteudo-aula";
 import { AULAS, MODULOS, compactar, proximaOrdem, reordenar } from "@/lib/catalogo/ordem";
 import { garantirPublicavel } from "@/lib/catalogo/publicacao";
 import { ROTULO_STATUS_MODULO } from "@/lib/catalogo/regras";
@@ -262,7 +263,7 @@ export async function acaoRemoverAula(entrada: unknown) {
         .set(marcaDeExclusao(usuario.id))
         .where(and(eq(produtos_modulos_aulas_materiais.aula_id, aula.id), eq(produtos_modulos_aulas_materiais.criador_id, criador.id), vivos(produtos_modulos_aulas_materiais)))
         .returning({ arquivo: produtos_modulos_aulas_materiais.arquivo_id });
-      for (const arquivoId of [aula.thumb_arquivo_id, ...materiais.map((m) => m.arquivo)].filter((x): x is string => !!x)) {
+      for (const arquivoId of [aula.thumb_arquivo_id, ...imagensDoConteudo(aula.conteudo), ...materiais.map((m) => m.arquivo)].filter((x): x is string => !!x)) {
         descartados.push(await descartarArquivo(tx, { criadorId: criador.id, arquivoId, autorId: usuario.id, motivo: `aula "${aula.titulo}" removida` }));
       }
       await compactar(tx, AULAS, modulo.id, criador.id);

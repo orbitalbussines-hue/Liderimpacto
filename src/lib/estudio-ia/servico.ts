@@ -6,6 +6,7 @@ import { inicioDoDiaSql } from "@/lib/assistente/conversas";
 import { custoUsd, USO_ZERO, type Uso } from "@/lib/assistente/regras";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { IDS_OPCOES } from "@/lib/avaliacoes/regras";
+import { descricaoDoConteudo, resumoDoConteudo, trocarPrimeiroTexto } from "@/lib/catalogo/conteudo-aula";
 import { db, type Transacao } from "@/lib/db";
 import {
   produtos,
@@ -184,8 +185,11 @@ export async function aplicarSugestao(tx: Transacao, p: PedidoAplicar): Promise<
       const erro = erroDeCapitulosNaDuracao(s.capitulos, aula.duracaoSeg);
       if (erro) throw new ErroDeNegocio(erro);
     }
-    const valores = p.parte === "DESCRICAO" ? { descricao: s.descricao } : { capitulos: s.capitulos };
-    const [antes] = await tx.select({ descricao: aulas.descricao, capitulos: aulas.capitulos }).from(aulas).where(travaDeColisao(aulas, aula.id, p.aulaVersao));
+    const [antes] = await tx.select({ descricao: aulas.descricao, capitulos: aulas.capitulos, conteudo: aulas.conteudo }).from(aulas).where(travaDeColisao(aulas, aula.id, p.aulaVersao));
+    // Aula com conteúdo em blocos (RN-275): a descrição sugerida vira o primeiro bloco de texto.
+    const conteudo = p.parte === "DESCRICAO" && antes?.conteudo?.length ? trocarPrimeiroTexto(antes.conteudo, s.descricao) : null;
+    const descricao = conteudo ? descricaoDoConteudo(conteudo) : s.descricao;
+    const valores = p.parte === "DESCRICAO" ? { descricao, ...(conteudo && { conteudo }) } : { capitulos: s.capitulos };
     const [a] = await tx
       .update(aulas)
       .set({ ...valores, updated_at: agora, modified_by: p.autor })
@@ -199,8 +203,9 @@ export async function aplicarSugestao(tx: Transacao, p: PedidoAplicar): Promise<
       tabela: "produtos_modulos_aulas",
       registroId: aula.id,
       detalhes: `Aplicou ${p.parte === "DESCRICAO" ? "a descrição" : "os capítulos"} sugeridos pela IA na aula "${aula.titulo}"`,
-      dadosAnteriores: p.parte === "DESCRICAO" ? { descricao: antes.descricao } : { capitulos: antes.capitulos },
-      dadosNovos: valores,
+      // O que foi GRAVADO: com blocos, a descrição derivada e o resumo do conteúdo (nunca o JSON, RN-275).
+      dadosAnteriores: p.parte === "DESCRICAO" ? { descricao: antes.descricao, ...(conteudo && { conteudo: resumoDoConteudo(antes.conteudo) }) } : { capitulos: antes.capitulos },
+      dadosNovos: p.parte === "DESCRICAO" ? { descricao, ...(conteudo && { conteudo: resumoDoConteudo(conteudo) }) } : { capitulos: s.capitulos },
     });
   } else {
     if (!p.avaliacaoId) throw new ErroDeNegocio("Escolha a avaliação que recebe as perguntas.");

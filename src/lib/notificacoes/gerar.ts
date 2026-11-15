@@ -8,6 +8,7 @@ import { criadores_membros_notificacoes as notificacoes } from "@/lib/db/schema"
 import { chaveDoLembrete } from "@/lib/eventos/regras";
 import { veEventoSql } from "@/lib/eventos/sql";
 import { dataEmBrasilia } from "@/lib/matriculas/regras";
+import { liberacaoPorMatriculaSql } from "@/lib/video/liberacao";
 import { RETENCAO_DIAS } from "./regras";
 
 /**
@@ -128,13 +129,15 @@ export async function notificarCanal(criadorId: string, postId: string, tipo: "A
 
 /**
  * Aula nova (o vídeo da aula ficou PRONTO pela primeira vez): alunos com matrícula valendo no
- * curso, se a aula já é visível (módulo publicado, curso fora de rascunho, liberada). Idempotente
- * por aula (`aula:<id>`): trocar o vídeo depois não notifica de novo.
+ * curso, se a aula já é visível (módulo publicado, curso fora de rascunho, liberada — a aula "X dias
+ * depois da matrícula" só para quem já chegou no dia, RN-274; os outros recebem em
+ * `notificarAulasLiberadas`). Idempotente por aula (`aula:<id>`): trocar o vídeo depois não
+ * notifica de novo.
  */
 export async function notificarAulaNova(criadorId: string, aulaId: string, autorId: string, agora = new Date()): Promise<void> {
   await seguro("aula nova", async () => {
-    const r = await db.execute<{ produto_id: string; aula_titulo: string; produto_titulo: string }>(sql`
-      select pr.id as produto_id, a.titulo as aula_titulo, pr.titulo as produto_titulo
+    const r = await db.execute<{ produto_id: string; aula_titulo: string; produto_titulo: string; libera_apos_dias: number | null }>(sql`
+      select pr.id as produto_id, a.titulo as aula_titulo, pr.titulo as produto_titulo, a.libera_apos_dias
       from produtos_modulos_aulas a
       join produtos_modulos mo on mo.id = a.modulo_id and mo.is_deleted = false and mo.status = 'PUBLICADO'
       join produtos pr on pr.id = mo.produto_id and pr.is_deleted = false and pr.status <> 'RASCUNHO'
@@ -150,8 +153,38 @@ export async function notificarAulaNova(criadorId: string, aulaId: string, autor
       autorId,
       excluirUsuarioId: autorId,
       onde: sql`m.papel = 'ALUNO' and exists (select 1 from produtos_matriculas pm where pm.membro_id = m.id and pm.produto_id = ${a.produto_id}::uuid
-        and pm.is_deleted = false and pm.status = 'ATIVA' and (pm.expira_em is null or pm.expira_em > ${agora}))`,
+        and pm.is_deleted = false and pm.status = 'ATIVA' and (pm.expira_em is null or pm.expira_em > ${agora})
+        ${a.libera_apos_dias === null ? sql`` : sql`and ${liberacaoPorMatriculaSql(sql`pm.iniciada_em`, sql`${a.libera_apos_dias}::int`)} <= ${agora}`})`,
     });
+  });
+}
+
+/**
+ * Aula "X dias depois da matrícula" (RN-274) que chegou no dia DESTE aluno: a mesma AULA_NOVA, com
+ * a mesma chave `aula:<id>` (nunca duas vezes, nem junto com a de `notificarAulaNova`) e
+ * `evento_em` = o dia em que liberou para ele. Nunca antes do dia. Só aula com vídeo PRONTO
+ * (a de `notificarAulaNova` também só sai com o vídeo pronto) e visível (módulo publicado, curso
+ * fora de rascunho, matrícula valendo). Liberação mais velha que a retenção não gera nada.
+ * Chamada ao contar as não lidas (`contarNaoLidas`: o sino, a cada página e no polling) — sem
+ * agendador. ponytail: um INSERT ... SELECT por contagem; vira job da fila se pesar.
+ */
+export async function notificarAulasLiberadas(criadorId: string, membroId: string, agora = new Date()): Promise<void> {
+  await seguro("aula liberada", async () => {
+    const libera = liberacaoPorMatriculaSql(sql`pm.iniciada_em`, sql`a.libera_apos_dias`);
+    await db.execute(sql`
+      insert into criadores_membros_notificacoes (criador_id, membro_id, tipo, dados, chave, evento_em, modified_by)
+      select m.criador_id, m.id, 'AULA_NOVA', jsonb_build_object('aulaId', a.id::text, 'aulaTitulo', a.titulo, 'produtoTitulo', pr.titulo),
+        'aula:' || a.id::text, lib.em, m.usuario_id
+      from criadores_membros m
+      join produtos_matriculas pm on pm.membro_id = m.id and pm.is_deleted = false and pm.status = 'ATIVA' and (pm.expira_em is null or pm.expira_em > ${agora})
+      join produtos pr on pr.id = pm.produto_id and pr.is_deleted = false and pr.status <> 'RASCUNHO'
+      join produtos_modulos mo on mo.produto_id = pr.id and mo.is_deleted = false and mo.status = 'PUBLICADO'
+      join produtos_modulos_aulas a on a.modulo_id = mo.id and a.is_deleted = false and a.libera_apos_dias is not null
+      cross join lateral (select ${libera} as em) lib
+      where m.id = ${membroId}::uuid and m.criador_id = ${criadorId}::uuid and m.status = 'ATIVO' and m.is_deleted = false and m.papel = 'ALUNO'
+        and lib.em <= ${agora} and lib.em > ${new Date(agora.getTime() - RETENCAO_DIAS * 86_400_000)}
+        and exists (select 1 from produtos_modulos_aulas_videos v where v.aula_id = a.id and v.is_deleted = false and v.situacao = 'PRONTO')
+      on conflict (membro_id, chave) where chave is not null do nothing`);
   });
 }
 

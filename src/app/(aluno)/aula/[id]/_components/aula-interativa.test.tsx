@@ -63,6 +63,22 @@ describe("AulaInterativa (estados da página)", () => {
     expect(screen.getByText("Faltam 3 aulas para o seu certificado")).toBeInTheDocument();
   });
 
+  it("conteúdo em blocos (RN-275) ocupa a aba Descrição no lugar do texto", () => {
+    render(<AulaInterativa {...base} conteudo={<div>BLOCOS</div>} />);
+    expect(screen.getByText("BLOCOS")).toBeInTheDocument();
+    expect(screen.queryByText(base.aula.descricao!)).toBeNull();
+  });
+
+  it("aula de leitura (RN-275): título antes do conteúdo; aula normal: depois do quadro", () => {
+    const antes = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const { unmount } = render(<AulaInterativa {...base} leitura />);
+    expect(antes(screen.getByRole("heading", { level: 1 }), screen.getByText("QUADRO"))).toBe(true);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    unmount();
+    render(<AulaInterativa {...base} />);
+    expect(antes(screen.getByText("QUADRO"), screen.getByRole("heading", { level: 1 }))).toBe(true);
+  });
+
   it("Concluir e avançar chama a action e vai para a próxima", async () => {
     concluir.mockResolvedValue({ ok: true, dados: { concluida: true } });
     render(<AulaInterativa {...base} />);

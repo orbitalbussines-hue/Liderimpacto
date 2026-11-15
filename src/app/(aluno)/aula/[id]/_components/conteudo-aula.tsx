@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { configPublicada } from "@/lib/vitrine/cache";
 import { idSchema } from "@/lib/validators/progresso";
 import { AulaInterativa } from "./aula-interativa";
+import { BlocosAula } from "./blocos-aula";
 import { FeedbackAula } from "./feedback-aula";
 import { QuadroAviso } from "./quadro-aviso";
 import { avisoDeBloqueio, avisoDoVideo, eyebrowDaAula } from "./textos";
@@ -32,7 +33,7 @@ function gruposDaPlaylist(d: Dados): GrupoPlaylist[] {
     aulas: m.aulas.map((a) => ({
       id: a.id,
       titulo: a.titulo,
-      duracao: duracaoCurta(a.duracaoSeg),
+      duracao: a.leitura ? "Leitura" : duracaoCurta(a.duracaoSeg),
       href: a.href,
       estado: a.estado === "concluida" ? "concluida" : "pendente",
       atual: a.id === d.aula.id,
@@ -73,18 +74,25 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
   const atualNaPlaylist = d.playlist.flatMap((m) => m.aulas).find((a) => a.id === d.aula.id);
   const aviso = d.motivoBloqueio
     ? avisoDeBloqueio(d.motivoBloqueio, { produto: d.produto, liberaEm: atualNaPlaylist?.liberaEm ?? null, preRequisito: atualNaPlaylist?.preRequisito ?? null, avaliacaoPendente: atualNaPlaylist?.avaliacaoPendente ?? null })
-    : avisoDoVideo(d.video);
+    : d.leitura
+      ? null
+      : avisoDoVideo(d.video);
+  // Aula de leitura (RN-275): o conteúdo ocupa o lugar do player e a aba Descrição sai (não duplica).
+  const blocos = d.conteudo && <BlocosAula blocos={d.conteudo.blocos} imagens={d.conteudo.imagens} />;
+  const flags = d.leitura ? { ...d.flags, abas: { ...d.flags.abas, descricao: false } } : d.flags;
   const escopo = d.produto.id;
 
   return (
     <div data-marca={escopo} className={cn("mx-auto grid max-w-[1400px] items-start gap-6", d.flags.playlist && "desk:grid-cols-[minmax(0,1fr)_340px]")}>
       <EstiloMarca cor={d.produto.corMarca} escopo={escopo} />
       <AulaInterativa
-        aula={{ id: d.aula.id, numero: d.aula.numero, titulo: d.aula.titulo, descricao: d.aula.descricao, duracaoSeg: d.aula.duracaoSeg, capitulos: d.aula.capitulos }}
+        aula={{ id: d.aula.id, numero: d.aula.numero, titulo: d.aula.titulo, descricao: d.aula.descricao, duracaoSeg: d.aula.duracaoSeg, capitulos: d.leitura ? [] : d.aula.capitulos }}
         eyebrow={eyebrowDaAula(d.aula.numero)}
-        player={aviso ? null : { poster, marcaDagua: `${q.usuario.nome} · ${q.usuario.email}`, retomarEm: inicio, autoIniciar: busca.auto === "1" }}
-        quadro={aviso ? <QuadroAviso aviso={aviso} poster={poster} /> : undefined}
-        flags={d.flags}
+        player={aviso || d.leitura ? null : { poster, marcaDagua: `${q.usuario.nome} · ${q.usuario.email}`, retomarEm: inicio, autoIniciar: busca.auto === "1" }}
+        quadro={d.leitura ? blocos : aviso ? <QuadroAviso aviso={aviso} poster={poster} /> : undefined}
+        conteudo={d.leitura ? undefined : blocos || undefined}
+        leitura={d.leitura}
+        flags={flags}
         concluida={d.progresso.concluida}
         concluirManual={d.concluirManual}
         podeAnotar={d.pode && !!q.membro.id}
@@ -93,7 +101,7 @@ export async function ConteudoAula({ params, searchParams }: ParametrosAula) {
         materiais={d.materiais}
         anotacoes={d.anotacoes}
         abaInicial={typeof busca.aba === "string" ? busca.aba : undefined}
-        legendas={aviso ? [] : d.legendas}
+        legendas={aviso || d.leitura ? [] : d.legendas}
         chaveLegenda={`li:legenda:${q.usuario.id}`}
         saltoSeg={t}
         feedback={d.pode && q.membro.id ? <FeedbackAula aulaId={d.aula.id} inicial={feedback && { util: feedback.util, comentario: feedback.comentario }} somenteLeitura={!avalia} /> : undefined}

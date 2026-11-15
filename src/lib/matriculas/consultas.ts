@@ -23,14 +23,20 @@ function daSituacao(s: SituacaoMatricula, agora: Date): SQL {
   return eq(pm.status, s);
 }
 
-/** Matricula valendo AGORA para o par (porta do `podeAssistir` e da area do aluno). */
-export async function matriculaAtiva(criadorId: string, membroId: string, produtoId: string, agora: Date): Promise<boolean> {
+/**
+ * Matricula VIVA valendo AGORA para o par (porta do `podeAssistir` e da area do aluno), com o
+ * `iniciada_em` que conta o calendario "X dias depois da matricula" (RN-274). `null` = nao vale.
+ */
+export async function matriculaValendo(criadorId: string, membroId: string, produtoId: string, agora: Date): Promise<{ iniciadaEm: Date } | null> {
   const [m] = await db
-    .select({ id: pm.id })
+    .select({ iniciadaEm: pm.iniciada_em })
     .from(pm)
     .where(and(eq(pm.criador_id, criadorId), eq(pm.membro_id, membroId), eq(pm.produto_id, produtoId), vivos(pm), valeAgora(agora)));
-  return !!m;
+  return m ?? null;
 }
+
+export const matriculaAtiva = async (criadorId: string, membroId: string, produtoId: string, agora: Date): Promise<boolean> =>
+  (await matriculaValendo(criadorId, membroId, produtoId, agora)) !== null;
 
 export async function contadoresDeMatriculas(criadorId: string, agora: Date) {
   const [c] = await db

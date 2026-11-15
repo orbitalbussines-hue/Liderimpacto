@@ -19,7 +19,7 @@ import {
 import { vivos } from "@/lib/db/soft-delete";
 import { dataEmBrasilia } from "@/lib/matriculas/regras";
 import { FAIXA_CONTINUAR } from "./regras";
-import { aulaNaVitrine, chaveViva, hrefDaAula, hrefDoCurso, matriculaValendoSql, numeroDaAula, numeroDoModulo, type QuemPede, subtituloDaAula } from "./visao";
+import { aulaNaVitrine, chaveViva, hrefDaAula, hrefDoCurso, liberadaParaQuemPedeSql, matriculaValendoSql, numeroDaAula, numeroDoModulo, type QuemPede, subtituloDaAula } from "./visao";
 
 /**
  * LEITURAS da vitrine e do perfil do aluno (SISTEMA.md §6). Todas filtram o criador do HOST,
@@ -99,6 +99,7 @@ export async function continuarAssistindo(q: QuemPede, limite = 10, agora = new 
       and(
         aulaNaVitrine(q.criador.id, agora),
         matriculaValendoSql(q, agora),
+        liberadaParaQuemPedeSql(q, agora),
         sql`${pr.percentual} between ${FAIXA_CONTINUAR.min} and ${FAIXA_CONTINUAR.max}`,
         sql`${pr.concluida_por} is distinct from 'MANUAL'`,
       ),
@@ -152,6 +153,7 @@ export async function novidades(q: QuemPede, limite = 10, agora = new Date()): P
       and(
         aulaNaVitrine(q.criador.id, agora),
         matriculaValendoSql(q, agora),
+        liberadaParaQuemPedeSql(q, agora),
         gte(produtos_modulos_aulas.created_at, desde),
         sql`${produtos.publicado_em} < ${produtos_modulos_aulas.created_at}`,
       ),
@@ -178,7 +180,7 @@ export async function minhaLista(q: QuemPede, agora = new Date()): Promise<(Item
     .where(and(doMembro, vivos(produtos), sql`${produtos.status} <> 'RASCUNHO'`));
   const aulas = await deAulas({ em: fav.updated_at })
     .innerJoin(fav, eq(fav.aula_id, produtos_modulos_aulas.id))
-    .where(and(doMembro, aulaNaVitrine(q.criador.id, agora)));
+    .where(and(doMembro, aulaNaVitrine(q.criador.id, agora), liberadaParaQuemPedeSql(q, agora)));
   return [...cursos.map((c) => ({ ...cartaoDeProduto(c), favoritadoEm: c.em })), ...aulas.map((a) => ({ ...cartaoDeAula(a), favoritadoEm: a.em }))].sort(
     (x, y) => y.favoritadoEm.getTime() - x.favoritadoEm.getTime(),
   );
@@ -211,7 +213,7 @@ export async function cartoesEscolhidos(q: QuemPede, itens: readonly { tipo: "PR
           .leftJoin(capa16x9, eq(capa16x9.id, produtos.capa_16x9_arquivo_id))
           .where(and(eq(produtos.criador_id, q.criador.id), vivos(produtos), sql`${produtos.status} <> 'RASCUNHO'`, inArray(produtos.id, ids("PRODUTO"))))
       : [],
-    ids("AULA").length ? deAulas({}).where(and(aulaNaVitrine(q.criador.id, agora), matriculaValendoSql(q, agora), inArray(produtos_modulos_aulas.id, ids("AULA")))) : [],
+    ids("AULA").length ? deAulas({}).where(and(aulaNaVitrine(q.criador.id, agora), matriculaValendoSql(q, agora), liberadaParaQuemPedeSql(q, agora), inArray(produtos_modulos_aulas.id, ids("AULA")))) : [],
   ]);
   const porId = new Map<string, ItemCartao>([...cursos.map((c) => [c.id, cartaoDeProduto(c)] as const), ...aulas.map((a) => [a.id, cartaoDeAula(a)] as const)]);
   return itens.flatMap((i) => porId.get(i.id) ?? []);

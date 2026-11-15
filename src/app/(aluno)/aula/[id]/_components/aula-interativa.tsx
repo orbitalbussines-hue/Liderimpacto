@@ -27,6 +27,10 @@ export interface AulaInterativaProps {
   /** Player montável (pode + vídeo PRONTO); senão `quadro` ocupa o lugar do vídeo. */
   player: { poster: string | null; marcaDagua: string; retomarEm: number; autoIniciar: boolean } | null;
   quadro?: ReactNode;
+  /** Conteúdo em blocos (RN-275) da aba Descrição; ausente = a `descricao` em texto. */
+  conteudo?: ReactNode;
+  /** Aula de leitura (RN-275): o título vem ANTES do conteúdo (no `quadro`), não depois. */
+  leitura?: boolean;
   flags: {
     abas: { descricao: boolean; materiais: boolean; comentarios: boolean; anotacoes: boolean };
     autoplay: boolean;
@@ -128,8 +132,25 @@ export function AulaInterativa(p: AulaInterativaProps) {
   // Um botão só não estica até 480 px no desktop (fica com cara de faixa).
   const umSo = [!!p.anterior, mostrarConcluir || !!p.proxima].filter(Boolean).length === 1;
 
+  const cabecalho = (
+    <CabecalhoPagina
+      variante="aula"
+      eyebrow={p.eyebrow}
+      titulo={p.aula.titulo}
+      meta={
+        concluida ? (
+          <Selo tom="ok">
+            <Check aria-hidden className="size-3" />
+            Concluída
+          </Selo>
+        ) : undefined
+      }
+    />
+  );
+
   return (
     <div className="flex min-w-0 flex-col gap-[18px]">
+      {p.leitura && cabecalho}
       <div id="player-aula" className="scroll-mt-24">
         {p.player ? (
           <PlayerAula
@@ -163,19 +184,7 @@ export function AulaInterativa(p: AulaInterativaProps) {
         )}
       </div>
 
-      <CabecalhoPagina
-        variante="aula"
-        eyebrow={p.eyebrow}
-        titulo={p.aula.titulo}
-        meta={
-          concluida ? (
-            <Selo tom="ok">
-              <Check aria-hidden className="size-3" />
-              Concluída
-            </Selo>
-          ) : undefined
-        }
-      />
+      {!p.leitura && cabecalho}
       <p className="sr-only" role="status">
         {anuncio}
       </p>
@@ -232,7 +241,7 @@ export function AulaInterativa(p: AulaInterativaProps) {
           <Abas itens={abas.map((a) => ({ ...a, idPainel: `painel-${a.valor}` }))} ativo={aba} onSelecionar={(v) => setAba(v as Aba)} aria-label="Conteúdo da aula" />
           {/* Painéis montados o tempo todo (só escondidos): anotação em edição não se perde ao trocar de aba. */}
           <div id="painel-descricao" role="tabpanel" aria-label="Descrição" hidden={aba !== "descricao"} className="flex max-w-[760px] flex-col gap-3.5 text-[15px] leading-[1.65]">
-            {p.aula.descricao ? <p className="m-0 whitespace-pre-line">{p.aula.descricao}</p> : <p className="m-0 text-muted">Esta aula não tem descrição.</p>}
+            {p.conteudo ?? (p.aula.descricao ? <p className="m-0 whitespace-pre-line">{p.aula.descricao}</p> : <p className="m-0 text-muted">Esta aula não tem descrição.</p>)}
             {p.flags.abas.materiais && p.materiais.length > 0 && <MateriaisAula materiais={p.materiais} />}
           </div>
           {transcricao && (

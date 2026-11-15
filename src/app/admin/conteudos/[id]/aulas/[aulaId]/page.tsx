@@ -9,7 +9,9 @@ import { Cartao, CartaoTitulo } from "@/components/ui/cartao";
 import { urlDeImagemOuNula } from "@/lib/armazenamento/cliente";
 import { membroDaPagina } from "@/lib/auth/guarda";
 import { EQUIPE } from "@/lib/auth/permissoes";
+import { urlsDasImagens } from "@/lib/armazenamento/imagens";
 import { aulaParaEditar } from "@/lib/catalogo/consultas";
+import { imagensDoConteudo } from "@/lib/catalogo/conteudo-aula";
 import { legendasDaAula } from "@/lib/legendas/consultas";
 import { dataHoraCurta, ehUuid } from "../../../_components/comum";
 import { BlocoVideoAula } from "./_components/bloco-video-aula";
@@ -30,7 +32,11 @@ async function Editor({ params }: { params: Params }) {
   if (!dados) notFound();
   const { aula } = dados;
   const versao = aula.updated_at.toISOString();
-  const [thumb, legendas] = await Promise.all([urlDeImagemOuNula(criador.id, dados.thumbChave), legendasDaAula(criador.id, aula.id)]);
+  const [thumb, legendas, imagens] = await Promise.all([
+    urlDeImagemOuNula(criador.id, dados.thumbChave),
+    legendasDaAula(criador.id, aula.id),
+    urlsDasImagens(criador.id, imagensDoConteudo(aula.conteudo)),
+  ]);
 
   return (
     <>
@@ -54,7 +60,10 @@ async function Editor({ params }: { params: Params }) {
                 id: aula.id,
                 titulo: aula.titulo,
                 descricao: aula.descricao,
+                conteudo: aula.conteudo,
+                imagens,
                 liberaEm: aula.libera_em?.toISOString() ?? null,
+                liberaAposDias: aula.libera_apos_dias,
                 preRequisitoAulaId: aula.pre_requisito_aula_id,
                 capitulos: aula.capitulos,
                 duracaoSeg: aula.duracao_seg,
@@ -109,7 +118,7 @@ async function Editor({ params }: { params: Params }) {
   );
 }
 
-/** Editor da aula do criador do HOST (DONO e ADMIN): vídeo, dados, capítulos, thumb, legendas e materiais. */
+/** Editor da aula do criador do HOST (DONO e ADMIN): vídeo, dados, conteúdo, capítulos, thumb, legendas e materiais. */
 export default function PaginaAula({ params }: { params: Params }) {
   return (
     <div className="flex flex-col gap-5">

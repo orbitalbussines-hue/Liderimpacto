@@ -1,0 +1,2 @@
+ALTER TABLE "produtos_modulos_aulas" ADD COLUMN "conteudo" jsonb;--> statement-breakpoint
+ALTER TABLE "produtos_modulos_aulas" ADD CONSTRAINT "ck_produtos_modulos_aulas_conteudo" CHECK (conteudo is null or jsonb_typeof(conteudo) = 'array');

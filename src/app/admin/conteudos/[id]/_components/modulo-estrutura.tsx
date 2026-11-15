@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { CalendarClock, ImageIcon, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, CalendarClock, ImageIcon, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { CampoImagem } from "@/components/admin/campo-imagem";
 import { ListaOrdenavel, useOrdemPersistida, type ControlesOrdem } from "@/components/admin/lista-ordenavel";
 import { MenuAdmin } from "@/components/admin/menu-admin";
@@ -24,6 +24,8 @@ export interface AulaDaEstrutura {
   versao: string;
   /** Rótulo pronto da liberação ("Libera 01/11 · 09:00") ou null. */
   libera: string | null;
+  /** Aula de leitura (sem vídeo, com conteúdo em blocos; RN-275). */
+  leitura: boolean;
 }
 
 export interface ModuloDaEstrutura {
@@ -64,10 +66,20 @@ function LinhaAula({ aula, numero, produtoId, controles }: { aula: AulaDaEstrutu
         <Link href={editar} className="block truncate text-[13px] font-semibold text-text hover:text-accent">
           {aula.titulo}
         </Link>
-        {aula.libera && (
-          <span className="flex items-center gap-1 text-xs text-muted">
-            <CalendarClock className="size-3" aria-hidden />
-            {aula.libera}
+        {(aula.libera || aula.leitura) && (
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
+            {aula.leitura && (
+              <span className="flex items-center gap-1">
+                <BookOpen className="size-3" aria-hidden />
+                Leitura
+              </span>
+            )}
+            {aula.libera && (
+              <span className="flex items-center gap-1">
+                <CalendarClock className="size-3" aria-hidden />
+                {aula.libera}
+              </span>
+            )}
           </span>
         )}
         {erro && (
