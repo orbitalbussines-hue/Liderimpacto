@@ -976,6 +976,30 @@ Cada regra segue este formato:
 - **Comportamento esperado**: o módulo continua fechando pelo botão; o módulo em andamento segue abrindo sozinho.
 - **Impacto se descumprida**: aluno clicando no módulo e caindo no topo da página, sem achar as aulas.
 
+### RN-280 - Compra na página de vendas própria libera os cursos sozinha
+- **Definida por**: Paulo (Bah! Tech), a pedido do Valmer
+- **Data**: 2026-11-15
+- **Modulo**: Vendas › Integrações (`/admin/vendas/integracoes`, card "Página de vendas")
+- **Descricao**: Cada compra paga na página de vendas própria (ex.: Liderança Inteligente) chega como aviso assinado e matricula o comprador nos cursos mapeados para o produto (`lideranca-inteligente`), criando a conta de aluno com link de primeiro acesso quando ele ainda não existe.
+- **Comportamento esperado**: o mesmo pedido avisado de novo não cria matrícula repetida; aviso com assinatura errada é recusado e aparece como "Recusado" em Últimos eventos.
+- **Impacto se descumprida**: comprador pago sem acesso às aulas e aos materiais.
+
+### RN-281 - Produto da página sem mapeamento fica guardado
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-11-15
+- **Modulo**: Vendas › Integrações
+- **Descricao**: Como na Hotmart (RN-233), compra de produto ainda não mapeado fica em Últimos eventos como "Sem mapeamento" até o dono mapear e clicar em Reprocessar.
+- **Comportamento esperado**: nenhuma compra se perde por falta de mapeamento.
+- **Impacto se descumprida**: compra paga sem acesso e sem rastro.
+
+### RN-282 - A página não tira acesso
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-11-15
+- **Modulo**: Vendas › Integrações / Matrículas
+- **Descricao**: A página só avisa compra aprovada. Reembolso ou cancelamento feito lá exige cancelar a matrícula à mão em Matrículas.
+- **Comportamento esperado**: evento diferente de `compra_aprovada` é só registrado (tipo "Outro evento").
+- **Impacto se descumprida**: acesso mantido depois de reembolso.
+
 <!-- Exemplo de registro: -->
 
 <!--

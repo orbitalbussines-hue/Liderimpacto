@@ -39,3 +39,6 @@ export function assinaturaBlingConfere(recebida: string | null, clientSecret: st
   const mac = createHmac("sha256", clientSecret).update(corpoCru, "utf8").digest("hex");
   return iguaisEmTempoConstante(r.slice(7).toLowerCase(), mac);
 }
+
+/** Página de vendas própria (ADR-0025): mesmo esquema do Bling (`sha256=<hex>` do corpo cru), no cabeçalho `x-assinatura`. */
+export const assinaturaPaginaConfere = assinaturaBlingConfere;

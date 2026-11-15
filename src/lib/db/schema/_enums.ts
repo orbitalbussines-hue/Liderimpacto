@@ -293,8 +293,11 @@ export type ModeloPagina = (typeof MODELOS_PAGINA)[number];
 export const SITUACOES_PAGINA = ["RASCUNHO", "PUBLICADA"] as const;
 export type SituacaoPagina = (typeof SITUACOES_PAGINA)[number];
 
-/** Integrações de venda externa — Hotmart e Eduzz (ADR-0021, RN-230 a RN-236); Bling = pedidos de marketplace (ADR-0024). */
-export const PLATAFORMAS_INTEGRACAO = ["HOTMART", "EDUZZ", "BLING"] as const;
+/**
+ * Integrações de venda externa — Hotmart e Eduzz (ADR-0021, RN-230 a RN-236); Bling = pedidos de marketplace (ADR-0024);
+ * PAGINA = página de vendas própria do criador com checkout próprio (ADR-0025).
+ */
+export const PLATAFORMAS_INTEGRACAO = ["HOTMART", "EDUZZ", "BLING", "PAGINA"] as const;
 export type PlataformaIntegracao = (typeof PLATAFORMAS_INTEGRACAO)[number];
 
 /**

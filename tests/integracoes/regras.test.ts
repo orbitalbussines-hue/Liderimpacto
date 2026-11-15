@@ -1,8 +1,8 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { eduzzContrato, eduzzFatura, hotmartAssinaturaCancelada, hotmartCompra } from "./exemplos";
-import { assinaturaEduzzConfere, hottokConfere } from "@/lib/integracoes/autenticidade";
-import { acessoAte, chaveDoAcesso, DIA_MS, normalizarEduzz, normalizarHotmart, referenciaDoAcesso, urlDoWebhook } from "@/lib/integracoes/regras";
+import { assinarPagina, eduzzContrato, eduzzFatura, hotmartAssinaturaCancelada, hotmartCompra, paginaCompra } from "./exemplos";
+import { assinaturaEduzzConfere, assinaturaPaginaConfere, hottokConfere } from "@/lib/integracoes/autenticidade";
+import { acessoAte, chaveDoAcesso, DIA_MS, normalizar, normalizarEduzz, normalizarHotmart, normalizarPagina, plataformaDoSegmento, referenciaDoAcesso, urlDoWebhook } from "@/lib/integracoes/regras";
 
 describe("autenticidade", () => {
   it("hottok: só o token exato", () => {
@@ -95,5 +95,40 @@ describe("acesso", () => {
 
   it("URL do webhook no apex", () => {
     expect(urlDoWebhook("https://lideresdeimpacto.com.br/", "HOTMART", "id-1")).toBe("https://lideresdeimpacto.com.br/api/integracoes/hotmart/id-1");
+  });
+});
+
+describe("página de vendas própria (ADR-0025)", () => {
+  it("assinatura sha256=<hex> do corpo cru; sem prefixo, outro segredo ou corpo mexido recusa", () => {
+    const corpo = JSON.stringify(paginaCompra());
+    const ok = assinarPagina("segredo-da-pagina-com-mais-de-32-caracteres", corpo);
+    expect(assinaturaPaginaConfere(ok, "segredo-da-pagina-com-mais-de-32-caracteres", corpo)).toBe(true);
+    expect(assinaturaPaginaConfere(ok.toUpperCase().replace("SHA256=", "sha256="), "segredo-da-pagina-com-mais-de-32-caracteres", corpo)).toBe(true);
+    expect(assinaturaPaginaConfere(ok.slice(7), "segredo-da-pagina-com-mais-de-32-caracteres", corpo)).toBe(false);
+    expect(assinaturaPaginaConfere(ok, "outro-segredo-com-mais-de-32-caracteres!!", corpo)).toBe(false);
+    expect(assinaturaPaginaConfere(ok, "segredo-da-pagina-com-mais-de-32-caracteres", `${corpo} `)).toBe(false);
+    expect(assinaturaPaginaConfere(null, "segredo-da-pagina-com-mais-de-32-caracteres", corpo)).toBe(false);
+  });
+
+  it("compra aprovada: o pedido é evento e transação, produto e comprador vêm do corpo; CPF/telefone ficam de fora", () => {
+    const p = paginaCompra({ pedido: "LI-HWGOVF6RE3", email: "Maria@Teste.Local" });
+    const [e] = normalizarPagina(p)!;
+    expect(e).toEqual({
+      eventoId: "LI-HWGOVF6RE3", evento: "compra_aprovada", tipo: "COMPRA_APROVADA", transacao: "LI-HWGOVF6RE3", assinatura: null,
+      produtoExterno: "lideranca-inteligente", email: "maria@teste.local", nome: "Maria Exemplo", proximaCobranca: null,
+      ocorridoEm: new Date("2026-11-14T15:00:00.000Z"),
+    });
+    expect(JSON.stringify(e)).not.toContain("52998224725");
+    expect(chaveDoAcesso("PAGINA", e)).toBe("pagina:LI-HWGOVF6RE3");
+    expect(normalizar("PAGINA", p)).toEqual([e]);
+    expect(plataformaDoSegmento("pagina")).toBe("PAGINA");
+    expect(urlDoWebhook("https://lideresdeimpacto.com.br/", "PAGINA", "abc")).toBe("https://lideresdeimpacto.com.br/api/integracoes/pagina/abc");
+  });
+
+  it("evento desconhecido só registra; corpo sem id ou sem evento é formato inválido", () => {
+    expect(normalizarPagina(paginaCompra({ evento: "pedido_criado" }))![0].tipo).toBe("OUTRO");
+    expect(normalizarPagina({ evento: "compra_aprovada" })).toBeNull();
+    expect(normalizarPagina({ id: "LI-ABCDEFGH23" })).toBeNull();
+    expect(normalizarPagina(null)).toBeNull();
   });
 });

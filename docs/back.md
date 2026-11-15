@@ -1465,6 +1465,24 @@ convenção das fases anteriores: `executar()` → `Resultado`, criador do HOST,
 Testes: `tests/integracao/integracoes-hotmart-eduzz.test.ts` (Postgres real, fila injetada) e
 `tests/integracoes/regras.test.ts` (fora de `src/`: a imagem Docker não leva `tests/`, e o build checa os tipos de todo `src/`), com os payloads de exemplo anonimizados de `tests/integracoes/exemplos.ts`.
 
+## Página de vendas própria (ADR-0025, RN-280 a RN-282) — só DONO
+
+Quarta plataforma do framework acima (`PAGINA`, segmento `pagina`), sem tabela nova: migração
+`0020_integracao_pagina_de_vendas` só amplia os CHECKs. Card "Página de vendas" em `/admin/vendas/integracoes`
+(segredo colado pelo dono, 32+ caracteres). Webhook `POST /api/integracoes/pagina/<id>` com
+`x-assinatura: sha256=<hex>` (HMAC-SHA256 do corpo cru; `assinaturaPaginaConfere` = mesmo esquema do Bling).
+
+Contrato do corpo (o que a página Liderança Inteligente manda):
+
+```json
+{ "id": "LI-HWGOVF6RE3", "evento": "compra_aprovada", "produto": "lideranca-inteligente", "valor_centavos": 9700,
+  "pago_em": "2026-11-14T15:00:00.000Z", "comprador": { "nome": "...", "email": "...", "cpf": "...", "telefone": "..." } }
+```
+
+`normalizarPagina`: `id` = evento e transação; `produto` = produto externo do mapeamento; CPF e telefone não passam
+da tradução. Referência da matrícula `pagina:<pedido>:<curso>`. Ligar na página: `LIDER_WEBHOOK_URL` = a URL do card,
+`LIDER_WEBHOOK_SEGREDO` = o segredo; compras anteriores entram pelo "Reenviar aviso de acesso" de cada pedido lá.
+
 ## Bling: pedidos de marketplace e resgate público (ADR-0024, RN-260 a RN-266)
 
 Migração `0018_integracao_bling_marketplaces` (só aditiva: 3 tabelas; `BLING` e `PEDIDO_ATUALIZADO`/
