@@ -1601,6 +1601,11 @@ Render: `BlocosDaPagina` (`src/components/paginas/blocos.tsx`, server, sem `dang
 - `GET /p/<slug>/imagem` (`src/app/p/[slug]/imagem/route.ts`, rota `/p/[slug]/imagem`) → 302 para a URL assinada da imagem de compartilhamento (link estável do `og:image`); 404 sem imagem.
 - `POST /api/paginas/visita` (`rota-visita.ts`) corpo `{ p: paginaId, f: funilId \| null }` → sempre 204; conta só
   página PUBLICADA do host (funil inválido conta fora de funil); teto 60/IP/10 min; sem cookie, sem IP gravado.
+- `POST /api/paginas/inscricao/<slug>` (`rota-inscricao.ts`, RN-283) — inscrição de SITE EXTERNO. Corpo JSON (pode vir
+  como `text/plain`, sem preflight) `{ nome, email, whatsapp, perfil?, marketing?, site? }` (outros campos ignorados) →
+  200 `{ ok: true }` ou 200 `{ ok: false, erro }` (o site mostra o `erro`); 400 JSON inválido; 404 host sem criador.
+  CORS `*` (sem cookie, nada devolvido). Grava pelo `capturarLead` (honeypot `site`, teto 10/IP/10 min, consentimento
+  e tag da página publicada) com `telefone`, `perfil` e `aceita_novidades` (false = fora das campanhas).
 - `/previa-pagina/<id>` (equipe): o RASCUNHO com os mesmos blocos, no iframe do editor (preço e formulário inertes).
 - Link de compra da Fase 2 aceita `pagina=` e `funil=` (`registrarCheckoutDaPagina`, nunca lança): só atribuição.
 

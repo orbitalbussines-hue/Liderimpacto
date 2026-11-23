@@ -28,10 +28,13 @@ type LinhaLead = Awaited<ReturnType<typeof listarLeads>>["linhas"][number];
 
 export function csvLeads(linhas: readonly LinhaLead[]): string {
   return gerarCsv(
-    ["nome", "email", "pagina_origem", "funil", "tag", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "consentimento", "consentimento_em", "capturas", "primeira_captura_em", "ultima_captura_em", "descadastrado"],
+    ["nome", "email", "whatsapp", "perfil", "aceita_novidades", "pagina_origem", "funil", "tag", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "consentimento", "consentimento_em", "capturas", "primeira_captura_em", "ultima_captura_em", "descadastrado"],
     linhas.map((l) => [
       l.nome,
       l.email,
+      l.telefone,
+      l.perfil,
+      l.aceitaNovidades ? "sim" : "nao",
       l.pagina,
       l.funil,
       l.tag,

@@ -174,3 +174,50 @@ describe("funis — visitas, próxima etapa e conversão", () => {
     expect(naLista).toMatchObject({ visitas: 6, leads: 1 }); // dentro e fora do funil
   });
 });
+
+describe("leads — inscrição de site externo (RN-283)", () => {
+  it("grava WhatsApp, perfil e novidades; consentimento da publicada; CORS; recusa dado ruim; sem novidades fica fora da campanha", async () => {
+    const A = await novoCriador();
+    const dono = await novoUsuario();
+    await vincular(A.id, dono.id, "DONO");
+    req.h = await cabecalhosLogados(dono.email, A.slug);
+    const p = await capturaPublicada(A, "palestra");
+    const inscricao = await import("@/lib/paginas/rota-inscricao");
+    const publico = await import("@/lib/marketing/publico");
+    const enviar = async (slug: string, corpo: unknown, host = A.slug) => {
+      const r = await inscricao.atenderInscricao(
+        new Request(`http://${host}.localhost:3011/api/paginas/inscricao/${slug}`, { method: "POST", headers: cabecalhos(host, { "content-type": "text/plain;charset=utf-8" }), body: typeof corpo === "string" ? corpo : JSON.stringify(corpo) }),
+        slug,
+      );
+      expect(r.headers.get("access-control-allow-origin")).toBe("*");
+      return { status: r.status, corpo: await r.json() };
+    };
+    const sim = `sim-${A.slug}@teste.local`;
+    const nao = `nao-${A.slug}@teste.local`;
+    const base = { nome: "Ana Lima", whatsapp: "44999998888", perfil: "Gestor ou líder de equipe", origem: "https://palestra.exemplo/", enviado_em: new Date().toISOString() };
+
+    expect(await enviar("palestra", { ...base, email: sim, marketing: true })).toEqual({ status: 200, corpo: { ok: true } });
+    expect(await enviar("palestra", { ...base, email: nao, whatsapp: "(44) 98888-7777", perfil: "", marketing: false })).toEqual({ status: 200, corpo: { ok: true } });
+    expect(await enviar("palestra", { ...base, email: "x@teste.local", whatsapp: "123" })).toEqual({ status: 200, corpo: { ok: false, erro: "Informe o WhatsApp com DDD." } });
+    expect(await enviar("palestra", "não é json")).toMatchObject({ status: 400, corpo: { ok: false } });
+    expect(await enviar("palestra", { ...base, email: "robo@teste.local", site: "http://spam" })).toEqual({ status: 200, corpo: { ok: true } });
+    expect(await enviar("nao-existe", { ...base, email: "y@teste.local" })).toEqual({ status: 200, corpo: { ok: false, erro: "Este formulário não está mais disponível." } });
+
+    const linhas = (await consultas.listarLeads(A.id, { pagina: 1 })).linhas;
+    expect(linhas.map((l) => l.email).sort()).toEqual([nao, sim]);
+    const lSim = linhas.find((l) => l.email === sim)!;
+    const lNao = linhas.find((l) => l.email === nao)!;
+    expect(lSim).toMatchObject({ telefone: "44999998888", perfil: "Gestor ou líder de equipe", aceitaNovidades: true, consentimentoTexto: "Aceito receber os e-mails da área (versão 1).", paginaId: p.id });
+    expect(lNao).toMatchObject({ telefone: "44988887777", perfil: null, aceitaNovidades: false });
+
+    // Nova inscrição sem perfil mantém o anterior; a escolha de novidades mais recente vale.
+    expect(await enviar("palestra", { ...base, email: sim, perfil: "", marketing: false })).toMatchObject({ corpo: { ok: true } });
+    const [again] = (await consultas.listarLeads(A.id, { pagina: 1, busca: sim })).linhas;
+    expect(again).toMatchObject({ perfil: "Gestor ou líder de equipe", aceitaNovidades: false, capturas: 2 });
+
+    const so = { grupoIds: [], tagIds: [], produtoIds: [], nuncaAcessou: false, membros: false, leads: { paginaIds: [p.id], funilIds: [], tagIds: [] } };
+    expect((await publico.contarPublico(A.id, so)).leads).toBe(0);
+    await enviar("palestra", { ...base, email: nao, marketing: true });
+    expect((await publico.contarPublico(A.id, so)).leads).toBe(1);
+  });
+});

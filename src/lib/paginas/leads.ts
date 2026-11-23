@@ -25,9 +25,11 @@ export const MSG_TETO_LEADS = "Muitas tentativas. Aguarde alguns minutos e tente
 export const MSG_FORMULARIO_INDISPONIVEL = "Este formulário não está mais disponível.";
 
 export type Captura = z.infer<typeof capturaSchema>;
+/** Inscrição vinda de site externo (RN-283); null = formulário da página do Líder (aceita novidades). */
+export type ExtraInscricao = { telefone: string; perfil: string | null; aceitaNovidades: boolean } | null;
 export type ResultadoCaptura = { ok: true; proximaSlug: string | null; funilId: string | null } | { ok: false; erro: string };
 
-export async function capturarLead(criador: { id: string }, slug: string, e: Captura, ip: string, agora = new Date()): Promise<ResultadoCaptura> {
+export async function capturarLead(criador: { id: string }, slug: string, e: Captura, ip: string, agora = new Date(), extra: ExtraInscricao = null): Promise<ResultadoCaptura> {
   if (e.site.trim()) return { ok: true, proximaSlug: null, funilId: null };
   if (await estourouTeto(`lead-ip:${chaveDeIp(ip)}`, 600, TETO_LEADS_POR_IP)) return { ok: false, erro: MSG_TETO_LEADS };
 
@@ -39,6 +41,7 @@ export async function capturarLead(criador: { id: string }, slug: string, e: Cap
     : [];
   const funil = await funilDaPagina(criador.id, e.funil, pagina.id);
   const utm = Object.fromEntries(Object.entries(e.utm).filter(([, v]) => !!v));
+  const aceitaNovidades = extra?.aceitaNovidades ?? true;
 
   const leadId = await db.transaction(async (tx) => {
     const [l] = await tx
@@ -53,6 +56,9 @@ export async function capturarLead(criador: { id: string }, slug: string, e: Cap
         utm,
         consentimento_texto: form.consentimento,
         consentimento_em: agora,
+        telefone: extra?.telefone ?? null,
+        perfil: extra?.perfil ?? null,
+        aceita_novidades: aceitaNovidades,
         ultima_captura_em: agora,
         modified_by: AUTOR_SISTEMA,
       })
@@ -63,6 +69,9 @@ export async function capturarLead(criador: { id: string }, slug: string, e: Cap
           nome: e.nome,
           consentimento_texto: form.consentimento,
           consentimento_em: agora,
+          telefone: sql`coalesce(${extra?.telefone ?? null}::text, ${leads.telefone})`,
+          perfil: sql`coalesce(${extra?.perfil ?? null}::text, ${leads.perfil})`,
+          aceita_novidades: aceitaNovidades,
           ultima_captura_em: agora,
           capturas: sql`${leads.capturas} + 1`,
           tag_id: sql`coalesce(${tag?.id ?? null}::uuid, ${leads.tag_id})`,
@@ -77,7 +86,7 @@ export async function capturarLead(criador: { id: string }, slug: string, e: Cap
       acao: l.capturas > 1 ? "atualizar" : "criar",
       tabela: "criadores_leads",
       registroId: l.id,
-      detalhes: `${l.capturas > 1 ? "Nova captura de lead" : "Lead capturado"} pela página /p/${pagina.slug}${funil ? " (em funil)" : ""}, com consentimento`,
+      detalhes: `${l.capturas > 1 ? "Nova captura de lead" : "Lead capturado"} pela ${extra ? "inscrição externa ligada à " : ""}página /p/${pagina.slug}${funil ? " (em funil)" : ""}, com consentimento${extra && !aceitaNovidades ? " (sem novidades)" : ""}`,
     });
     return l.id;
   });

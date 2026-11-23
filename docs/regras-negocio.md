@@ -1017,6 +1017,14 @@ Cada regra segue este formato:
 - **Comportamento esperado**: evento diferente de `compra_aprovada` é só registrado (tipo "Outro evento").
 - **Impacto se descumprida**: acesso mantido depois de reembolso.
 
+### RN-283 - Inscrição de site externo vira lead
+- **Definida por**: Paulo (Bah! Tech)
+- **Data**: 2026-11-23
+- **Modulo**: Páginas › Leads / Campanhas
+- **Descricao**: Um site fora da plataforma (ex.: site da palestra) manda a inscrição para `POST /api/paginas/inscricao/<slug>` no subdomínio do criador. Ela vira lead da página PUBLICADA `<slug>` (consentimento e tag vêm do bloco Formulário dela) e guarda WhatsApp, perfil e se a pessoa aceitou receber novidades.
+- **Comportamento esperado**: lead que não aceitou novidades aparece em Leads como "Sem novidades" e nunca entra em público de campanha; a escolha mais recente vale. A página precisa estar publicada com o Formulário visível, senão o site recebe "formulário indisponível".
+- **Impacto se descumprida**: e-mail de marketing para quem só quis se inscrever no evento (LGPD).
+
 <!-- Exemplo de registro: -->
 
 <!--
