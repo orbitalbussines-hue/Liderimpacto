@@ -256,7 +256,7 @@ describe("exportação CSV dos leads", () => {
     expect(r.headers.get("content-disposition")).toMatch(/attachment; filename="leads-\d{4}-\d{2}-\d{2}\.csv"/);
     const csv = await r.text();
     const linhas = csv.replace(/^﻿/, "").trim().split("\r\n");
-    expect(linhas[0].split(";").slice(0, 3)).toEqual(["nome", "email", "pagina_origem"]);
+    expect(linhas[0].split(";").slice(0, 6)).toEqual(["nome", "email", "whatsapp", "perfil", "aceita_novidades", "pagina_origem"]);
     expect(linhas).toHaveLength(1 + 4); // Lia, Ana-lead, fórmula, menos (a página 2 fica de fora)
     expect(csv).toContain(l1.email);
     expect(csv).not.toContain(lB.nome);

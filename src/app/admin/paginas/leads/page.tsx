@@ -17,6 +17,7 @@ export const metadata: Metadata = { title: "Leads" };
 
 const COLUNAS: Coluna[] = [
   { titulo: "Lead" },
+  { titulo: "WhatsApp", largura: 150 },
   { titulo: "Origem", largura: 220 },
   { titulo: "Tag", largura: 130 },
   { titulo: "UTM", largura: 170 },
@@ -27,6 +28,8 @@ const COLUNAS: Coluna[] = [
 type Busca = Promise<Record<string, string | string[] | undefined>>;
 const um = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() || undefined;
 const traco = <span className="text-muted">—</span>;
+/** 44999998888 → (44) 99999-8888 */
+const whatsapp = (t: string) => `(${t.slice(0, 2)}) ${t.slice(2, -4)}-${t.slice(-4)}`;
 
 async function Leads({ searchParams }: { searchParams: Busca }) {
   const { criador } = await membroDaPagina(EQUIPE);
@@ -45,6 +48,19 @@ async function Leads({ searchParams }: { searchParams: Busca }) {
 
   const linhas: Linha[] = lista.linhas.map((l) => [
     { tipo: "membro", nome: l.nome, email: l.email },
+    l.telefone
+      ? {
+          tipo: "no",
+          conteudo: (
+            <div className="min-w-0">
+              <a href={`https://wa.me/55${l.telefone}`} target="_blank" rel="noopener noreferrer" className="text-[13px] tabular-nums underline-offset-2 hover:underline">
+                {whatsapp(l.telefone)}
+              </a>
+              {l.perfil && <div className="truncate text-xs text-muted">{l.perfil}</div>}
+            </div>
+          ),
+        }
+      : { tipo: "no", conteudo: traco },
     {
       tipo: "no",
       conteudo: (
@@ -60,7 +76,7 @@ async function Leads({ searchParams }: { searchParams: Busca }) {
       conteudo: l.utm.source || l.utm.campaign ? <span className="block truncate text-xs text-muted">{[l.utm.source, l.utm.medium, l.utm.campaign].filter(Boolean).join(" · ")}</span> : traco,
     },
     { tipo: "no", conteudo: <span title={l.consentimentoTexto} className="text-[13px] tabular-nums">{dataHoraCurta(l.consentimentoEm)}</span> },
-    l.descadastrado ? { tipo: "selo", texto: "Descadastrado", tom: "warn" } : { tipo: "selo", texto: l.capturas > 1 ? `Inscrito · ${l.capturas}×` : "Inscrito", tom: "ok" },
+    l.descadastrado ? { tipo: "selo", texto: "Descadastrado", tom: "warn" } : !l.aceitaNovidades ? { tipo: "selo", texto: "Sem novidades", tom: "warn" } : { tipo: "selo", texto: l.capturas > 1 ? `Inscrito · ${l.capturas}×` : "Inscrito", tom: "ok" },
   ]);
 
   return (

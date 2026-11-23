@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, date, foreignKey, index, integer, jsonb, pgTable, text, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, foreignKey, index, integer, jsonb, pgTable, text, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { ConfigPagina } from "@/lib/paginas/config";
 import { colunasAuditoria, instante } from "./_compartilhado";
 import { MODELOS_PAGINA, SITUACOES_PAGINA, listaSql } from "./_enums";
@@ -155,6 +155,11 @@ export const criadores_leads = pgTable(
     /** Texto exato do consentimento que a pessoa marcou e quando (da captura mais recente). */
     consentimento_texto: text("consentimento_texto").notNull(),
     consentimento_em: instante("consentimento_em").notNull(),
+    /** Inscrição de site externo (RN-283): WhatsApp só com dígitos (DDD + número) e o perfil que a pessoa escolheu. */
+    telefone: text("telefone"),
+    perfil: text("perfil"),
+    /** false = aceitou só o necessário para a inscrição: fica FORA das campanhas (RN-283). Vale a captura mais recente. */
+    aceita_novidades: boolean("aceita_novidades").notNull().default(true),
     capturas: integer("capturas").notNull().default(1),
     ultima_captura_em: instante("ultima_captura_em").notNull().defaultNow(),
     ...colunasAuditoria,
@@ -179,6 +184,8 @@ export const criadores_leads = pgTable(
     check("ck_criadores_leads_consentimento", sql`length(consentimento_texto) between 10 and 400`),
     check("ck_criadores_leads_utm", sql`jsonb_typeof(utm) = 'object'`),
     check("ck_criadores_leads_capturas", sql`capturas >= 1`),
+    check("ck_criadores_leads_telefone", sql`telefone is null or telefone ~ '^[1-9][0-9]{9,10}$'`),
+    check("ck_criadores_leads_perfil", sql`perfil is null or length(perfil) between 1 and 60`),
   ],
 );
 

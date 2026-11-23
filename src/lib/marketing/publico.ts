@@ -49,7 +49,8 @@ export function condicaoDoPublico(criadorId: string, p: PublicoCampanha, agora =
 
 /** Leads vivos do criador no segmento (E entre critérios, OU dentro). Nome da tabela por extenso: vale em subconsulta. */
 function condicaoDosLeads(criadorId: string, p: PublicoLeads): SQL {
-  const c: SQL[] = [sql`criadores_leads.criador_id = ${criadorId}`, sql`criadores_leads.is_deleted = false`];
+  // Quem se inscreveu sem aceitar novidades (RN-283) nunca entra em campanha.
+  const c: SQL[] = [sql`criadores_leads.criador_id = ${criadorId}`, sql`criadores_leads.is_deleted = false`, sql`criadores_leads.aceita_novidades = true`];
   if (p.paginaIds.length) c.push(sql`criadores_leads.pagina_id in (${lista(p.paginaIds)})`);
   if (p.funilIds.length) c.push(sql`criadores_leads.funil_id in (${lista(p.funilIds)})`);
   if (p.tagIds.length) c.push(sql`criadores_leads.tag_id in (${lista(p.tagIds)})`);
